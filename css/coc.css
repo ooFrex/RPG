@@ -269,7 +269,7 @@ button.dv:hover{background:color-mix(in srgb,var(--teal) 10%,transparent)}
 .mbox p{margin:0;color:var(--mu);font-size:.95rem}
 .hist{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:210px;overflow:auto}
 .hist li{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;background:rgba(255,255,255,.04);font-size:.9rem}
-.hist b{font-family:var(--disp);white-space:nowrap}
+.hist b{font-family:var(--disp);white-space:nowrap;min-height:44px}
 #cloudSignedOut,#cloudSignedIn,#cloudProfile,#cloudPanel{display:grid;gap:10px;padding:12px;border:1px solid var(--line);background:rgba(0,0,0,.2)}
 #cloudSignedOut[hidden],#cloudSignedIn[hidden],#cloudProfile[hidden],#cloudPanel[hidden]{display:none}
 .cloud-avatar{width:64px;height:64px;object-fit:cover;border:1px solid var(--line2);background:var(--cloth2);border-radius:2px}
@@ -353,7 +353,7 @@ a.btn{display:inline-grid;place-items:center;text-decoration:none}
 .wz-seg button[aria-pressed=true]{background:var(--brass);border-color:var(--brass);color:#1a1405}
 .wz-at{display:grid;grid-template-columns:44px minmax(0,1fr) auto 54px;gap:8px;align-items:center;min-height:50px;border-bottom:1px solid color-mix(in srgb,var(--brass) 14%,transparent)}
 .wz-at b{font:600 1rem var(--disp);color:var(--brass)}
-.wz-at .nm{font-size:.92rem;color:var(--mu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wz-at .nm{font-size:.92rem;color:var(--mu);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:44px}
 .wz-at .fin{font:600 1.25rem var(--disp);text-align:right}
 .wz-at .fin small{display:block;font:400 .72rem var(--ui);color:var(--mu)}
 .wz-at select{min-height:44px;min-width:92px;background:rgba(0,0,0,.4);border:1px solid var(--line2);padding:0 6px}
@@ -518,7 +518,7 @@ html.gh .gi + svg{display:none}
   background:rgba(0,0,0,.34);border:1px dashed var(--line2);border-radius:2px;color:var(--mu)}
 .pkb .pkt{display:grid;gap:1px;min-width:0}
 .pkb small{font-size:.74rem;color:var(--mu);letter-spacing:.02em}
-.pkb b{font:600 1rem var(--disp);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkb b{font:600 1rem var(--disp);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:44px}
 .pkb .lupa{color:var(--brass)}
 .pkb.on{border-style:solid;border-color:var(--line2);border-left:3px solid var(--brass);color:var(--paper)}
 @media(hover:hover){.pkb:hover{border-color:var(--brass);background:color-mix(in srgb,var(--brass) 7%,transparent)}}
@@ -607,3 +607,12 @@ html[data-theme="medo"]{--felt:#080b10;--cloth:#0e131b;--cloth2:#141b26;--teal:#
 #itList{min-height:0}
 
 @media(min-width:900px){:root{--cocbg:url(https://vvwuutjymkcdgdtcbpvs.supabase.co/storage/v1/object/public/ficha-assets/cocbackgroundwide.webp)}}
+
+/* login com Google */
+.gbtn{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:fit-content;min-width:220px;max-width:100%;margin-inline:auto;align-self:center;justify-self:center;padding-inline:22px;background:#fff;color:#1f1f1f;border-color:#dadce0;white-space:nowrap;min-height:44px}
+.gbtn:hover{background:#f6f7f8;border-color:#c6c9cc}
+.gbtn svg{width:18px;height:18px;flex:none}
+.gbtn:disabled{opacity:.6;cursor:wait}
+.auth-or{display:flex;align-items:center;gap:10px;font-size:.75rem;opacity:.6;text-transform:uppercase;letter-spacing:.1em}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:currentColor;opacity:.35}
+.cloud-provider{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:700;letter-spacing:.04em;background:rgba(255,255,255,.12)}

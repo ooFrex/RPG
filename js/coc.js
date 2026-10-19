@@ -1223,8 +1223,8 @@ async function loadCocCloudList(){
 }
 function paintCocCloudSession(user){
   cloudUser=user||null;$('#cloudSignedOut').hidden=!!cloudUser;$('#cloudSignedIn').hidden=!cloudUser;$('#cloudProfile').hidden=!cloudUser;$('#cloudPanel').hidden=!cloudUser;
-  if(!cloudUser){$('#cloudAuthMsg').textContent='Enviaremos um link de acesso para seu e-mail. Abra-o neste mesmo navegador.';$('#cloudAccount').textContent='';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudDisplayName').value='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;accountAvatarPath=null;activeCloudId=null;cloudSaveLabel();return}
-  $('#cloudProfileEmail').textContent=cloudUser.email||'';$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase');void loadCocCloudProfile(cloudUser.id);void loadCocCloudList();
+  if(!cloudUser){$('#cloudAuthMsg').textContent='Entre com o Google ou receba um link de acesso por e-mail (abra-o neste mesmo navegador).';$('#cloudAccount').textContent='';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudDisplayName').value='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;accountAvatarPath=null;activeCloudId=null;cloudSaveLabel();return}
+  $('#cloudProfileEmail').textContent=cloudUser.email||'';$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');void loadCocCloudProfile(cloudUser.id);void loadCocCloudList();
 }
 let accountAvatarPath=null,accountProfileRequest=null;
 async function loadCocCloudProfile(userId){
@@ -1232,9 +1232,10 @@ async function loadCocCloudProfile(userId){
   try{
     const {data,error}=await cloudClient.from('user_profiles').select('display_name,avatar_path').eq('user_id',userId).maybeSingle();if(error)throw error;
     if(accountProfileRequest!==userId||cloudUser?.id!==userId)return;
-    accountAvatarPath=data?.avatar_path||null;$('#cloudDisplayName').value=data?.display_name||cloudUser.email?.split('@')[0]||'';
-    $('#cloudAccount').textContent='Conectado como '+($('#cloudDisplayName').value||cloudUser.email||'usuário Supabase');
+    const gi=Cloud.accountInfo(cloudUser);accountAvatarPath=data?.avatar_path||null;$('#cloudDisplayName').value=data?.display_name||gi.name||cloudUser.email?.split('@')[0]||'';
+    $('#cloudAccount').textContent='Conectado como '+($('#cloudDisplayName').value||cloudUser.email||'usuário Supabase')+(gi.google?' · via Google':'');
     if(accountAvatarPath){const {data:signed,error:signedError}=await cloudClient.storage.from('account-avatars').createSignedUrl(accountAvatarPath,3600);if(signedError)throw signedError;$('#cloudAvatarPreview').src=signed.signedUrl;$('#cloudAvatarPreview').hidden=false;$('#cloudAvatarFallback').hidden=true}
+    else if(gi.avatar){const pv=$('#cloudAvatarPreview');pv.referrerPolicy='no-referrer';pv.onerror=()=>{pv.hidden=true;$('#cloudAvatarFallback').hidden=false};pv.src=gi.avatar;pv.hidden=false;$('#cloudAvatarFallback').hidden=true}
     else{$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false}
     $('#cloudProfileMsg').textContent='O perfil é compartilhado entre as campanhas.';
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível carregar o perfil. Execute o SQL atualizado do Supabase.';console.error('Falha ao carregar perfil CoC:',error)}
@@ -1243,7 +1244,7 @@ async function saveCocCloudProfile(){
   if(!cloudUser)return;const name=$('#cloudDisplayName').value.trim(),button=$('#cloudProfileSave');if(!name){$('#cloudProfileMsg').textContent='Digite um nome para o perfil.';return}
   button.disabled=true;$('#cloudProfileMsg').textContent='Salvando perfil…';
   try{const {error}=await cloudClient.from('user_profiles').upsert({user_id:cloudUser.id,display_name:name,avatar_path:accountAvatarPath,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(error)throw error;
-    $('#cloudAccount').textContent='Conectado como '+name+' · '+(cloudUser.email||'conta Supabase');$('#cloudProfileMsg').textContent='Perfil salvo na sua conta.'
+    $('#cloudAccount').textContent='Conectado como '+name+' · '+(cloudUser.email||'conta Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileMsg').textContent='Perfil salvo na sua conta.'
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível salvar o perfil: '+cloudError(error)}finally{button.disabled=false}
 }
 async function saveCocCloudAvatar(file){
@@ -1266,7 +1267,9 @@ async function syncCocCloud(manual,newCopy){
 }
 async function initCocCloud(){
   if(!cloudClient){$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='O cliente Supabase não carregou.';return}
+  const authErr=window.parent===window?Cloud.takeAuthError():'';
   try{const {data,error}=await cloudClient.auth.getSession();if(error)throw error;paintCocCloudSession(data?.session?.user||null)}catch(error){$('#cloudAuthMsg').textContent='Não foi possível verificar a sessão: '+cloudError(error)}
+  if(authErr)$('#cloudAuthMsg').textContent=authErr;
   const authSub=cloudClient.auth.onAuthStateChange((event,session)=>{const next=session?.user||null;if(next?.id!==cloudUser?.id){clearTimeout(cloudSaveT);activeCloudId=null;cloudRev=null;cloudConflict=false}paintCocCloudSession(next)}).data.subscription;
   addEventListener('pagehide',()=>authSub.unsubscribe())
 }
@@ -1278,6 +1281,12 @@ $('#cloudLogin').onclick=async()=>{
   catch(error){$('#cloudAuthMsg').textContent='Falha ao enviar link: '+cloudError(error)}finally{$('#cloudLogin').disabled=false}
 };
 $('#cloudLogout').onclick=async()=>{const {error}=await cloudClient.auth.signOut();if(error)$('#cloudMsg').textContent='Não foi possível sair: '+cloudError(error)};
+$('#cloudGoogle').onclick=async()=>{
+  const b=$('#cloudGoogle');b.disabled=true;$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='Abrindo o login do Google…';
+  try{await Cloud.signInGoogle()}
+  catch(error){$('#cloudAuthMsg').textContent='Não foi possível entrar com o Google: '+cloudError(error);console.error('Falha no login Google:',error)}
+  finally{b.disabled=false;$('#cloudLogin').disabled=false}
+};
 $('#cloudProfileSave').onclick=saveCocCloudProfile;$('#cloudAvatarPick').onclick=()=>$('#cloudAvatarFile').click();
 $('#cloudAvatarFile').addEventListener('change',e=>{const file=e.target.files?.[0];if(file)void saveCocCloudAvatar(file);e.target.value=''});
 $('#cloudSave').onclick=()=>syncCocCloud(true,false);$('#cloudSaveNew').onclick=()=>syncCocCloud(true,true);$('#cloudRefresh').onclick=loadCocCloudList;

@@ -2020,8 +2020,8 @@ async function loadCloudList(){
 function paintCloudSession(user){
   cloudUser=user||null;paintRailAcct();
   $('#cloudSignedOut').hidden=!!cloudUser;$('#cloudSignedIn').hidden=!cloudUser;$('#cloudProfile').hidden=!cloudUser;$('#cloudPanel').hidden=!cloudUser;
-  if(cloudUser){$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase');$('#cloudProfileEmail').textContent=cloudUser.email||'';void loadCloudProfile(cloudUser.id);void loadCloudList()}
-  else{profileRequestUser=null;$('#cloudAuthMsg').textContent=cloudClient?'Enviaremos um link de acesso para seu e-mail. Abra-o neste mesmo navegador para concluir a entrada.':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;cloudSaveLabel()}
+  if(cloudUser){$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileEmail').textContent=cloudUser.email||'';void loadCloudProfile(cloudUser.id);void loadCloudList()}
+  else{profileRequestUser=null;$('#cloudAuthMsg').textContent=cloudClient?'Entre com o Google ou receba um link de acesso por e-mail (abra-o neste mesmo navegador).':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;cloudSaveLabel()}
 }
 let cloudProfileAvatarPath=null,profileRequestUser=null;
 async function loadCloudProfile(userId){
@@ -2032,15 +2032,17 @@ async function loadCloudProfile(userId){
     if(error)throw error;
     if(profileRequestUser!==userId||cloudUser?.id!==userId)return;
     cloudProfileAvatarPath=data?.avatar_path||null;
-    $('#cloudDisplayName').value=data?.display_name||cloudUser.user_metadata?.display_name||cloudUser.email?.split('@')[0]||'';
-    $('#cloudAccount').textContent='Conectado como '+($('#cloudDisplayName').value||cloudUser.email||'usuário Supabase');
+    const gi=Cloud.accountInfo(cloudUser);
+    $('#cloudDisplayName').value=data?.display_name||gi.name||cloudUser.email?.split('@')[0]||'';
+    $('#cloudAccount').textContent='Conectado como '+($('#cloudDisplayName').value||cloudUser.email||'usuário Supabase')+(gi.google?' · via Google':'');
     if(cloudProfileAvatarPath){
       const {data:signed,error:signedError}=await cloudClient.storage.from('account-avatars').createSignedUrl(cloudProfileAvatarPath,3600);
       if(signedError)throw signedError;
       if(profileRequestUser!==userId)return;
       $('#cloudAvatarPreview').src=signed.signedUrl;$('#cloudAvatarPreview').hidden=false;$('#cloudAvatarFallback').hidden=true;paintRailAcct();
-    }else{$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false}
-    paintRailAcct();$('#cloudProfileMsg').textContent='Nome e foto ficam salvos no perfil desta conta.';
+    }else if(gi.avatar){const pv=$('#cloudAvatarPreview');pv.referrerPolicy='no-referrer';pv.onerror=()=>{pv.hidden=true;$('#cloudAvatarFallback').hidden=false;paintRailAcct()};pv.src=gi.avatar;pv.hidden=false;$('#cloudAvatarFallback').hidden=true}
+    else{$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false}
+    paintRailAcct();$('#cloudProfileMsg').textContent=(!data&&gi.google?'Nome e foto vieram da sua conta Google. ':'')+'Nome e foto ficam salvos no perfil desta conta.';
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível carregar o perfil. Execute o SQL atualizado e tente novamente.';console.error('Falha ao carregar perfil:',error)}
 }
 async function saveCloudProfile(){
@@ -2051,7 +2053,7 @@ async function saveCloudProfile(){
   try{
     const {error}=await cloudClient.from('user_profiles').upsert({user_id:userId,display_name:displayName,avatar_path:cloudProfileAvatarPath,updated_at:new Date().toISOString()},{onConflict:'user_id'});
     if(error)throw error;
-    $('#cloudAccount').textContent=displayName+' · '+(cloudUser.email||'conta Supabase');
+    $('#cloudAccount').textContent=displayName+' · '+(cloudUser.email||'conta Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');
     $('#cloudProfileMsg').textContent='Perfil salvo na sua conta.';
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível salvar o perfil: '+cloudError(error);console.error('Falha ao salvar perfil:',error)}
   finally{button.disabled=false}
@@ -2076,9 +2078,12 @@ async function setAccountAvatar(file){
 }
 async function initCloud(){
   if(!cloudClient){$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='O serviço Supabase não carregou. Verifique a conexão com a internet.';return}
+  const authErr=Cloud.takeAuthError(),back=Cloud.takeReturnTarget();
   const {data,error}=await cloudClient.auth.getSession();
   if(error)$('#cloudAuthMsg').textContent='Erro ao verificar a sessão: '+cloudError(error);
   paintCloudSession(data&&data.session?data.session.user:null);paintAv();
+  if(authErr){$('#cloudAuthMsg').textContent=authErr;toast('Login com Google',authErr)}
+  else if(back==='coc'&&data&&data.session)setTimeout(()=>openCoc(),0);
   cloudClient.auth.onAuthStateChange((event,session)=>{
     const next=session&&session.user?session.user:null;
     if((next&&next.id)!==(cloudUser&&cloudUser.id)){clearTimeout(cloudSaveT);activeCloudId=null}
@@ -2117,6 +2122,12 @@ $('#cloudLogin').onclick=async()=>{
     $('#cloudAuthMsg').textContent=error?'Não foi possível enviar o link: '+cloudError(error):'Link enviado para '+email+'. Abra-o neste mesmo navegador; confira também a pasta de spam.';
   }catch(error){$('#cloudAuthMsg').textContent='Falha ao enviar o link. Confira sua conexão e tente novamente.';console.error('Falha ao iniciar login:',error)}
   finally{$('#cloudLogin').disabled=false}
+};
+$('#cloudGoogle').onclick=async()=>{
+  const b=$('#cloudGoogle');b.disabled=true;$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='Abrindo o login do Google…';
+  try{await Cloud.signInGoogle()}
+  catch(error){$('#cloudAuthMsg').textContent='Não foi possível entrar com o Google: '+cloudError(error);console.error('Falha no login Google:',error)}
+  finally{b.disabled=false;$('#cloudLogin').disabled=false}
 };
 $('#cloudProfileSave').onclick=saveCloudProfile;
 $('#cloudAvatarPick').onclick=()=>$('#cloudAvatarFile').click();
