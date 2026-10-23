@@ -1,6 +1,8 @@
 /* Nuvem compartilhada (index.html e coc.html): um único cliente Supabase, salvamento com
    controle de conflito e indicador fixo de status da sincronização. */
 window.Cloud = (function () {
+  /* falha silenciosa de gravação/exclusão: ao menos fica no console (Util.warn, com limite de repetição) */
+  const warn = (ctx, e) => { if (window.Util && Util.warn) Util.warn('cloud: ' + ctx, e); else { try { console.warn('[cloud: ' + ctx + ']', e && e.message || e); } catch (_) {} } };
   let client = null;
   try { if (window.parent !== window && window.parent.Cloud) client = window.parent.Cloud.client; } catch (e) {}
   if (!client && window.supabase) client = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_KEY);
@@ -8,13 +10,15 @@ window.Cloud = (function () {
   /* grava uma ficha. Com id + rev, só atualiza se a nuvem ainda estiver na versão aberta; senão lança {conflict:true}.
      force=true ignora a versão (sobrescreve de propósito). */
   async function saveSheet(o) {
-    const row = Object.assign({}, o.payload, { campaign: o.campaign, updated_at: new Date().toISOString() });
+    /* updated_at NÃO é enviado: quem carimba é o trigger do Postgres (supabase/updated_at_trigger.sql), com o relógio do servidor */
+    const row = Object.assign({}, o.payload, { campaign: o.campaign });
     if (o.id) {
       let q = o.client.from(o.table).update(row).eq('id', o.id).eq('user_id', o.userId).eq('campaign', o.campaign);
       if (o.rev && !o.force) q = q.eq('updated_at', o.rev);
       const r = await q.select('id,updated_at');
       if (r.error) throw r.error;
       if (!r.data || !r.data.length) { const e = new Error('conflict'); e.conflict = true; throw e; }
+      if (o.rev && r.data[0].updated_at === o.rev) console.warn('updated_at não mudou após o UPDATE: aplique supabase/updated_at_trigger.sql, senão o controle de conflito não funciona.');
       return { id: r.data[0].id, rev: r.data[0].updated_at };
     }
     const r = await o.client.from(o.table).insert(Object.assign({}, row, { user_id: o.userId })).select('id,updated_at').single();
@@ -68,12 +72,217 @@ window.Cloud = (function () {
     if (!r.data || !r.data.url) throw new Error('O Supabase não devolveu o endereço de login do Google.');
     w.location.assign(r.data.url);
     /* se a página ainda existe depois de alguns segundos, a navegação foi bloqueada */
-    await new Promise((_, rej) => setTimeout(() => rej(new Error('o navegador não abriu a tela do Google. Tente de novo ou use o login por e-mail.')), 6000));
+    await new Promise((_, rej) => setTimeout(() => rej(new Error('o navegador não abriu a tela do Google. Tente de novo.')), 6000));
   }
 
   /* destino guardado antes do login ('coc' ou null); lido uma vez */
   function takeReturnTarget() {
     try { const v = sessionStorage.getItem('rpg-auth-return'); sessionStorage.removeItem('rpg-auth-return'); return v; } catch (e) { return null; }
+  }
+
+  /* =====================================================================
+     SINCRONIZAÇÃO DE TODOS OS PERSONAGENS COM A CONTA
+     Cada personagem local (ficha aberta + guardados) tem um "vínculo" {id, rev, h, uid}:
+       id  = linha em character_sheets · rev = updated_at da nuvem na última sincronização
+       h   = hash do conteúdo na última sincronização (diz se mudou aqui) · uid = dono da conta.
+     syncAll(): sobe os novos, envia os alterados, baixa os que mudaram em outro aparelho,
+     baixa os que só existem na conta e remove os que foram excluídos em outro aparelho.
+     Se mudou dos dois lados, mantém as duas versões (nunca perde ficha).
+     ===================================================================== */
+  function stable(v) {
+    if (v === null || typeof v !== 'object') return JSON.stringify(v === undefined ? null : v);
+    if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+    return '{' + Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}';
+  }
+  function bare(sheet) { const c = Object.assign({}, sheet); delete c.cl; return c; }
+  function hashOf(sheet) {
+    const t = stable(bare(sheet)); let h = 2166136261;
+    for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(36) + ':' + t.length;
+  }
+  function withLock(name, fn) {
+    if (typeof navigator !== 'undefined' && navigator.locks && navigator.locks.request) return navigator.locks.request('rpg-sync-' + name, fn);
+    return fn();
+  }
+  const clone = o => JSON.parse(JSON.stringify(o));
+
+  /* exclusões feitas aqui que ainda precisam chegar na nuvem (funciona offline: fica na fila) */
+  const DELQ = 'rpg-cloud-del-v1';
+  function readQ() { try { const q = JSON.parse(localStorage.getItem(DELQ)); return Array.isArray(q) ? q : []; } catch (e) { return []; } }
+  function writeQ(q) { try { localStorage.setItem(DELQ, JSON.stringify(q)); } catch (e) { warn('fila de exclusões: não gravou', e); } }
+  async function flushDeletes(campaign, userId) {
+    if (!client || !userId) return;
+    let q = readQ();
+    for (const it of q.filter(x => x.c === campaign && x.uid === userId)) {
+      const r = await client.from(APP_CONFIG.CLOUD_TABLE).delete().eq('id', it.id).eq('user_id', userId).eq('campaign', campaign);
+      if (!r.error) writeQ(readQ().filter(x => !(x.c === campaign && x.id === it.id)));
+    }
+  }
+  /* chamada quando o usuário exclui um personagem aqui: apaga também da conta */
+  function forget(campaign, link) {
+    if (!link || !link.id || !link.uid) return;
+    const q = readQ(); if (!q.some(x => x.c === campaign && x.id === link.id)) { q.push({ c: campaign, id: link.id, uid: link.uid }); writeQ(q); }
+    if (!client) return;
+    client.auth.getSession().then(r => { const u = r && r.data && r.data.session && r.data.session.user; if (u && u.id === link.uid) return flushDeletes(campaign, u.id); }).catch(() => {});
+  }
+
+  async function pushEntry(ad, e, opt) {
+    opt = opt || {};
+    const sheet = clone(bare(e.get())), lk = opt.asNew ? null : e.link;
+    const payload = { name: ad.nameOf(sheet) || ad.defaultName, sheet };
+    const base = { client, table: APP_CONFIG.CLOUD_TABLE, campaign: ad.campaign, userId: ad.userId, payload };
+    let r;
+    try { r = await saveSheet(Object.assign({}, base, { id: lk && lk.id, rev: lk && lk.rev, force: !!opt.force })); }
+    catch (err) { if (err && err.conflict && opt.force && lk) r = await saveSheet(Object.assign({}, base, { id: null })); else throw err; }
+    const link = { id: r.id, rev: r.rev, h: hashOf(sheet), uid: ad.userId };
+    e.setLink(link); return link;
+  }
+
+  /* envia a ficha aberta (salvamento automático e botões manuais) */
+  function pushLive(ad, opt) {
+    return withLock(ad.campaign, async () => {
+      const e = ad.liveEntry(); if (!e) return null;
+      if (opt && opt.asNew) { e.setLink(null); }
+      return pushEntry(ad, e, opt);
+    });
+  }
+
+  async function fetchSheet(ad, id) {
+    const r = await client.from(APP_CONFIG.CLOUD_TABLE).select('id,name,sheet,updated_at').eq('id', id).eq('user_id', ad.userId).eq('campaign', ad.campaign).single();
+    if (r.error) throw r.error;
+    if (!r.data.sheet || !ad.valid(r.data.sheet)) return null;
+    return r.data;
+  }
+
+  function syncAll(ad) {
+    return withLock(ad.campaign, async () => {
+      const st = { up: 0, down: 0, conflict: 0, removed: 0, created: 0 };
+      await flushDeletes(ad.campaign, ad.userId);
+      let ents = ad.items();
+      /* personagens deste aparelho que pertencem a OUTRA conta Google */
+      const foreign = ents.filter(e => e.link && e.link.uid && e.link.uid !== ad.userId);
+      if (foreign.length) {
+        let ok = false; try { ok = sessionStorage.getItem('rpg-foreign-ok:' + ad.userId) === '1'; } catch (x) {}
+        if (!ok) {
+          if (typeof confirm === 'function' && !confirm('Este aparelho tem personagens ligados a outra conta. Enviar uma cópia deles para a conta atual? (Cancelar não envia nada.)')) return Object.assign(st, { aborted: true });
+          try { sessionStorage.setItem('rpg-foreign-ok:' + ad.userId, '1'); } catch (x) {}
+        }
+        foreign.forEach(e => e.setLink(null));
+        ents = ad.items();
+      }
+      const lr = await client.from(APP_CONFIG.CLOUD_TABLE).select('id,name,updated_at').eq('user_id', ad.userId).eq('campaign', ad.campaign);
+      if (lr.error) throw lr.error;
+      const rows = new Map(lr.data.map(r => [r.id, r])), seen = new Set();
+      for (const e of ents) {
+        try {
+          if (ad.prepare) await ad.prepare(e);
+          const sheet = e.get(); if (!sheet || typeof sheet !== 'object' || !ad.valid(sheet)) continue;
+          const lk = e.link, h = hashOf(sheet), row = lk && rows.get(lk.id);
+          if (!lk) { await pushEntry(ad, e); st.up++; }
+          else if (!row) {
+            /* sumiu da conta: se aqui não mudou, foi excluído em outro aparelho */
+            if (h === lk.h && !e.live) { e.remove(); st.removed++; continue; }
+            e.setLink(null); await pushEntry(ad, e); st.up++;
+          } else if (row.updated_at === lk.rev) {
+            if (h !== lk.h) { await pushEntry(ad, e); st.up++; }
+          } else if (h === lk.h) {
+            const d = await fetchSheet(ad, row.id);
+            if (d) { e.set(d.sheet); e.setLink({ id: row.id, rev: d.updated_at, h: hashOf(e.get()), uid: ad.userId }); st.down++; }
+          } else {
+            /* mudou dos dois lados: guarda a versão da nuvem como cópia e envia a daqui como nova */
+            const d = await fetchSheet(ad, row.id);
+            if (d) {
+              const copy = ad.mark(clone(d.sheet), ' (da nuvem)');
+              ad.create(copy, { id: row.id, rev: d.updated_at, h: hashOf(copy), uid: ad.userId });
+              seen.add(row.id); e.setLink(null); await pushEntry(ad, e); st.conflict++; st.up++;
+            }
+          }
+          if (e.link) seen.add(e.link.id);
+        } catch (err) { if (err && err.conflict) { st.conflict++; } else throw err; }
+      }
+      /* só existem na conta: baixa como novos personagens neste aparelho */
+      for (const r of lr.data) {
+        if (seen.has(r.id)) continue;
+        const d = await fetchSheet(ad, r.id);
+        if (d) { ad.create(d.sheet, { id: r.id, rev: d.updated_at, h: hashOf(d.sheet), uid: ad.userId }); st.created++; }
+      }
+      return st;
+    });
+  }
+
+  /* ---------- adaptador dos investigadores do CoC (guardados em localStorage) ---------- */
+  function cocAdapter(o) {
+    const IDX = 'coc-idx-v1', SLP = 'coc-slot-v1:', LK = 'coc-cloud-v1';
+    const rd = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+    const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
+    const idx = () => { const j = rd(IDX); return j && Array.isArray(j.list) ? j : { v: 1, list: [], cur: null }; };
+    const links = () => rd(LK) || {};
+    const setL = (id, l) => { const m = links(); if (l) m[id] = l; else delete m[id]; wr(LK, m); };
+    const meta = (sheet, id) => ({ id, nome: (sheet.who && sheet.who.nome) || 'Investigador sem nome', ocup: (sheet.who && sheet.who.ocup) || '', t: Date.now() });
+    function entry(id, live) {
+      return {
+        key: id, live: !!live,
+        get link() { return links()[id] || null; },
+        setLink(l) { setL(id, l); },
+        get() { return live ? o.live.get() : rd(SLP + id); },
+        set(sheet) {
+          if (live) { o.live.set(sheet); return; }
+          wr(SLP + id, sheet); const ix = idx(), i = ix.list.findIndex(x => x.id === id);
+          if (i >= 0) { ix.list[i] = meta(sheet, id); wr(IDX, ix); }
+        },
+        remove() { try { localStorage.removeItem(SLP + id); } catch (e) { warn('remover ficha local do CoC', e); } const ix = idx(); ix.list = ix.list.filter(x => x.id !== id); wr(IDX, ix); setL(id, null); }
+      };
+    }
+    return {
+      campaign: 'coc', userId: o.userId, defaultName: 'Investigador sem nome',
+      valid: s => !!s && typeof s === 'object' && s.app === 'coc',
+      nameOf: s => ((s.who && s.who.nome) || '').trim(),
+      mark(s, suf) { s.who = s.who || {}; s.who.nome = ((s.who.nome || 'Investigador sem nome') + suf).slice(0, 60); return s; },
+      /* retrato antigo (imagem dentro da ficha) -> bucket account-avatars, como na OP */
+      async prepare(e) {
+        const sh = e.get(), av = sh && sh.who && sh.who.av;
+        if (typeof av !== 'string' || av.indexOf('data:image/') !== 0) return;
+        try {
+          const blob = await (await fetch(av)).blob(), ext = /png/.test(blob.type) ? 'png' : /webp/.test(blob.type) ? 'webp' : 'jpg';
+          const path = o.userId + '/coc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6) + '.' + ext;
+          const up = await client.storage.from('account-avatars').upload(path, blob, { contentType: blob.type || 'image/jpeg', cacheControl: '31536000' });
+          if (up.error) return;
+          sh.who.av = 'sb:' + path;
+          if (e.live) { if (o.live && o.live.touch) o.live.touch(); } else e.set(sh);
+        } catch (x) { warn('mover retrato do CoC para o bucket', x); }
+      },
+      items() {
+        const ix = idx(); const out = [];
+        ix.list.forEach(x => {
+          if (!x || !x.id) return;
+          const cur = x.id === ix.cur;
+          if (cur && !o.live) return;
+          out.push(entry(x.id, cur));
+        });
+        return out;
+      },
+      liveEntry() { if (!o.live) return null; const ix = idx(); return ix.cur ? entry(ix.cur, true) : null; },
+      create(sheet, link) {
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ix = idx();
+        wr(SLP + id, sheet); ix.list.unshift(meta(sheet, id)); wr(IDX, ix); setL(id, link); if (o.onChange) o.onChange();
+      }
+    };
+  }
+  /* exclusão / troca de vínculo do CoC (usadas pelo menu e pela própria ficha) */
+  function cocForget(slotId) {
+    try {
+      const m = JSON.parse(localStorage.getItem('coc-cloud-v1') || '{}'); const l = m[slotId]; if (!l) return;
+      delete m[slotId]; localStorage.setItem('coc-cloud-v1', JSON.stringify(m)); forget('coc', l);
+    } catch (e) { warn('cocForget: desvincular ficha', e); }
+  }
+  /* a ficha aberta passou a ser exatamente esta linha da nuvem (botão "Carregar"): remove cópias locais duplicadas */
+  function cocRelink(slotId, link) {
+    try {
+      const m = JSON.parse(localStorage.getItem('coc-cloud-v1') || '{}');
+      const ix = JSON.parse(localStorage.getItem('coc-idx-v1') || '{"list":[]}');
+      Object.keys(m).forEach(k => { if (k !== slotId && m[k] && m[k].id === link.id) { delete m[k]; ix.list = ix.list.filter(x => x.id !== k); try { localStorage.removeItem('coc-slot-v1:' + k); } catch (e) { warn('cocRelink: remover cópia local', e); } } });
+      m[slotId] = link; localStorage.setItem('coc-cloud-v1', JSON.stringify(m)); localStorage.setItem('coc-idx-v1', JSON.stringify(ix));
+    } catch (e) { warn('cocRelink: regravar vínculos', e); }
   }
 
   /* indicador fixo: ● âmbar sincronizando · ● verde salvo · ● vermelho falhou · conflito */
@@ -104,5 +313,5 @@ window.Cloud = (function () {
       }
     };
   })();
-  return { client, saveSheet, signInGoogle, accountInfo, takeAuthError, takeReturnTarget, ui };
+  return { client, saveSheet, signInGoogle, accountInfo, takeAuthError, takeReturnTarget, hash: hashOf, syncAll, pushLive, forget, cocAdapter, cocForget, cocRelink, ui };
 })();

@@ -613,6 +613,4 @@ html[data-theme="medo"]{--felt:#080b10;--cloth:#0e131b;--cloth2:#141b26;--teal:#
 .gbtn:hover{background:#f6f7f8;border-color:#c6c9cc}
 .gbtn svg{width:18px;height:18px;flex:none}
 .gbtn:disabled{opacity:.6;cursor:wait}
-.auth-or{display:flex;align-items:center;gap:10px;font-size:.75rem;opacity:.6;text-transform:uppercase;letter-spacing:.1em}
-.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:currentColor;opacity:.35}
 .cloud-provider{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:700;letter-spacing:.04em;background:rgba(255,255,255,.12)}

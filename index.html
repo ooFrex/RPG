@@ -201,9 +201,10 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
     <button class="k-ri" type="button" data-rail="new" aria-label="Nova ficha" title="Nova ficha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span class="k-l">Nova</span></button>
     <button class="k-ri on" type="button" data-rail="sl" aria-label="Meus agentes" title="Meus agentes" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1M16.5 4.8a3.2 3.2 0 0 1 0 6.1M18 14.3a5 5 0 0 1 3 4.7v1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="k-l">Agentes</span></button>
     <button class="k-ri" type="button" data-rail="sys" aria-label="Sistemas" title="Sistemas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="k-l">Sistemas</span></button>
+    <button class="k-ri" type="button" data-rail="shop" aria-label="Biblioteca online" title="Biblioteca online"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10v16H5.5A1.5 1.5 0 0 1 4 18.5zM14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14zM10 4h4v16h-4z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg><span class="k-l">Biblioteca</span></button>
     <button class="k-ri" type="button" data-rail="help" aria-label="Ajuda" title="Ajuda"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.7M12 16.6v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="k-l">Ajuda</span></button>
     <button class="k-ri" type="button" data-rail="cfg" aria-label="Configurações" title="Configurações"><svg viewBox="0 0 18 18" aria-hidden="true"><use href="#i-gear"/></svg><span class="k-l">Ajustes</span></button>
-      <button class="k-ri k-acct" type="button" data-rail="acct" id="railAcct" aria-label="Entrar na conta" title="Entrar na conta"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span id="railAcctLtr" hidden></span><img id="railAcctImg" alt="" hidden></button>
+      <button class="k-ri k-acct acct-b" type="button" data-rail="acct" aria-label="Entrar na conta" title="Entrar na conta"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span class="acct-l" hidden></span><img class="acct-i" alt="" hidden></button>
   </nav>
   <div class="k-main"><div class="k-in">
     <header class="sc-top">
@@ -223,15 +224,32 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
       <section class="sc-card" id="syCur" hidden><small class="sc-lb">FICHA ABERTA</small><p class="hm-note" id="syCurT"></p>
         <div class="rowb"><button class="btn" type="button" data-sc="edit">Editar o sistema desta ficha</button><button class="btn" type="button" data-sc="lib">Biblioteca de sistemas</button></div></section>
     </div>
+    <div id="sc-shop" hidden>
+      <section class="sc-card sh-open">
+        <small class="sc-lb">ABRIR POR LINK</small>
+        <p class="hm-note">Cole o link ou o código que alguém te mandou.</p>
+        <form class="rowb sh-form" id="shOpenForm"><input class="in" id="shOpenIn" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Link ou código" aria-label="Link ou código"><button class="btn pri" type="submit">Abrir</button></form>
+        <p class="hm-note" id="shMsg" role="status"></p>
+      </section>
+      <section class="sc-card" id="shCat" hidden>
+        <small class="sc-lb">DESTAQUES</small>
+        <div class="sh-flt" id="shFlt" role="group" aria-label="Filtrar destaques"></div>
+        <ul class="sh-l" id="shCatList"></ul>
+      </section>
+      <section class="sc-card" id="shMine">
+        <small class="sc-lb">MEUS COMPARTILHAMENTOS</small>
+        <p class="hm-note" id="shMineMsg">Para compartilhar, use o botão <b>Compartilhar</b> em um personagem (aba Início) ou em um sistema (Sistemas → Biblioteca de sistemas).</p>
+        <ul class="sh-l" id="shMineList"></ul>
+      </section>
+    </div>
     <div id="sc-cfg" hidden>
   <div class="cf-tabs" role="tablist" aria-label="Seções das configurações" id="cfTabs"><button type="button" role="tab" id="cft-conta" aria-controls="cfp-conta" data-cf="conta" aria-selected="true" tabindex="0">Conta e nuvem</button><button type="button" role="tab" id="cft-visual" aria-controls="cfp-visual" data-cf="visual" aria-selected="false" tabindex="-1">Aparência</button><button type="button" role="tab" id="cft-geral" aria-controls="cfp-geral" data-cf="geral" aria-selected="false" tabindex="-1">Geral</button><button type="button" role="tab" id="cft-abrir" aria-controls="cfp-abrir" data-cf="abrir" aria-selected="false" tabindex="-1">Abrir ficha</button><button type="button" role="tab" id="cft-ficha" aria-controls="cfp-ficha" data-cf="ficha" aria-selected="false" tabindex="-1">Ficha</button></div>
   <section class="cf-p" id="cfp-conta" role="tabpanel" aria-labelledby="cft-conta"><div id="cfCloud">
   <div id="cloudSignedOut">
+    <div class="lg-hero"><span class="lg-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-user"/></svg></span><div><h3>Entre na sua conta</h3><p>Guarde suas fichas na nuvem e continue de qualquer aparelho.</p></div></div>
+    <ul class="lg-perks"><li>Fichas salvas e sincronizadas</li><li>Foto e nome do perfil</li><li>Sem senha para lembrar</li></ul>
     <button class="btn gbtn" id="cloudGoogle" type="button"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.9-6.1a24 24 0 0 0 0 21.6l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg><span>Entrar com Google</span></button>
-    <div class="auth-or" aria-hidden="true"><span>ou</span></div>
-    <label class="fl"><span>E-mail para entrar</span><input id="cloudEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com"></label>
-    <button class="btn pri" id="cloudLogin" type="button">Enviar link de acesso</button>
-    <p id="cloudAuthMsg" role="status">Enviaremos um link de acesso para seu e-mail. Abra-o neste mesmo navegador para concluir a entrada.</p>
+    <p id="cloudAuthMsg" role="status">Entre com sua conta Google para guardar e sincronizar suas fichas.</p>
   </div>
   <div id="cloudSignedIn" hidden>
     <p id="cloudAccount" role="status"></p>
@@ -344,6 +362,7 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
     <button class="k-ri" type="button" data-hm="sys" aria-label="Sistemas" title="Sistemas"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="k-l">Sistemas</span></button>
     <button class="k-ri" type="button" data-hm="help" aria-label="Ajuda" title="Ajuda"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M9.6 9.6a2.5 2.5 0 1 1 3.6 2.2c-.8.4-1.2.9-1.2 1.7M12 16.6v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="k-l">Ajuda</span></button>
     <button class="k-ri" type="button" data-hm="cfg" aria-label="Configurações" title="Configurações"><svg viewBox="0 0 18 18" aria-hidden="true"><use href="#i-gear"/></svg><span class="k-l">Ajustes</span></button>
+<button class="k-ri k-acct acct-b" type="button" data-hm="acct" aria-label="Entrar na conta" title="Entrar na conta"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span class="acct-l" hidden></span><img class="acct-i" alt="" hidden></button>
   </nav>
   <div class="k-main"><div class="k-in">
     <header class="k-top">
@@ -415,6 +434,11 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
   <div id="nvLib"></div>
   <button class="btn" data-close type="button">Cancelar</button>
 </div></div>
+<div class="modal" id="mShare" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="shT">
+  <h2 id="shT"></h2>
+  <div class="sh-body" id="shBody"></div>
+  <div class="rowb" id="shAct"></div>
+</div></div>
 <section id="cocView" hidden role="dialog" aria-modal="true" aria-label="Ficha de Call of Cthulhu"><iframe id="cocFrame" title="Ficha de Call of Cthulhu"></iframe></section>
 <!-- passo a passo de criação (montado pelo editor de blocos) -->
 <section id="cw" hidden role="dialog" aria-modal="true" aria-label="Criar personagem">
@@ -425,9 +449,11 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 </section>
 <input type="file" id="avFile" accept="image/*" hidden>
 
+<button class="acct-b acct-dock" id="acctDock" type="button" aria-label="Entrar na conta" title="Entrar na conta" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span class="acct-l" hidden></span><img class="acct-i" alt="" hidden></button>
 <script src="js/config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1"></script>
 <script src="js/cloud.js"></script>
+<script src="js/share.js"></script>
 <script src="js/assets.js"></script>
 <script src="js/util.js"></script>
 <script src="js/op.js"></script>

@@ -1,4 +1,4 @@
--- Avisos em pop-up (js/announce.js). Leitura pública só do que está ativo e dentro da data; ninguém escreve pelo app.
+-- Avisos em pop-up (js/announce.js). Pode rodar mais de uma vez. Leitura pública só do que está ativo e dentro da data; ninguém escreve pelo app.
 create table if not exists public.announcements (
   id         uuid primary key default gen_random_uuid(),
   title      text not null check (char_length(title) between 1 and 80),
@@ -12,6 +12,7 @@ create table if not exists public.announcements (
   created_at timestamptz not null default now()
 );
 alter table public.announcements enable row level security;
+drop policy if exists "Anyone can read active announcements" on public.announcements;
 create policy "Anyone can read active announcements" on public.announcements
   for select to anon, authenticated
   using (active and starts_at <= now() and (ends_at is null or ends_at > now()));

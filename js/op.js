@@ -344,11 +344,29 @@ async function loadGameCatalogs(){
 function fresh(){return{jog:'',pers:'',ori:'',cls:'',av:'',attr:attrIni(),sys:SYS===OP?'op':'custom',mold:moldData(),nivel:SYS===OP?'1':'',nex:SYS===OP?'5%':'',pe:SYS===OP?'1':'',desl:SYS===OP?'9m/6q':'',
   bars:barsIni(),sk:SK.map(s=>PCT?{n:s[0],a:s[1],t:s[2],tr:0,ex:0,v:null,sp:''}:SOMA?{n:s[0],a:s[1],t:s[2],tr:0,ex:0,bn:0}:{n:s[0],a:s[1],t:s[2],tr:0,ex:0}),def:SYS===OP?'10':'',prot:'',res:'',
   atk:[],hab:[],rit:[],inv:[],carga:'',dt:'',nid:1,desc:{a:'',p:'',h:'',o:''},created:false,camp:'',cfg:{rm:false},opt:{diff:'reg',dice:0,cd:0,adv:0}}}
-function normalize(s){useMold(moldFor(s));const f=fresh(),d=Object.assign(f,s||{});d.mold=moldData();d.sys=SYS===OP?'op':'custom';
-  d.attr=Object.fromEntries(ATTRS.map(k=>{const v=s&&s.attr&&s.attr[k];return[k,v==null||v===''?SYS.atributo.inicial:clamp(Math.round(+v)||0,0,SYS.atributo.maxFicha)]}));d.bars=Object.assign(fresh().bars,(s&&s.bars)||{});d.cfg=Object.assign({rm:false},(s&&s.cfg)||{});{const o=(s&&s.opt)||{};d.opt={diff:['reg','hard','ext'].includes(o.diff)?o.diff:'reg',dice:[-1,0,1].includes(+o.dice)?+o.dice:0,cd:clamp(Math.round(+o.cd)||0,0,999),adv:[-1,0,1].includes(+o.adv)?+o.adv:0}}d.desc=Object.assign({a:'',p:'',h:'',o:''},(s&&s.desc)||{});if(s&&s.created===undefined)d.created=true;if(d.created&&!d.camp)d.camp='op';
+/* ---------- sanitização de ficha vinda de fora (importar, código, nuvem): nada é confiado ---------- */
+const nStr=(v,n)=>String(v==null?'':v).slice(0,n);
+const nInt=(v,a,b)=>clamp(Math.round(+v)||0,a,b);
+const nNum=(v,a,b)=>{v=+v;return isFinite(v)?clamp(v,a,b):0};
+const safeAv=v=>typeof v==='string'&&(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(v)||/^sb:[0-9a-f-]{36}\/[A-Za-z0-9._-]{1,80}$/.test(v))&&v.length<=600000?v:'';
+const noProto=o=>o&&typeof o==='object'?JSON.parse(JSON.stringify(o),(k,v)=>k==='__proto__'?undefined:v):o;
+function cleanBars(base,src){src=src&&typeof src==='object'?src:{};Object.keys(base).forEach(k=>{const v=src[k];if(Array.isArray(v)){const mx=nInt(v[1],0,99999);base[k]=[nInt(v[0],0,mx),mx]}});return base}
+function cleanSk(h,x){const o={n:x[0],a:ATTRS.includes(h.a)?h.a:x[1],t:x[2],tr:nInt(h.tr,0,Math.max(0,TR.length-1)),ex:nInt(h.ex,-99,99)};
+  if(SOMA)o.bn=nInt(h.bn,-99,99);if(PCT){o.v=h.v==null||h.v===''?null:nInt(h.v,0,999);o.sp=cleanTxt(h.sp,30)}return o}
+const ITEM_FIELDS={
+  atk:x=>({n:nStr(x.n,200),sk:nStr(x.sk,200),b:nNum(x.b,-9999,9999),dano:nStr(x.dano,200),crit:nStr(x.crit,200),al:nStr(x.al,200),lib:nStr(x.lib,200)}),
+  hab:x=>({n:nStr(x.n,200),custo:nStr(x.custo,200),d:nStr(x.d,8000)}),
+  rit:x=>({n:nStr(x.n,200),c:nInt(x.c,0,CIRC.length-1),e:Object.prototype.hasOwnProperty.call(ELEM,x.e)?x.e:'sangue',nor:nStr(x.nor,200),dis:nStr(x.dis,200),ver:nStr(x.ver,200),ex:nStr(x.ex,200),al:nStr(x.al,200),alvo:nStr(x.alvo,200),dur:nStr(x.dur,200),res:nStr(x.res,200),pe:nStr(x.pe,20),d:nStr(x.d,8000),open:!!x.open,lib:nStr(x.lib,200)}),
+  inv:x=>({n:nStr(x.n,200),esp:nNum(x.esp,0,9999),q:nNum(x.q,0,99999),d:nStr(x.d,8000),lib:nStr(x.lib,200),catalogId:nStr(x.catalogId,200)})};
+function cleanItems(k,a){return(Array.isArray(a)?a:[]).filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).slice(0,500).map(x=>Object.assign({},x,ITEM_FIELDS[k](x),{id:Number.isInteger(+x.id)&&+x.id>0&&+x.id<1e9?+x.id:0}))}
+function normalize(s){s=noProto(s);useMold(moldFor(s));const f=fresh(),d=Object.assign(f,s||{});d.mold=moldData();d.sys=SYS===OP?'op':'custom';
+  d.attr=Object.fromEntries(ATTRS.map(k=>{const v=s&&s.attr&&s.attr[k];return[k,v==null||v===''?SYS.atributo.inicial:clamp(Math.round(+v)||0,0,SYS.atributo.maxFicha)]}));d.bars=cleanBars(fresh().bars,s&&s.bars);d.cfg=Object.assign({rm:false},(s&&s.cfg)||{});{const o=(s&&s.opt)||{};d.opt={diff:['reg','hard','ext'].includes(o.diff)?o.diff:'reg',dice:[-1,0,1].includes(+o.dice)?+o.dice:0,cd:clamp(Math.round(+o.cd)||0,0,999),adv:[-1,0,1].includes(+o.adv)?+o.adv:0}}d.desc=Object.assign({a:'',p:'',h:'',o:''},(s&&s.desc)||{});if(s&&s.created===undefined)d.created=true;if(d.created&&!d.camp)d.camp='op';
   const have={};(Array.isArray(d.sk)?d.sk:[]).forEach(x=>{if(x&&x.n)have[x.n]=x});
-  d.sk=SK.map(x=>{const h=have[x[0]];if(!h)return PCT?{n:x[0],a:x[1],t:x[2],tr:0,ex:0,v:null,sp:''}:SOMA?{n:x[0],a:x[1],t:x[2],tr:0,ex:0,bn:0}:{n:x[0],a:x[1],t:x[2],tr:0,ex:0};if(!ATTRS.includes(h.a))h.a=x[1];if(SOMA)h.bn=clamp(Math.round(+h.bn)||0,-99,99);if(PCT){h.v=h.v==null||h.v===''?null:clamp(Math.round(+h.v)||0,0,999);h.sp=cleanTxt(h.sp,30)}return h});
-  ['atk','hab','rit','inv'].forEach(k=>{if(!Array.isArray(d[k]))d[k]=[]});
+  d.sk=SK.map(x=>{const h=have[x[0]];if(!h)return PCT?{n:x[0],a:x[1],t:x[2],tr:0,ex:0,v:null,sp:''}:SOMA?{n:x[0],a:x[1],t:x[2],tr:0,ex:0,bn:0}:{n:x[0],a:x[1],t:x[2],tr:0,ex:0};return cleanSk(h,x)});
+  ['atk','hab','rit','inv'].forEach(k=>{d[k]=cleanItems(k,d[k])});
+  {const used=new Set();let mx=0;['atk','hab','rit','inv'].forEach(k=>d[k].forEach(x=>{mx=Math.max(mx,x.id)}));
+   ['atk','hab','rit','inv'].forEach(k=>d[k].forEach(x=>{if(!x.id||used.has(x.id))x.id=++mx;used.add(x.id)}))}
+  d.av=safeAv(d.av);
   d.nid=Math.max(+d.nid||1,1+Math.max(0,...['atk','hab','rit','inv'].flatMap(k=>d[k].map(x=>+x.id||0))));
   return d}
 const BKP=KEY+'-corrompido';
@@ -369,7 +387,7 @@ function writeNow(){
   try{localStorage.setItem(KEY,JSON.stringify(D));tSet(HMT);if(saveBad){saveBad=false;$('#saveWarn').hidden=true}}
   catch(e){saveBad=true;
     if(Date.now()>swMute)swShow('Não consegui salvar a ficha',/quota/i.test((e&&e.name||'')+' '+(e&&e.message||''))?'O armazenamento do navegador está cheio. Exporte um backup agora e libere espaço (retratos pesados e rascunhos antigos ocupam bastante).':'O navegador bloqueou o salvamento neste aparelho (aba anônima ou armazenamento desligado?). Exporte um backup para não perder o que fez.','Exportar backup',()=>$('#ioExp').click())}}
-function save(){clearTimeout(saveT);saveT=setTimeout(writeNow,250);if(cloudUser&&activeCloudId&&!cloudApplying&&!cloudConflict){clearTimeout(cloudSaveT);Cloud.ui.pending();cloudSaveT=setTimeout(()=>syncCloud(false),1200)}}
+function save(){clearTimeout(saveT);saveT=setTimeout(writeNow,250);if(cloudUser&&D.created&&!cloudApplying&&!cloudConflict){clearTimeout(cloudSaveT);Cloud.ui.pending();cloudSaveT=setTimeout(()=>syncCloud(false),1200)}}
 addEventListener('pagehide',()=>{if(saveT!==null)writeNow()});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&saveT!==null)writeNow()});
 function dl(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
@@ -396,48 +414,52 @@ function slPush(){
   const ix=slIdx(),id='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   try{localStorage.setItem(SLK+id,JSON.stringify(D))}catch(e){return slNoRoom()}
   ix.list.push({id,t:Date.now()});
-  if(!slSave(ix)){try{localStorage.removeItem(SLK+id)}catch(e){}return slNoRoom()}
+  if(!slSave(ix)){try{localStorage.removeItem(SLK+id)}catch(e){Util.warn('op: desfazer ficha sem espaço',e)}return slNoRoom()}
   slLast=id;return true}
-function slInfo(j){return{n:String(j.pers||'').trim()||'Agente sem nome',s:[j.cls,j.ori].map(x=>String(x||'').trim()).filter(Boolean).join(' · ')||'Sem classe',av:typeof j.av==='string'&&j.av.indexOf('data:image/')===0?j.av:''}}
-const slAv=i=>`<span class="sl-av" aria-hidden="true">${i.av?`<img alt="" src="${esc(i.av)}">`:esc(i.n.charAt(0).toUpperCase())}</span>`;
+function slInfo(j){return{n:String(j.pers||'').trim()||'Agente sem nome',s:[j.cls,j.ori].map(x=>String(x||'').trim()).filter(Boolean).join(' · ')||'Sem classe',av:typeof j.av==='string'&&j.av.indexOf('data:image/')===0?j.av:'',sb:typeof j.av==='string'&&j.av.indexOf('sb:')===0?j.av.slice(3):''}}
+const slAv=i=>`<span class="sl-av" aria-hidden="true"${i.sb?` data-sb="${esc(i.sb)}"`:''}>${i.av?`<img alt="" src="${esc(i.av)}">`:esc(i.n.charAt(0).toUpperCase())}</span>`;
 function slRender(){
   const ix=slIdx().list.slice().sort((a,b)=>b.t-a.t);let n=0,h='';
   const st=()=>` style="--i:${n++}"`;
   if(D.created){const c=slInfo(D);
-    h+=`<li class="sl-i cur"${st()}><span class="sl-tag">Em uso</span>${slAv(c)}<span class="sl-t"><b>${esc(c.n)}</b><em>${esc(c.s)}</em></span><span class="sl-act"><button class="btn pri sm" type="button" data-sl="cur">Continuar</button></span></li>`}
+    h+=`<li class="sl-i cur"${st()}><span class="sl-tag">Em uso</span>${slAv(c)}<span class="sl-t"><b>${esc(c.n)}</b><em>${esc(c.s)}</em></span><span class="sl-act"><button class="btn pri sm" type="button" data-sl="cur">Continuar</button><button class="btn sm sl-sh" type="button" aria-label="Compartilhar por link" title="Compartilhar por link" data-sl="share" data-id="__cur"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 7.5l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></li>`}
   ix.forEach(x=>{let j=null;try{j=JSON.parse(localStorage.getItem(SLK+x.id))}catch(e){}
     if(!j||typeof j!=='object'){h+=`<li class="sl-i"${st()}><span class="sl-t"><b>Ficha ilegível</b><em>Não dá para abrir esta cópia.</em></span><span class="sl-act"><button class="btn sm" type="button" data-sl="del" data-id="${esc(x.id)}">Excluir</button></span></li>`;return}
     const i=slInfo(j);
-    h+=`<li class="sl-i"${st()}>${slAv(i)}<span class="sl-t"><b>${esc(i.n)}</b><em>${esc(i.s)}</em><em>guardado em ${esc(new Date(x.t).toLocaleDateString('pt-BR'))}</em></span><span class="sl-act"><button class="btn sm pri" type="button" data-sl="open" data-id="${esc(x.id)}">Abrir</button><button class="btn sm" type="button" data-sl="del" data-id="${esc(x.id)}">Excluir</button></span></li>`});
-  cocIdx().list.slice().sort((a,b)=>b.t-a.t).forEach(x=>{let av='';try{const j=JSON.parse(localStorage.getItem('coc-slot-v1:'+x.id));if(j&&j.who&&typeof j.who.av==='string'&&j.who.av.indexOf('data:image/')===0)av=j.who.av}catch(e){}
-    h+=`<li class="sl-i"${st()}>${slAv({n:x.nome,av})}<span class="sl-t"><b>${esc(x.nome)}</b><em>Call of Cthulhu${x.ocup?' · '+esc(x.ocup):''}</em><em>salvo em ${esc(new Date(x.t).toLocaleDateString('pt-BR'))}</em></span><span class="sl-act"><button class="btn sm pri" type="button" data-sl="coc" data-id="${esc(x.id)}">Abrir</button><button class="btn sm" type="button" data-sl="cocdel" data-id="${esc(x.id)}">Excluir</button></span></li>`});
+    h+=`<li class="sl-i"${st()}>${slAv(i)}<span class="sl-t"><b>${esc(i.n)}</b><em>${esc(i.s)}</em><em>guardado em ${esc(new Date(x.t).toLocaleDateString('pt-BR'))}</em></span><span class="sl-act"><button class="btn sm pri" type="button" data-sl="open" data-id="${esc(x.id)}">Abrir</button><button class="btn sm sl-sh" type="button" aria-label="Compartilhar por link" title="Compartilhar por link" data-sl="share" data-id="${esc(x.id)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 7.5l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="btn sm" type="button" data-sl="del" data-id="${esc(x.id)}">Excluir</button></span></li>`});
+  cocIdx().list.slice().sort((a,b)=>b.t-a.t).forEach(x=>{let av='',sb='';try{const j=JSON.parse(localStorage.getItem('coc-slot-v1:'+x.id));if(j&&j.who&&typeof j.who.av==='string'){if(j.who.av.indexOf('data:image/')===0)av=j.who.av;else if(j.who.av.indexOf('sb:')===0)sb=j.who.av.slice(3)}}catch(e){}
+    h+=`<li class="sl-i"${st()}>${slAv({n:x.nome,av,sb})}<span class="sl-t"><b>${esc(x.nome)}</b><em>Call of Cthulhu${x.ocup?' · '+esc(x.ocup):''}</em><em>salvo em ${esc(new Date(x.t).toLocaleDateString('pt-BR'))}</em></span><span class="sl-act"><button class="btn sm pri" type="button" data-sl="coc" data-id="${esc(x.id)}">Abrir</button><button class="btn sm sl-sh" type="button" aria-label="Compartilhar por link" title="Compartilhar por link" data-sl="cocshare" data-id="${esc(x.id)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 7.5l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="btn sm" type="button" data-sl="cocdel" data-id="${esc(x.id)}">Excluir</button></span></li>`});
   h+=`<li class="sl-i sl-new"${st()}><button class="sl-nb" type="button" data-sl="new"><span aria-hidden="true">+</span><b>Novo agente</b></button></li>`;
-  $('#slList').innerHTML=h}
+  $('#slList').innerHTML=h;slHydrate()}
+function slHydrate(){if(!cloudClient||!cloudUser)return;$$('#slList [data-sb]').forEach(el=>{avUrl(el.dataset.sb).then(u=>{if(el.isConnected)el.innerHTML='<img alt="" src="'+esc(u)+'">'}).catch(()=>{})})}
 function slOpen(id){
   let raw=null,j=null;try{raw=localStorage.getItem(SLK+id);j=JSON.parse(raw)}catch(e){}
   if(!j||typeof j!=='object'||!j.attr){$('#slMsg').textContent='Não consegui ler esta ficha.';return}
   if(!slPush())return;
   try{localStorage.setItem(KEY,raw)}catch(e){
-    if(slLast){const ix=slIdx();ix.list=ix.list.filter(x=>x.id!==slLast);slSave(ix);try{localStorage.removeItem(SLK+slLast)}catch(x){}}
+    if(slLast){const ix=slIdx();ix.list=ix.list.filter(x=>x.id!==slLast);slSave(ix);try{localStorage.removeItem(SLK+slLast)}catch(x){Util.warn('op: excluir ficha local',x)}}
     $('#slMsg').textContent='Sem espaço para trocar de ficha. Exporte um backup e libere espaço.';return}
-  const ix=slIdx();ix.list=ix.list.filter(x=>x.id!==id);slSave(ix);try{localStorage.removeItem(SLK+id)}catch(e){}
+  const ix=slIdx();ix.list=ix.list.filter(x=>x.id!==id);slSave(ix);try{localStorage.removeItem(SLK+id)}catch(e){Util.warn('op: excluir ficha local',e)}
   clearTimeout(saveT);saveT=null;clearTimeout(cloudSaveT);activeCloudId=null;cloudConflict=false;
   const cfg=D.cfg;D=normalize(j);D.cfg=cfg;D.created=true;
   renderAll();cloudSaveLabel();writeNow();closeM('mSl');go('char',1);toast('Agente aberto',slInfo(D).n)}
 $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');if(!b)return;const id=b.dataset.id;
   if(b.dataset.sl==='cur'){closeM('mSl');return}
   if(b.dataset.sl==='new'){$('#slNew').click();return}
+  if(b.dataset.sl==='share'){shOpenPublish(id==='__cur'?(D.created?shSrcOp(D,'op:live'):null):shSrcSlot(id));return}
+  if(b.dataset.sl==='cocshare'){shOpenPublish(shSrcCoc(id));return}
   if(b.dataset.sl==='open'){slOpen(id);return}
   if(b.dataset.sl==='coc'){closeM('mSl');openCoc(id);return}
   if(b.dataset.sl==='cocdel'){if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para excluir';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='Excluir'}},4000);return}
     cocDelete(id,()=>{slRender();$('#slMsg').textContent='Investigador excluído deste aparelho.'});return}
   if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para excluir';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='Excluir'}},4000);return}
-  const ix=slIdx();ix.list=ix.list.filter(x=>x.id!==id);slSave(ix);try{localStorage.removeItem(SLK+id)}catch(err){}
-  slRender();$('#slMsg').textContent='Ficha excluída deste aparelho.'});
+  {let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(err){}if(j&&j.cl)Cloud.forget('op',j.cl)}
+  const ix=slIdx();ix.list=ix.list.filter(x=>x.id!==id);slSave(ix);try{localStorage.removeItem(SLK+id)}catch(err){Util.warn('op: excluir ficha local',err)}
+  slRender();$('#slMsg').textContent=cloudUser?'Ficha excluída deste aparelho e da sua conta.':'Ficha excluída deste aparelho.'});
 $('#slNew').onclick=()=>{closeM('mSl');newFlow(null)};
 $('#mSl .k-rail').addEventListener('click',e=>{const b=e.target.closest('[data-rail]');if(!b)return;const a=b.dataset.rail;
   if(a==='acct'){if(scrMode!=='cfg')setScreen('cfg',true);const t=$('#cft-conta');if(t)t.click();return}
-  if(a==='sl'||a==='sys'||a==='help'||a==='cfg'){if(a!==scrMode)setScreen(a,true);return}
+  if(a==='sl'||a==='sys'||a==='help'||a==='shop'||a==='cfg'){if(a!==scrMode)setScreen(a,true);return}
   if(a==='new'){closeM('mSl');newFlow(null);return}
   closeM('mSl');
   openHome()});
@@ -454,6 +476,7 @@ function pnRender(){const el=$('#pnList');el.innerHTML=PATCH_NOTES.length?PATCH_
 const SCR={sl:['ARQUIVO','Meus Personagens','Fichas guardadas neste aparelho. A aberta salva sozinha; ao abrir outra, a atual fica guardada aqui.'],
   sys:['REGRAS','Sistemas','Os sistemas que você tem. Toque em um para ver como ele funciona e criar uma ficha com ele.'],
   help:['GUIA RÁPIDO','Ajuda','Como a ficha funciona, em poucas linhas.'],
+  shop:['ONLINE','Biblioteca','Sistemas e personagens compartilhados por link. Abra um link que recebeu ou veja o que você já publicou.'],
   cfg:['AJUSTES','Configurações','Conta, aparência, backup e novidades desta versão.']};
 let scrMode='sl';
 function scSysFill(){syGrid();syDet(false);syCur()}
@@ -482,20 +505,21 @@ function syFacts(x){if(x.id==='coc')return COC_FACTS.concat([['Fichas neste apar
 function syDet(anim){const el=$('#syDet'),hint=$('#syHint'),x=syOpen&&syList().find(y=>y.id===syOpen);
   $$('[data-sy]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.sy===syOpen)));
   if(syOpen==='__new'){hint.hidden=true;el.innerHTML='<small class="sc-lb">NOVO SISTEMA</small><h3 id="syDT">Por onde começar?</h3><p class="hm-note">O sistema vai para a sua biblioteca, sem criar ficha. Depois você cria quantas fichas quiser com ele.</p><div class="rowb"><button class="btn pri" type="button" data-sya="base" data-id="op">Partir do Ordem Paranormal</button><button class="btn pri" type="button" data-sya="base" data-id="coc">Partir do Call of Cthulhu</button><button class="btn" type="button" data-sya="base" data-id="zero">Começar do zero</button></div>';
-    const was=el.hidden;el.hidden=false;if(anim&&was&&!rm())el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});return}
+    const was=el.hidden;el.hidden=false;if(anim)try{el.scrollIntoView({behavior:rm()?'auto':'smooth',block:'nearest'})}catch(e){}if(anim&&was&&!rm())el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});return}
   if(!x||!x.m){el.hidden=true;hint.hidden=false;return}
   hint.hidden=true;const id=esc(x.id),own=!!x.en;
   const act=own?(syDel===x.id?`<p class="smu">Excluir da biblioteca? As fichas já criadas continuam com a cópia delas.</p><button class="btn dng" type="button" data-sya="delok" data-id="${id}">Confirmar exclusão</button><button class="btn" type="button" data-sya="delno">Cancelar</button>`
-      :`<button class="btn pri" type="button" data-sya="new" data-id="${id}">Criar ficha</button><button class="btn" type="button" data-sya="edit" data-id="${id}">Editar</button><button class="btn" type="button" data-sya="exp" data-id="${id}">Exportar</button><button class="btn" type="button" data-sya="del" data-id="${id}">Excluir</button>`)
+      :`<button class="btn pri" type="button" data-sya="new" data-id="${id}">Criar ficha</button><button class="btn" type="button" data-sya="edit" data-id="${id}">Editar</button><button class="btn" type="button" data-sya="exp" data-id="${id}">Exportar</button><button class="btn" type="button" data-sya="share" data-id="${id}">Compartilhar</button><button class="btn" type="button" data-sya="del" data-id="${id}">Excluir</button>`)
     :`<button class="btn pri" type="button" data-sc="new" data-sys="${id}">Criar ficha</button><button class="btn" type="button" data-sya="base" data-id="${id}">${x.id==='coc'?'Criar sistema próprio (parte de uma versão simplificada)':'Criar sistema próprio a partir deste'}</button>`;
   el.innerHTML=`<small class="sc-lb">${esc(x.tag.toUpperCase())}</small><h3 id="syDT">${esc(x.n)}</h3><p class="hm-note">${esc(x.d)}</p><dl class="sy-dl">${syFacts(x).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl><div class="rowb">${act}</div>`;
-  const was=el.hidden;el.hidden=false;if(anim&&was&&!rm())el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'})}
+  const was=el.hidden;el.hidden=false;if(anim)try{el.scrollIntoView({behavior:rm()?'auto':'smooth',block:'nearest'})}catch(e){}if(anim&&was&&!rm())el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'})}
 function syCur(){const box=$('#syCur');box.hidden=!D.created;if(D.created)$('#syCurT').textContent=`${slInfo(D).n} usa o sistema ${SYS.nome||'Ordem Paranormal'}.`}
 $('#sc-sys').addEventListener('click',e=>{
   const c=e.target.closest('[data-sy]');if(c){syOpen=syOpen===c.dataset.sy?null:c.dataset.sy;syDel=null;syDet(true);return}
   const b=e.target.closest('[data-sya]');if(!b)return;const a=b.dataset.sya,id=b.dataset.id,en=libRead().find(x=>x.id===id);
   if(a==='new'){if(en){closeM('mSl');startFromLib(en)}}
   else if(a==='base')sysOpenLib(null,id);else if(a==='edit')sysOpenLib(id);
+  else if(a==='share'){if(en)shOpenPublish(shSrcSys(en))}
   else if(a==='exp'){if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold}));toast('Sistema exportado',en.nome)}}
   else if(a==='del'){syDel=id;syDet(false)}else if(a==='delno'){syDel=null;syDet(false)}
   else if(a==='delok'){libWrite(libRead().filter(x=>x.id!==id));syOpen=null;syDel=null;syGrid();syDet(false);toast('Sistema excluído','Saiu da biblioteca deste aparelho.')}});
@@ -505,7 +529,7 @@ function cocSync(){const f=$('#cocFrame'),d=f.contentDocument&&f.contentDocument
 function cocIdx(){try{const x=JSON.parse(localStorage.getItem('coc-idx-v1'));if(x&&Array.isArray(x.list))return x}catch(e){}
   /* investigador salvo antes da lista existir: vira o primeiro item */
   try{const raw=localStorage.getItem('coc-ficha-v1'),j=raw&&JSON.parse(raw);if(j&&typeof j==='object'&&(j.made||(j.who&&j.who.nome))){const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),x={v:1,cur:id,list:[{id,nome:(j.who&&j.who.nome)||'Investigador sem nome',ocup:(j.who&&j.who.ocup)||'',t:Date.now()}]};
-    localStorage.setItem('coc-slot-v1:'+id,raw);localStorage.setItem('coc-idx-v1',JSON.stringify(x));return x}}catch(e){}
+    localStorage.setItem('coc-slot-v1:'+id,raw);localStorage.setItem('coc-idx-v1',JSON.stringify(x));return x}}catch(e){Util.warn('op: gravar ficha do CoC no aparelho',e)}
   return{v:1,list:[],cur:null}}
 function cocFlush(){try{const w=$('#cocFrame').contentWindow;if(w&&typeof w.cocFlush==='function')w.cocFlush()}catch(e){}}
 /* descarrega a ficha de CoC antes de mexer no armazenamento: o salvamento de saída dela roda ainda com os dados antigos */
@@ -514,21 +538,21 @@ function cocSwitch(id){try{const x=cocIdx();
     if(id==='new'){x.cur=Date.now().toString(36)+Math.random().toString(36).slice(2,6);localStorage.removeItem('coc-ficha-v1')}
     else{const raw=localStorage.getItem('coc-slot-v1:'+id);if(!raw)return false;localStorage.setItem('coc-ficha-v1',raw);x.cur=id}
     localStorage.removeItem('coc-wiz-v1');localStorage.setItem('coc-idx-v1',JSON.stringify(x));return true}catch(e){return false}}
-function cocDelete(id,done){cocUnload(()=>{try{const x=cocIdx();x.list=x.list.filter(e=>e.id!==id);
+function cocDelete(id,done){cocUnload(()=>{try{Cloud.cocForget(id);const x=cocIdx();x.list=x.list.filter(e=>e.id!==id);
     if(x.cur===id){x.cur=null;localStorage.removeItem('coc-ficha-v1');localStorage.removeItem('coc-wiz-v1')}
-    localStorage.removeItem('coc-slot-v1:'+id);localStorage.setItem('coc-idx-v1',JSON.stringify(x))}catch(e){}
+    localStorage.removeItem('coc-slot-v1:'+id);localStorage.setItem('coc-idx-v1',JSON.stringify(x))}catch(e){Util.warn('op: remover ficha do CoC no aparelho',e)}
   if(done)done()})}
 function openCoc(id){cocUnload(()=>{const v=$('#cocView'),f=$('#cocFrame');
   if(id!=null&&!cocSwitch(id)){toast('Call of Cthulhu','Não consegui abrir esse investigador.');return}
   f.src='coc.html';v.hidden=false;document.body.style.overflow='hidden';setTimeout(()=>{try{f.contentWindow.focus()}catch(e){}},80)})}
 function closeCoc(){const v=$('#cocView');if(v.hidden)return;cocFlush();v.hidden=true;document.body.style.overflow='';openHome()}
-window.addEventListener('message',e=>{if(e.source===$('#cocFrame').contentWindow&&e.data&&e.data.coc==='back')closeCoc()});
+window.addEventListener('message',e=>{if(e.origin===location.origin&&e.source===$('#cocFrame').contentWindow&&e.data&&e.data.coc==='back')closeCoc()});
 function setScreen(m,anim){if(!SCR[m])m='sl';scrMode=m;const c=SCR[m];
   $('#scK').textContent=c[0];$('#slT').textContent=c[1];$('#scSub').textContent=c[2];
-  ['sl','sys','help','cfg'].forEach(k=>{$('#sc-'+k).hidden=k!==m});$('#slNew').hidden=m!=='sl';
+  ['sl','sys','help','shop','cfg'].forEach(k=>{$('#sc-'+k).hidden=k!==m});$('#slNew').hidden=m!=='sl';
   $$('#mSl .k-ri').forEach(b=>{const on=b.dataset.rail===m;b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   $('#slMsg').textContent='';
-  if(m==='sl')slRender();else if(m==='sys')scSysFill();else if(m==='cfg')cfgOpen();
+  if(m==='sl')slRender();else if(m==='sys')scSysFill();else if(m==='shop')shopOpen();else if(m==='cfg')cfgOpen();
   $('#mSl').scrollTop=0;
   if(anim&&!rm())$('#sc-'+m).animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'})}
 var soloCfg=false;
@@ -1167,12 +1191,12 @@ $('#bEdit').onclick=()=>{const on=!document.body.classList.contains('edit');docu
 $('#bCfg').onclick=()=>{soloCfg=true;openCfg('conta')};
 $('#cfRm').onchange=e=>{D.cfg.rm=e.target.checked;save();rmApply()};
 $('#cfClear').onclick=e=>{const b=e.currentTarget;if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para confirmar';return}
-  clearTimeout(cloudSaveT);activeCloudId=null;const cfg=D.cfg;D=fresh();D.cfg=cfg;save();renderAll();closeM('mSl');openCamp()};
+  clearTimeout(cloudSaveT);activeCloudId=null;if(D.cl)Cloud.forget('op',D.cl);const cfg=D.cfg;D=fresh();D.cfg=cfg;save();renderAll();closeM('mSl');openCamp()};
 $('#bIO').onclick=()=>{$('#ioMsg').textContent='';soloCfg=true;openCfg('abrir')};
-$('#ioExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));
+$('#ioExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(Object.assign({},D,{cl:undefined}))],{type:'application/json'}));
   a.download='ficha-ordem-paranormal.json';document.body.appendChild(a);a.click();tSet(HMB);setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);$('#ioMsg').textContent='Arquivo exportado.'};
 $('#ioImp').onclick=()=>$('#ioFile').click();
-$('#ioFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j||typeof j!=='object'||!j.attr)throw 0;if(!slPush())return;clearTimeout(cloudSaveT);activeCloudId=null;cloudConflict=false;cloudSaveLabel();const cfg0=D.cfg;D=normalize(j);D.cfg=D.cfg||cfg0;save();renderAll();closeM('mSl');toast('Ficha importada','Aberta neste aparelho.')}catch(x){$('#ioMsg').textContent='Esse arquivo não parece ser uma ficha válida.'}};r.readAsText(f);e.target.value=''};
+$('#ioFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(f.size>2e6){$('#ioMsg').textContent='O arquivo é grande demais para ser uma ficha.';e.target.value='';return}const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j||typeof j!=='object'||!j.attr)throw 0;delete j.cl;if(!slPush())return;clearTimeout(cloudSaveT);activeCloudId=null;cloudConflict=false;cloudSaveLabel();const cfg0=D.cfg;D=normalize(j);D.cfg=D.cfg||cfg0;save();renderAll();closeM('mSl');toast('Ficha importada','Aberta neste aparelho.')}catch(x){$('#ioMsg').textContent='Esse arquivo não parece ser uma ficha válida.'}};r.readAsText(f);e.target.value=''};
 
 /* ---------- PASSO A PASSO DE CRIAÇÃO (montado pelo editor de blocos) ---------- */
 let CW=null;
@@ -1482,7 +1506,7 @@ function skillRows(){
       return`<div class="spr d" data-g="p" data-i="${i}">${nm}<label class="sbase"><span>Base</span><input class="sin" data-f="b" value="${esc(p.b)}" maxlength="60" spellcheck="false" aria-label="Base de ${esc(p.n||'perícia')}"><em>${ev==null?'⚠':'= '+Math.floor(ev)}</em></label><label class="ck sck" title="A pessoa escreve uma especialidade (ex.: Lutar (Machado))"><input type="checkbox" data-f="s"${p.s?' checked':''}><span>Pede especialidade</span></label>${rm}</div>`}
     if(E.tipo==='soma')return`<div class="spr som" data-g="p" data-i="${i}">${nm}<select class="sin" data-f="aid" aria-label="Atributo de ${esc(p.n||'perícia')}">${opts(p.aid)}</select>${rm}</div>`;
     return`<div class="spr" data-g="p" data-i="${i}">${nm}<select class="sin" data-f="aid" aria-label="Atributo de ${esc(p.n||'perícia')}">${opts(p.aid)}</select><label class="ck sck" title="Só quem tem treino pode usar"><input type="checkbox" data-f="t"${p.t?' checked':''}><span>Só treinados</span></label>${rm}</div>`}).join('');
-  return rows||`<p class="smu">${E.pe.length?'Nada encontrado para essa busca.':'Nenhuma perícia ainda. Use "+ Perícia" ou preencha com as de um modelo.'}</p>`}
+  return rows||`<p class="smu sed-empty">${E.pe.length?'Nada encontrado para essa busca.':'Nenhuma perícia ainda. Use "+ Perícia" ou preencha com as de um modelo.'}</p>`}
 function secSkills(){
   const d=E.tipo==='d100';
   return head('Perícias',d?'Cada perícia tem um valor-base, que pode ser um número ou uma conta com os atributos (ex.: <b>floor(DES / 2)</b>).':E.tipo==='soma'?'Cada perícia usa um dos atributos. O bônus de cada personagem é preenchido na ficha.':'Cada perícia usa um dos atributos. Marque "só treinados" nas que exigem treino.')+
@@ -1574,7 +1598,7 @@ function itemRows(){
     const sk=names.map(n=>`<option value="${esc(n)}"${n===x.sk?' selected':''}>${esc(n)}</option>`).join('');
     const w=x.arma?`<div class="itr-w">${cell('dano','Dano',x.dano,'maxlength="24" placeholder="1d6+2"')}${E.tipo!=='pool'?'':cell('crit','Crítico',x.crit,'maxlength="12" placeholder="19/x2"')}${cell('al','Alcance',x.al,'maxlength="24"')}<label class="fl"><span>Perícia do ataque</span><select class="sin" data-f="sk"><option value="">(nenhuma)</option>${sk}</select></label></div>`:'';
     return`<div class="itr" data-g="i" data-i="${i}"><div class="itr-a"><input class="sin" data-f="n" value="${esc(x.n)}" maxlength="40" placeholder="Nome do item" aria-label="Nome do item ${i+1}"><input class="sin" data-f="g" list="itgl" value="${esc(x.g)}" maxlength="24" placeholder="Grupo" aria-label="Grupo do item ${i+1}"><input class="sin" type="number" data-f="esp" value="${esc(String(x.esp))}" step="0.5" min="0" max="99" aria-label="Espaços do item ${i+1}" title="Espaços"><button class="sib" type="button" data-act="rm" aria-label="Remover item">✕</button></div><textarea class="sin" data-f="d" rows="2" maxlength="400" placeholder="Descrição" aria-label="Descrição do item ${i+1}">${esc(x.d)}</textarea><label class="ck sck"><input type="checkbox" data-f="arma"${x.arma?' checked':''}><span>É uma arma (pode virar ataque)</span></label>${w}</div>`}).join('');
-  return rows||`<p class="smu">${E.it.length?'Nada encontrado para essa busca.':'Nenhum item ainda. Use "+ Item" ou preencha com os de um modelo.'}</p>`}
+  return rows||`<p class="smu sed-empty">${E.it.length?'Nada encontrado para essa busca.':'Nenhum item ainda. Use "+ Item" ou preencha com os de um modelo.'}</p>`}
 function secItens(){
   const groups=[...new Set(E.it.map(x=>x.g.trim()||'Itens'))].sort((a,b)=>a.localeCompare(b,'pt'));
   const gopts=['<option value="">Todos os grupos</option>'].concat(groups.map(g=>`<option value="${esc(g)}"${E.gi===g?' selected':''}>${esc(g)}</option>`)).join('');
@@ -1597,6 +1621,9 @@ function sedRender(keepScroll){
   $('#sedNav').innerHTML=SEC.map(([id,n])=>{const bad=E.iss.some(x=>x.sec===id),on=E.sec===id;
     return`<button type="button" role="tab" class="sed-tab${on?' on':''}" data-sec="${id}" aria-selected="${on}"${on?'':' tabindex="-1"'}>${sedIc(id)}<span class="sed-tn">${n}</span>${cnt[id]!=null?`<em>${cnt[id]}</em>`:''}${bad?'<i class="sed-bad" title="Tem algo para corrigir"></i>':''}</button>`}).join('');
   const m=$('#sedMain'),y=m.scrollTop;m.classList.toggle('fw',E.sec==='fluxo');E.rend=1;m.innerHTML=SECF[E.sec]();E.rend=0;m.scrollTop=keepScroll?y:0;
+  if(E.sec!=='fluxo'){const ids=SEC.map(s=>s[0]),i=ids.indexOf(E.sec),pv=SEC[i-1],nx=SEC[i+1];
+    m.insertAdjacentHTML('beforeend','<div class="sed-pn"><button class="btn" type="button" data-pn="-1"'+(pv?'':' disabled')+'>← '+(pv?esc(pv[1]):'Início')+'</button><span>'+(i+1)+' de '+ids.length+'</span><button class="btn pri" type="button" data-pn="1"'+(nx?'':' disabled')+'>'+(nx?esc(nx[1]):'Fim')+' →</button></div>')}
+  const ton=$('#sedNav .sed-tab.on');if(ton&&ton.scrollIntoView)try{ton.scrollIntoView({block:'nearest',inline:'center',behavior:'auto'})}catch(e){}
   sedStatus()}
 function sedStatus(){
   $('#sedName').textContent=E.nome.trim()||'Sem nome';$('#sedDirty').hidden=!sedDirty();
@@ -1756,7 +1783,8 @@ $('#sedNav').addEventListener('click',e=>{const b=e.target.closest('[data-sec]')
 $('#sedNav').addEventListener('keydown',e=>{if(!E)return;const ids=SEC.map(s=>s[0]),i=ids.indexOf(E.sec);let n=-1;
   if(e.key==='ArrowDown'||e.key==='ArrowRight')n=(i+1)%ids.length;else if(e.key==='ArrowUp'||e.key==='ArrowLeft')n=(i+ids.length-1)%ids.length;else if(e.key==='Home')n=0;else if(e.key==='End')n=ids.length-1;
   if(n<0)return;e.preventDefault();E.sec=ids[n];sedRender();const b=$('#sedNav [data-sec='+ids[n]+']');if(b)b.focus()});
-$('#sedMain').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b&&!b.disabled&&E)sedAct(b)});
+$('#sedMain').addEventListener('click',e=>{const pn=e.target.closest('[data-pn]');if(pn&&E&&!pn.disabled){const ids=SEC.map(s=>s[0]),n=ids.indexOf(E.sec)+(+pn.dataset.pn);if(ids[n]){E.sec=ids[n];sedRender()}return}
+  const b=e.target.closest('[data-act]');if(b&&!b.disabled&&E)sedAct(b)});
 $('#sedMain').addEventListener('input',e=>{if(E)sedEdit(e)});$('#sedMain').addEventListener('change',e=>{if(E)sedEdit(e)});
 $('#sedMain').addEventListener('focusin',e=>{const t=e.target;if(E&&t&&t.dataset&&t.dataset.fx){if(!t.id)t.id='fx'+Date.now().toString(36)+Math.floor(Math.random()*999);E.focus=t.id}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!E||CW)return;e.preventDefault();if(!$('#sedAsk').hidden)$('#sedAsk').hidden=true;else sedBack()});
@@ -2007,21 +2035,68 @@ $('#sedMain').addEventListener('focusin',e=>{if(E&&E.sec==='fluxo'&&e.target.clo
 $('#sedMain').addEventListener('change',e=>{if(!E||E.sec!=='fluxo'||!E.fpre)return;if(!e.target.closest('.bk,.bks'))return;const now=JSON.stringify(E.fl);
   if(now!==E.fpre){E.fh.push(E.fpre);E.fr=[];E.fpre=now;const u=$('[data-act=fundo]');if(u)u.disabled=false}});
 /* ---------- Supabase: conta e fichas na nuvem ---------- */
-function cloudSaveLabel(){$('#cloudSave').textContent=activeCloudId?'Salvar alterações da ficha selecionada':'Salvar na nuvem'}
+function cloudSaveLabel(){$('#cloudSave').textContent=(D.cl&&D.cl.id)?'Salvar alterações da ficha selecionada':'Salvar na nuvem'}
+/* adaptador da sincronização automática: ficha aberta (D) + fichas guardadas neste aparelho */
+const opAd=()=>{
+  const slEntry=x=>{
+    const read=()=>{try{return JSON.parse(localStorage.getItem(SLK+x.id))}catch(e){return null}},write=j=>{try{localStorage.setItem(SLK+x.id,JSON.stringify(j));return true}catch(e){return false}};
+    return{key:x.id,live:false,
+      get link(){const j=read();return j&&j.cl||null},
+      setLink(l){const j=read();if(!j)return;if(l)j.cl=l;else delete j.cl;write(j)},
+      get(){return read()},
+      set(sheet){const j=read(),n=Object.assign({},sheet);if(j&&j.cl)n.cl=j.cl;write(n)},
+      remove(){const ix=slIdx();ix.list=ix.list.filter(y=>y.id!==x.id);slSave(ix);try{localStorage.removeItem(SLK+x.id)}catch(e){Util.warn('op: excluir ficha local',e)}}}};
+  const live={key:'live',live:true,
+    get link(){return D.cl||null},
+    setLink(l){if(l)D.cl=l;else delete D.cl;writeNow()},
+    get(){return D},
+    set(sheet){clearTimeout(saveT);const cfg=D.cfg,cl=D.cl;cloudApplying=true;D=normalize(sheet);D.created=true;D.camp=D.camp||'op';D.cfg=cfg;if(cl)D.cl=cl;writeNow();cloudApplying=false;renderAll()},
+    remove(){}};
+  return{campaign:'op',userId:cloudUser.id,defaultName:'Agente sem nome',
+    valid:s=>!!s&&typeof s==='object'&&!!s.attr,
+    nameOf:s=>String(s.pers||s.jog||'').trim(),
+    mark(s,suf){s.pers=String((s.pers||s.jog||'Agente sem nome')+suf).slice(0,60);return s},
+    items(){const out=[];if(D.created)out.push(live);slIdx().list.forEach(x=>out.push(slEntry(x)));return out},
+    liveEntry(){return D.created?live:null},
+    create(sheet,link){
+      const id='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+      try{localStorage.setItem(SLK+id,JSON.stringify(Object.assign({},sheet,{cl:link})))}catch(e){return}
+      const ix=slIdx();ix.list.push({id,t:Date.now()});slSave(ix)}}
+};
+let autoT=0,autoRun=false;
+async function autoSync(force){
+  if(!cloudClient||!cloudUser||autoRun)return;
+  if(!force&&Date.now()-autoT<20000)return;
+  autoRun=true;Cloud.ui.pending();
+  let ch=0,created=0,conf=0,aborted=false;
+  try{
+    for(const ad of [opAd(),Cloud.cocAdapter({userId:cloudUser.id,live:null})]){
+      const st=await Cloud.syncAll(ad);if(st.aborted){aborted=true;break}
+      ch+=st.down+st.created+st.removed+st.conflict;created+=st.created;conf+=st.conflict}
+    autoT=Date.now();if(!aborted)cloudConflict=false;
+    if(aborted)Cloud.ui.fail(new Error('sincronização cancelada'));else Cloud.ui.ok();
+    if(ch){slRender();cloudSaveLabel();void loadCloudList()}
+    if(created)toast('Nuvem',created+(created===1?' personagem baixado':' personagens baixados')+' da sua conta.');
+    if(conf)toast('Nuvem','Um personagem mudou nos dois lugares. Guardei as duas versões.')}
+  catch(err){Cloud.ui.fail(err);console.error('Falha na sincronização:',err)}
+  finally{autoRun=false}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')void autoSync(false)});
+addEventListener('online',()=>void autoSync(true));
 async function loadCloudList(){
   if(!cloudClient||!cloudUser)return;
   $('#cloudMsg').textContent='Carregando fichas…';
   const {data,error}=await cloudClient.from(CLOUD_TABLE).select('id,name,updated_at').eq('campaign','op').order('updated_at',{ascending:false});
   if(error){$('#cloudMsg').textContent='Não foi possível listar as fichas: '+cloudError(error);return}
-  $('#cloudList').innerHTML=data.length?data.map(r=>`<li><span>${esc(r.name||'Agente sem nome')}<br><small>${r.updated_at?new Date(r.updated_at).toLocaleString('pt-BR'):''}</small></span><button class="btn sm" type="button" data-cloud-id="${esc(r.id)}">${r.id===activeCloudId?'Selecionada':'Carregar'}</button></li>`).join(''):'<li><span>Nenhuma ficha na nuvem ainda.</span></li>';
-  if(data.length)$('#cloudMsg').textContent=activeCloudId?'Ficha selecionada; as próximas alterações serão sincronizadas automaticamente.':'Selecione uma ficha para carregar ou salve a ficha atual como nova.';
+  $('#cloudList').innerHTML=data.length?data.map(r=>`<li><span>${esc(r.name||'Agente sem nome')}<br><small>${r.updated_at?new Date(r.updated_at).toLocaleString('pt-BR'):''}</small></span><button class="btn sm" type="button" data-cloud-id="${esc(r.id)}">${r.id===(D.cl&&D.cl.id)?'Selecionada':'Carregar'}</button></li>`).join(''):'<li><span>Nenhuma ficha na nuvem ainda.</span></li>';
+  if(data.length)$('#cloudMsg').textContent=(D.cl&&D.cl.id)?'Seus personagens sincronizam sozinhos com a conta.':'Selecione uma ficha para carregar ou salve a ficha atual como nova.';
   cloudSaveLabel()
 }
 function paintCloudSession(user){
   cloudUser=user||null;paintRailAcct();
   $('#cloudSignedOut').hidden=!!cloudUser;$('#cloudSignedIn').hidden=!cloudUser;$('#cloudProfile').hidden=!cloudUser;$('#cloudPanel').hidden=!cloudUser;
-  if(cloudUser){$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileEmail').textContent=cloudUser.email||'';void loadCloudProfile(cloudUser.id);void loadCloudList()}
-  else{profileRequestUser=null;$('#cloudAuthMsg').textContent=cloudClient?'Entre com o Google ou receba um link de acesso por e-mail (abra-o neste mesmo navegador).':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;cloudSaveLabel()}
+  if(cloudUser){$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileEmail').textContent=cloudUser.email||'';void loadCloudProfile(cloudUser.id);void loadCloudList();void autoSync(false)}
+  else{profileRequestUser=null;$('#cloudAuthMsg').textContent=cloudClient?'Entre com sua conta Google para guardar e sincronizar suas fichas.':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;cloudSaveLabel()}
 }
 let cloudProfileAvatarPath=null,profileRequestUser=null;
 async function loadCloudProfile(userId){
@@ -2051,7 +2126,7 @@ async function saveCloudProfile(){
   if(!displayName){$('#cloudProfileMsg').textContent='Digite um nome para o perfil.';return}
   button.disabled=true;$('#cloudProfileMsg').textContent='Salvando perfil…';
   try{
-    const {error}=await cloudClient.from('user_profiles').upsert({user_id:userId,display_name:displayName,avatar_path:cloudProfileAvatarPath,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    const {error}=await cloudClient.from('user_profiles').upsert({user_id:userId,display_name:displayName,avatar_path:cloudProfileAvatarPath},{onConflict:'user_id'});
     if(error)throw error;
     $('#cloudAccount').textContent=displayName+' · '+(cloudUser.email||'conta Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');
     $('#cloudProfileMsg').textContent='Perfil salvo na sua conta.';
@@ -2077,7 +2152,7 @@ async function setAccountAvatar(file){
   finally{button.disabled=false}
 }
 async function initCloud(){
-  if(!cloudClient){$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='O serviço Supabase não carregou. Verifique a conexão com a internet.';return}
+  if(!cloudClient){$('#cloudGoogle').disabled=true;$('#cloudAuthMsg').textContent='O serviço Supabase não carregou. Verifique a conexão com a internet.';return}
   const authErr=Cloud.takeAuthError(),back=Cloud.takeReturnTarget();
   const {data,error}=await cloudClient.auth.getSession();
   if(error)$('#cloudAuthMsg').textContent='Erro ao verificar a sessão: '+cloudError(error);
@@ -2097,10 +2172,9 @@ async function syncCloud(manual,newCopy){
   cloudSyncBusy=true;
   if(manual)$('#cloudMsg').textContent='Salvando…';
   try{
-    const payload={campaign:'op',name:(D.pers||D.jog||'Agente sem nome').trim()||'Agente sem nome',sheet:JSON.parse(JSON.stringify(D)),updated_at:new Date().toISOString()};
-    const r=await Cloud.saveSheet({client:cloudClient,table:CLOUD_TABLE,campaign:'op',userId:cloudUser.id,id:newCopy?null:activeCloudId,rev:cloudRev,force:!!(manual&&cloudConflict),payload});
-    const id=r.id,rev=r.rev;
-    activeCloudId=id;cloudRev=rev||null;cloudConflict=false;cloudSaveLabel();
+    if(!D.created){if(manual)$('#cloudMsg').textContent='Crie ou abra um agente antes de salvar na nuvem.';return}
+    await Cloud.pushLive(opAd(),{force:!!(manual&&cloudConflict),asNew:!!newCopy});
+    cloudConflict=false;cloudSaveLabel();
     Cloud.ui.ok();$('#cloudMsg').textContent='Salvo na nuvem'+(manual?' com sucesso.':' automaticamente.')+' A cópia local também foi mantida.';
     if(manual)await loadCloudList()
   }catch(err){
@@ -2112,22 +2186,11 @@ async function syncCloud(manual,newCopy){
   }
   finally{cloudSyncBusy=false;if(cloudSyncAgain){cloudSyncAgain=false;clearTimeout(cloudSaveT);Cloud.ui.pending();cloudSaveT=setTimeout(()=>syncCloud(false),350)}}
 }
-$('#cloudLogin').onclick=async()=>{
-  const email=$('#cloudEmail').value.trim();
-  if(!email||!$('#cloudEmail').checkValidity()){$('#cloudAuthMsg').textContent='Informe um endereço de e-mail válido.';return}
-  if(location.protocol==='file:'){$('#cloudAuthMsg').textContent='Para entrar, abra a ficha por um servidor local (por exemplo, Live Server) ou depois de publicá-la em HTTPS. O protocolo file:// não permite o retorno seguro do login.';return}
-  $('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='Enviando link de acesso…';
-  try{
-    const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:location.href,shouldCreateUser:true}});
-    $('#cloudAuthMsg').textContent=error?'Não foi possível enviar o link: '+cloudError(error):'Link enviado para '+email+'. Abra-o neste mesmo navegador; confira também a pasta de spam.';
-  }catch(error){$('#cloudAuthMsg').textContent='Falha ao enviar o link. Confira sua conexão e tente novamente.';console.error('Falha ao iniciar login:',error)}
-  finally{$('#cloudLogin').disabled=false}
-};
 $('#cloudGoogle').onclick=async()=>{
-  const b=$('#cloudGoogle');b.disabled=true;$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='Abrindo o login do Google…';
+  const b=$('#cloudGoogle');b.disabled=true;$('#cloudAuthMsg').textContent='Abrindo o login do Google…';
   try{await Cloud.signInGoogle()}
   catch(error){$('#cloudAuthMsg').textContent='Não foi possível entrar com o Google: '+cloudError(error);console.error('Falha no login Google:',error)}
-  finally{b.disabled=false;$('#cloudLogin').disabled=false}
+  finally{b.disabled=false}
 };
 $('#cloudProfileSave').onclick=saveCloudProfile;
 $('#cloudAvatarPick').onclick=()=>$('#cloudAvatarFile').click();
@@ -2144,7 +2207,7 @@ $('#cloudList').addEventListener('click',async e=>{
   if(error){$('#cloudMsg').textContent='Não foi possível carregar a ficha: '+cloudError(error);b.disabled=false;return}
   if(!data.sheet||typeof data.sheet!=='object'||!data.sheet.attr){$('#cloudMsg').textContent='Os dados desta ficha parecem inválidos.';b.disabled=false;return}
   if(!slPush()){b.disabled=false;$('#cloudMsg').textContent='Carregamento cancelado.';return}
-  clearTimeout(cloudSaveT);activeCloudId=data.id;cloudRev=data.updated_at||null;cloudConflict=false;cloudApplying=true;D=normalize(data.sheet);D.created=true;D.camp=D.camp||'op';save();cloudApplying=false;renderAll();
+  clearTimeout(cloudSaveT);cloudConflict=false;cloudApplying=true;{const ix=slIdx();ix.list=ix.list.filter(x=>{let j=null;try{j=JSON.parse(localStorage.getItem(SLK+x.id))}catch(e){}if(j&&j.cl&&j.cl.id===data.id){try{localStorage.removeItem(SLK+x.id)}catch(e){Util.warn('op: remover cópia local ao carregar da nuvem',e)}return false}return true});slSave(ix)}D=normalize(data.sheet);D.created=true;D.camp=D.camp||'op';D.cl={id:data.id,rev:data.updated_at,h:Cloud.hash(D),uid:cloudUser.id};writeNow();cloudApplying=false;renderAll();
   if(!$('#camp').hidden)closeCamp();$('#cloudMsg').textContent='Ficha “'+(data.name||'Agente sem nome')+'” carregada. As próximas alterações serão sincronizadas automaticamente.';cloudSaveLabel();loadCloudList()
 });
 
@@ -2173,7 +2236,7 @@ function paintAv(){const i=$('#avimg'),v=D.av,hide=()=>{i.hidden=true;i.removeAt
   if(!v){hide();return}
   if(v.startsWith('sb:')){if(!cloudClient||!cloudUser){hide();return}
     const t=++avTok;avUrl(v.slice(3)).then(u=>{if(t===avTok&&D.av===v){i.src=u;i.hidden=false}}).catch(hide)}
-  else{i.src=v;i.hidden=false}}
+  else if(safeAv(v)){i.src=v;i.hidden=false}else hide()}
 
 /* ---------- biblioteca de habilidades (classe, subclasse, elemento) ---------- */
 /* Fonte: prints do documento "Habilidades de Classe, Subclasse e Poderes Paranormais". Resumos em palavras próprias. */
@@ -2359,7 +2422,7 @@ $('#home').addEventListener('click',e=>{
   else if(a==='open')openCfg('abrir')
   else if(a==='edit')sysOpen();
   else if(a==='lib')sysOpen('geral');
-  else if(a==='cfg')openCfg('conta');else if(a==='sl'||a==='sys'||a==='help')openSl(a)});
+  else if(a==='cfg'||a==='acct')openCfg('conta');else if(a==='sl'||a==='sys'||a==='help')openSl(a)});
 document.addEventListener('keydown',e=>{
   const el=$('#home');if(el.hidden)return;
   if(e.key==='Escape'&&D.created){e.preventDefault();closeHome();return}
@@ -2375,6 +2438,149 @@ function renderAll(){
   [['d-a','a'],['d-p','p'],['d-h','h'],['d-o','o']].forEach(([id,k])=>$('#'+id).value=D.desc[k]||'');
   paintAv();buildBars();applyMoldUI();buildWheel();BARS.forEach(([k])=>paintBar(k,null));renderSkills();renderAtk();renderHab();renderRit();renderInv();dtRefresh()}
 $('.splogo').src=GH+'Logoordemparanormal_HIGH.webp';$('.logo').src=GH+'Logoordemparanormal_LOW.webp';
+/* ===== BIBLIOTECA ONLINE: publicar e abrir por link (js/share.js + supabase/shared_items.sql) =====
+   Tudo que vem do servidor é dado de terceiros: entra na tela por textContent/esc() e, ao adicionar,
+   passa por cleanMold() (sistemas) ou fica como cópia crua que o normalize() limpa ao abrir (fichas). */
+const SHN={op:'Ordem Paranormal',coc:'Call of Cthulhu',nova:'Sistema próprio'};
+const shKind=r=>(r.kind==='sistema'?'Sistema':'Personagem')+' · '+(SHN[r.campaign]||'?');
+let shPending=Share.takeFromUrl(),shF={kind:'',campaign:''};
+const shEl=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n};
+const shBtn=(txt,cls,fn)=>{const b=shEl('button','btn '+(cls||''),txt);b.type='button';b.onclick=fn;return b};
+const shClose=()=>closeM('mShare');
+async function shCopy(text,btn){
+  try{await navigator.clipboard.writeText(text)}catch(e){const t=shEl('textarea');t.value=text;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(x){}t.remove()}
+  if(btn){const o=btn.textContent;btn.textContent='Copiado!';setTimeout(()=>{if(btn.isConnected)btn.textContent=o},1600)}}
+
+/* ---- o que dá para publicar ---- */
+function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),s=noProto(j);delete s.cl;s.av='';
+  return{key,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
+function shSrcSlot(id){let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(e){}return shSrcOp(j,'op:'+id)}
+function shSrcCoc(id){let j=null;try{j=JSON.parse(localStorage.getItem('coc-slot-v1:'+id))}catch(e){}
+  if(!j||typeof j!=='object'||j.app!=='coc')return null;const s=noProto(j);s.who=Object.assign({},s.who,{av:''});
+  return{key:'coc:'+id,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
+function shSrcSys(en){const m=en&&cleanMold(en.mold);if(!m)return null;
+  return{key:'sys:'+en.id,kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:{rpgSistema:1,nome:m.nome,mold:moldObj(m)}}}
+
+/* ---- janela: publicar ---- */
+const AUTHK='rpg-share-author';
+function shOpenPublish(src){
+  if(!src){toast('Compartilhar','Não consegui ler este item.');return}
+  const had=Share.linked(src.key),b=$('#shBody'),a=$('#shAct');
+  $('#shT').textContent=had?'Atualizar publicação':'Compartilhar por link';b.textContent='';a.textContent='';
+  if(!cloudUser){
+    b.append(shEl('p',null,'Para compartilhar, entre com a sua conta Google. Quem receber o link não precisa de conta para ver e copiar.'));
+    a.append(shBtn('Entrar','pri',()=>{shClose();closeM('mSl');openCfg('conta')}),shBtn('Cancelar','',shClose));openM('mShare');return}
+  b.innerHTML='<label class="fl"><span>Nome</span><input id="shTi" maxlength="80"></label><label class="fl"><span>Descrição (opcional)</span><textarea id="shSu" maxlength="300" rows="3"></textarea></label><label class="fl"><span>Assinar como (opcional)</span><input id="shAu" maxlength="40"></label><p id="shNote"></p><p id="shErr" role="alert" class="sh-err"></p>';
+  $('#shTi').value=src.title;$('#shSu').value=src.summary||'';
+  let au='';try{au=localStorage.getItem(AUTHK)||''}catch(e){}
+  if(!au){try{au=Cloud.accountInfo(cloudUser).name||''}catch(e){}}$('#shAu').value=au.slice(0,40);
+  $('#shNote').textContent=(src.kind==='sistema'?'O sistema completo ficará acessível a quem tiver o link.':'A ficha inteira (atributos, inventário, anotações) ficará acessível a quem tiver o link. A foto não é incluída.')+(had?' Você já publicou este item: publicar de novo atualiza o mesmo link.':'');
+  const go=shBtn(had?'Atualizar':'Publicar','pri',async()=>{
+    const err=$('#shErr');err.textContent='';go.disabled=true;go.textContent='Publicando…';
+    try{const au=$('#shAu').value.trim();try{localStorage.setItem(AUTHK,au)}catch(e){}
+      const r=await Share.publish({key:src.key,kind:src.kind,campaign:src.campaign,title:$('#shTi').value,summary:$('#shSu').value,author:au,payload:src.payload});
+      shDone(r,$('#shTi').value.trim());shMineRender()}
+    catch(e){err.textContent=cloudError(e);go.disabled=false;go.textContent=had?'Atualizar':'Publicar'}});
+  a.append(go,shBtn('Cancelar','',shClose));openM('mShare');setTimeout(()=>{try{$('#shTi').focus()}catch(e){}},60)}
+function shDone(r,title){
+  const url=Share.link(r.code),b=$('#shBody'),a=$('#shAct');
+  $('#shT').textContent=r.updated?'Publicação atualizada':'Publicado!';b.textContent='';a.textContent='';
+  b.append(shEl('p',null,'Mande este link. Quem abrir vê uma prévia e escolhe se quer adicionar à própria conta.'));
+  const inp=shEl('input','in sh-link');inp.readOnly=true;inp.value=url;inp.setAttribute('aria-label','Link para compartilhar');inp.onfocus=()=>inp.select();b.append(inp);
+  b.append(shEl('p','sh-small','Versão '+r.version+'. Para apagar, vá em Biblioteca → Meus compartilhamentos.'));
+  const c=shBtn('Copiar link','pri',()=>shCopy(url,c));a.append(c);
+  if(navigator.share)a.append(shBtn('Enviar…','',()=>{navigator.share({title:title||'Ficha',url}).catch(()=>{})}));
+  a.append(shBtn('Fechar','',shClose))}
+
+/* ---- janela: abrir um link ---- */
+function shCheck(row){
+  const p=row&&row.payload;if(!p||typeof p!=='object')return null;
+  if(row.kind==='sistema'){if(p.rpgSistema!==1||!p.mold)return null;const m=cleanMold(p.mold);if(!m)return null;
+    return{m,facts:[m.atributos.length+' atributos · '+m.pericias.length+' perícias']}}
+  if(row.kind==='personagem'){const s=p.sheet;if(!s||typeof s!=='object'||Array.isArray(s))return null;
+    if(row.campaign==='coc'){if(s.app!=='coc')return null;const w=s.who||{};return{facts:[[w.nome,w.ocup].map(x=>String(x||'').trim()).filter(Boolean).join(' · ')||'Investigador sem nome']}}
+    if(!s.attr||typeof s.attr!=='object')return null;const i=slInfo(s);return{facts:[i.n+' · '+i.s]}}
+  return null}
+async function shOpenView(code){
+  const b=$('#shBody'),a=$('#shAct');$('#shT').textContent='Biblioteca online';b.textContent='';a.textContent='';
+  b.append(shEl('p',null,'Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
+  let row=null,err='';try{row=await Share.get(code)}catch(e){err=cloudError(e)}
+  b.textContent='';
+  const chk=row&&shCheck(row);
+  if(!row||!chk){b.append(shEl('p',null,err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
+  $('#shT').textContent=String(row.title).slice(0,80);
+  b.append(shEl('p','sh-meta',shKind(row)+' · versão '+row.version+(row.copies?' · '+row.copies+(row.copies===1?' cópia':' cópias'):'')));
+  if(row.author_name)b.append(shEl('p','sh-small','por '+row.author_name));
+  if(row.summary)b.append(shEl('p',null,row.summary));
+  chk.facts.forEach(f=>{if(f!==row.summary&&(row.kind==='sistema'||!row.summary))b.append(shEl('p','sh-small',f))});
+  b.append(shEl('p','sh-small',row.kind==='sistema'?'Será adicionado à sua biblioteca de sistemas, neste aparelho.':'Será adicionado como uma cópia nova, neste aparelho. Seus outros personagens não mudam.'));
+  const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
+  const add=shBtn(have?'Atualizar meu sistema':row.kind==='sistema'?'Adicionar aos meus sistemas':'Adicionar aos meus personagens','pri',()=>shAdd(row,chk));
+  const rep=shBtn('Denunciar','',()=>{
+    if(!cloudUser){toast('Denunciar','Entre com sua conta Google para denunciar.');return}
+    if(!rep.classList.contains('arm')){rep.classList.add('arm');rep.textContent='Toque de novo para denunciar';setTimeout(()=>{if(rep.isConnected){rep.classList.remove('arm');rep.textContent='Denunciar'}},4000);return}
+    rep.disabled=true;Share.report(row.id).then(()=>{rep.textContent='Denúncia enviada'}).catch(e=>{rep.disabled=false;toast('Denunciar',cloudError(e))})});
+  a.textContent='';a.append(add,rep,shBtn('Fechar','',shClose))}
+
+/* ---- adicionar à minha conta (cópia local) ---- */
+function shAdd(row,chk){
+  try{
+    if(row.kind==='sistema'){
+      const l=libRead(),i=l.findIndex(x=>x.src===row.id),old=i>=0?l[i]:null,m=chk.m;
+      const e={id:old?old.id:libId(),nome:m.nome,v:old?old.v+1:1,t:Date.now(),mold:moldObj(m),src:row.id,sver:row.version};
+      if(old)l[i]=e;else l.push(e);
+      if(!libWrite(l))throw new Error('Sem espaço no navegador para guardar o sistema.');
+      Share.registerCopy(row.id);shClose();toast(old?'Sistema atualizado':'Sistema adicionado',m.nome);if(scrMode==='sys')scSysFill();else setScreen('sys',true);return}
+    const s=noProto(row.payload.sheet);delete s.cl;
+    if(row.campaign==='coc'){
+      s.who=Object.assign({},s.who,{av:''});
+      const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),x=cocIdx();
+      localStorage.setItem('coc-slot-v1:'+id,JSON.stringify(s));
+      x.list.unshift({id,nome:cleanTxt(s.who.nome||'Investigador sem nome',60)||'Investigador sem nome',ocup:cleanTxt(s.who.ocup||'',60),t:Date.now()});
+      localStorage.setItem('coc-idx-v1',JSON.stringify(x))}
+    else{
+      s.av='';const id='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),ix=slIdx();
+      localStorage.setItem(SLK+id,JSON.stringify(s));ix.list.push({id,t:Date.now()});
+      if(!slSave(ix)){try{localStorage.removeItem(SLK+id)}catch(x){}throw new Error('Sem espaço no navegador para guardar a ficha.')}}
+    Share.registerCopy(row.id);shClose();toast('Personagem adicionado',String(row.title).slice(0,60));setScreen('sl',true)}
+  catch(e){toast('Não foi possível adicionar',cloudError(e))}}
+
+/* ---- tela Biblioteca ---- */
+function shopOpen(){shMineRender();shCatRender()}
+$('#shOpenForm').addEventListener('submit',e=>{e.preventDefault();const c=Share.parse($('#shOpenIn').value);
+  if(!c){$('#shMsg').textContent='Não reconheci esse link ou código.';return}
+  $('#shMsg').textContent='';$('#shOpenIn').value='';shOpenView(c)});
+async function shMineRender(){
+  const ul=$('#shMineList'),msg=$('#shMineMsg');ul.textContent='';
+  if(!cloudUser){msg.textContent='Entre com sua conta Google para publicar e ver o que você já compartilhou.';return}
+  msg.textContent='Carregando…';
+  let rows=[];try{rows=await Share.listMine(cloudUser.id)}catch(e){msg.textContent=cloudError(e);return}
+  msg.textContent=rows.length?'':'Você ainda não compartilhou nada. Use o botão Compartilhar em um personagem (Início) ou em um sistema (Sistemas).';
+  rows.forEach(r=>{const li=shEl('li','sh-r'),t=shEl('div','sh-t');
+    t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+' · v'+r.version+' · '+r.copies+' '+(r.copies===1?'cópia':'cópias')+(r.visibility==='public'?' · em destaque':'')+(r.status==='hidden'?' · oculto por denúncias':'')));
+    const act=shEl('div','rowb');
+    const cp=shBtn('Copiar link','sm',()=>shCopy(Share.link(r.id),cp)),vw=shBtn('Ver','sm',()=>shOpenView(r.id));
+    const del=shBtn('Despublicar','sm',()=>{
+      if(!del.classList.contains('arm')){del.classList.add('arm');del.textContent='Toque de novo';setTimeout(()=>{if(del.isConnected){del.classList.remove('arm');del.textContent='Despublicar'}},4000);return}
+      del.disabled=true;Share.remove(r.id).then(()=>{toast('Despublicado','O link deixou de funcionar.');shMineRender()}).catch(e=>{del.disabled=false;toast('Despublicar',cloudError(e))})});
+    act.append(cp,vw,del);li.append(t,act);ul.append(li)})}
+async function shCatRender(){
+  const card=$('#shCat'),ul=$('#shCatList'),f=$('#shFlt');
+  let rows=[];try{rows=await Share.listPublic(shF)}catch(e){rows=[]}
+  const anyFilter=shF.kind||shF.campaign;
+  if(!rows.length&&!anyFilter){card.hidden=true;return}
+  card.hidden=false;f.textContent='';
+  [['kind','','Tudo'],['kind','sistema','Sistemas'],['kind','personagem','Personagens'],['campaign','op','OP'],['campaign','coc','CoC'],['campaign','nova','Próprios']].forEach(([k,v,l])=>{
+    const on=k==='kind'?shF.kind===v:v&&shF.campaign===v,b=shEl('button','sh-chip',l);b.type='button';b.setAttribute('aria-pressed',String(!!on));
+    b.onclick=()=>{if(k==='kind')shF.kind=v;else shF.campaign=shF.campaign===v?'':v;shCatRender()};f.append(b)});
+  ul.textContent='';if(!rows.length)ul.append(shEl('li','sh-small','Nada com esses filtros.'));
+  rows.forEach(r=>{const li=shEl('li','sh-r'),t=shEl('div','sh-t');
+    t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+(r.author_name?' · por '+r.author_name:'')+(r.copies?' · '+r.copies+(r.copies===1?' cópia':' cópias'):'')));
+    if(r.summary)t.append(shEl('small','sh-sum',r.summary));
+    li.append(t,shBtn('Ver','sm pri',()=>shOpenView(r.id)));ul.append(li)})}
+/* link recebido (?b=código): abre a prévia assim que o menu inicial aparece */
+function shLaunch(){if(!shPending)return;const c=shPending;shPending=null;closeHome();openSl('shop');shOpenView(c)}
+
 const catalogsReady=loadGameCatalogs();buildBars();buildFilters();renderAll();initCloud();
 
 /* ---------- foco e teclado dos diálogos ---------- */
@@ -2469,7 +2675,7 @@ function kIn(el){el.classList.remove('in');void el.offsetWidth;if(!rm())el.class
 /* ---------- abertura ---------- */
 (async function(){const sp=$('#splash'),app=$('#app');let done=false;
   async function end(){if(done)return;done=true;openHome();
-    app.hidden=false;
+    app.hidden=false;shLaunch();
     if(!rm()){await sp.animate([{opacity:1,transform:'none'},{opacity:0,transform:'scale(1.04)'}],{duration:520,easing:'ease-in',fill:'forwards'}).finished}
     sp.remove();if(editableCatalogError)toast('Catálogos indisponíveis',editableCatalogError);else if(catalogNotice)toast('Modo offline',catalogNotice);if(loadIssue)showLoadIssue()}
   sp.addEventListener('click',end);
@@ -2479,15 +2685,22 @@ function kIn(el){el.classList.remove('in');void el.offsetWidth;if(!rm())el.class
   end()})();
 
 /* foto (ou inicial) da conta no fim da barra do menu */
-function paintRailAcct(){const b=$('#railAcct');if(!b)return;const img=$('#railAcctImg'),pv=$('#cloudAvatarPreview'),ltr=$('#railAcctLtr'),svg=b.querySelector('svg');
+function paintRailAcct(){const pv=$('#cloudAvatarPreview');
   const name=(($('#cloudDisplayName')||{}).value||(cloudUser&&cloudUser.email)||'').trim(),photo=!!(cloudUser&&pv&&!pv.hidden&&pv.getAttribute('src'));
-  if(photo){img.onerror=()=>{img.hidden=true;paintRailAcct()};img.src=pv.getAttribute('src');img.hidden=false}else{img.hidden=true;img.removeAttribute('src')}
-  const letter=!!(cloudUser&&name&&!photo);ltr.textContent=letter?name[0].toUpperCase():'';ltr.hidden=!letter;svg.style.display=(photo||letter)?'none':'';
-  const t=cloudUser?'Conta: '+(name||'conectado'):'Entrar na conta';b.title=t;b.setAttribute('aria-label',t)}
+  const letter=!!(cloudUser&&name&&!photo),t=cloudUser?'Conta: '+(name||'conectado'):'Entrar na conta';
+  $$('.acct-b').forEach(b=>{const img=$('.acct-i',b),ltr=$('.acct-l',b),svg=b.querySelector('svg');
+    if(photo){img.onerror=()=>{img.hidden=true;paintRailAcct()};if(img.getAttribute('src')!==pv.getAttribute('src'))img.src=pv.getAttribute('src');img.hidden=false}else{img.hidden=true;img.removeAttribute('src')}
+    ltr.textContent=letter?name[0].toUpperCase():'';ltr.hidden=!letter;svg.style.display=(photo||letter)?'none':'';
+    b.classList.toggle('on-acct',!!cloudUser);b.title=t;b.setAttribute('aria-label',t)})}
 {const dn=$('#cloudDisplayName');if(dn)dn.addEventListener('input',paintRailAcct)}
 paintRailAcct();
 
 /* configurações abertas de dentro da ficha: sem barra do menu, voltam direto para a ficha */
 $('#soloBack').onclick=()=>closeM('mSl');
+/* botão de conta sempre visível embaixo, também na ficha (nos menus ele fica na própria barra) */
+{const dock=$('#acctDock'),hm=$('#home'),sl=$('#mSl');
+  const sync=()=>{dock.hidden=!hm.hidden||!sl.hidden};
+  new MutationObserver(sync).observe(hm,{attributes:true,attributeFilter:['hidden']});new MutationObserver(sync).observe(sl,{attributes:true,attributeFilter:['hidden']});sync();
+  dock.onclick=()=>{soloCfg=true;openCfg('conta')}}
 })();
 

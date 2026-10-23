@@ -120,7 +120,7 @@ function normalize(raw){
   const f=fresh(),r=(raw&&typeof raw==='object')?raw:{};
   const rw=r.who||{};
   Object.keys(f.who).forEach(k=>{f.who[k]=str(rw[k],k==='av'?600000:60)});
-  if(!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.who.av))f.who.av='';
+  if(!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.who.av)&&!/^sb:[0-9a-f-]{36}\/[A-Za-z0-9._-]{1,80}$/.test(f.who.av))f.who.av='';
   CARS.forEach(([k])=>{const v=r.car&&r.car[k];f.car[k]=(v==null||v==='')?null:int(v,0,999)});
   Object.keys(f.cur).forEach(k=>{const v=r.cur&&r.cur[k];f.cur[k]=(v==null||v==='')?null:int(v,0,999)});
   Object.keys(f.fl).forEach(k=>{f.fl[k]=!!(r.fl&&r.fl[k])});
@@ -160,17 +160,17 @@ function load(){
 }
 const IDXK='coc-idx-v1',SLP='coc-slot-v1:';
 const idxLoad=()=>{try{const j=JSON.parse(localStorage.getItem(IDXK));if(j&&Array.isArray(j.list))return{v:1,list:j.list.filter(x=>x&&x.id),cur:typeof j.cur==='string'?j.cur:null}}catch(e){}return{v:1,list:[],cur:null}};
-const idxSave=x=>{try{localStorage.setItem(IDXK,JSON.stringify(x))}catch(e){}};
+const idxSave=x=>{try{localStorage.setItem(IDXK,JSON.stringify(x))}catch(e){Util.warn('coc: índice de fichas',e)}};
 const newCocId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 (function(){const x=idxLoad();if(!x.cur){x.cur=newCocId();idxSave(x)}})();
-function slotSync(){const x=idxLoad();if(!x.cur)return;try{localStorage.setItem(SLP+x.cur,JSON.stringify(D))}catch(e){}
+function slotSync(){const x=idxLoad();if(!x.cur)return;try{localStorage.setItem(SLP+x.cur,JSON.stringify(D))}catch(e){Util.warn('coc: gravar ficha no aparelho',e)}
   const listed=D.made||D.who.nome,i=x.list.findIndex(e=>e.id===x.cur);
   if(listed){const e={id:x.cur,nome:D.who.nome||'Investigador sem nome',ocup:D.who.ocup||'',t:Date.now()};if(i>=0)x.list[i]=e;else x.list.unshift(e)}else if(i>=0)x.list.splice(i,1);
   idxSave(x)}
 let D=load(),saveT=null,warnedSave=false;
-try{slotSync()}catch(e){}
-function save(){clearTimeout(saveT);saveT=setTimeout(flush,250);if(cloudUser&&activeCloudId){clearTimeout(cloudSaveT);Cloud.ui.pending();cloudSaveT=setTimeout(()=>syncCocCloud(false,false),1200)}}
-function flush(){flushCore();try{slotSync()}catch(e){}}
+try{slotSync()}catch(e){Util.warn('coc: sincronizar ficha local',e)}
+function save(){clearTimeout(saveT);saveT=setTimeout(flush,250);if(cloudUser&&(D.made||D.who.nome)){clearTimeout(cloudSaveT);Cloud.ui.pending();cloudSaveT=setTimeout(()=>syncCocCloud(false,false),1200)}}
+function flush(){flushCore();try{slotSync()}catch(e){Util.warn('coc: sincronizar ficha local',e)}}
 function flushCore(){
   clearTimeout(saveT);saveT=null;
   try{localStorage.setItem(KEY,JSON.stringify(D))}
@@ -786,9 +786,40 @@ WHO.forEach(([id,k])=>{
     if(k==='idade')paintCombat();
   });
 });
+/* retrato: logado, o arquivo vai para o bucket privado account-avatars (D.who.av = 'sb:<caminho>', igual à OP);
+   sem login (ou se o envio falhar) continua como imagem dentro da ficha, e é movido para o bucket no próximo sincronismo. */
+const avCache=new Map();let avTok=0;
+async function avUrl(path){const c=avCache.get(path);if(c&&c.exp>Date.now())return c.url;const {data,error}=await cloudClient.storage.from('account-avatars').createSignedUrl(path,3600);if(error)throw error;avCache.set(path,{url:data.signedUrl,exp:Date.now()+3300000});return data.signedUrl}
 function paintAvatar(){
-  const im=$('#avimg');
-  if(D.who.av){im.src=D.who.av;im.hidden=false}else{im.removeAttribute('src');im.hidden=true}
+  const im=$('#avimg'),v=D.who.av,hide=()=>{im.removeAttribute('src');im.hidden=true};
+  if(!v){hide();return}
+  if(v.startsWith('sb:')){if(!cloudClient||!cloudUser){hide();return}
+    const t=++avTok;avUrl(v.slice(3)).then(u=>{if(t===avTok&&D.who.av===v){im.src=u;im.hidden=false}}).catch(hide)}
+  else{im.src=v;im.hidden=false}
+}
+function imageFileToSquareJpeg(file,size,quality){return new Promise((resolve,reject)=>{
+  const url=URL.createObjectURL(file),img=new Image();
+  img.onload=()=>{try{const side=Math.min(img.naturalWidth,img.naturalHeight),c=document.createElement('canvas');c.width=c.height=size;c.getContext('2d').drawImage(img,(img.naturalWidth-side)/2,(img.naturalHeight-side)/2,side,side,0,0,size,size);c.toBlob(b=>{URL.revokeObjectURL(url);b?resolve(b):reject(new Error('Não foi possível processar a imagem.'))},'image/jpeg',quality)}catch(e){URL.revokeObjectURL(url);reject(e)}};
+  img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('O arquivo não é uma imagem válida.'))};img.src=url})}
+const blobToDataUrl=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b)});
+/* apaga o arquivo antigo do bucket, a não ser que outra ficha deste aparelho ainda use o mesmo */
+function dropAvatar(prev){
+  if(!prev||!prev.startsWith('sb:')||!cloudClient||!cloudUser||prev.slice(3).indexOf(cloudUser.id+'/')!==0)return;
+  const ix=idxLoad();
+  for(const x of ix.list){if(x.id===ix.cur)continue;try{const j=JSON.parse(localStorage.getItem(SLP+x.id));if(j&&j.who&&j.who.av===prev)return}catch(e){}}
+  cloudClient.storage.from('account-avatars').remove([prev.slice(3)]).catch(()=>{});
+}
+async function setCocAvatar(blob){
+  const prev=D.who.av;
+  if(cloudClient&&cloudUser){
+    try{
+      const path=cloudUser.id+'/coc-'+Date.now()+'.jpg';
+      const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});
+      if(error)throw error;
+      D.who.av='sb:'+path;dropAvatar(prev);paintAvatar();save();return;
+    }catch(e){console.warn('Retrato: envio para a conta falhou, guardando na ficha.',e)}
+  }
+  D.who.av=await blobToDataUrl(blob);paintAvatar();save();
 }
 $('#avatar').onclick=()=>$('#avFile').click();
 $('#avFile').onchange=e=>{
@@ -797,8 +828,8 @@ $('#avFile').onchange=e=>{
   img.onload=()=>{
     const W=240,H=300,c=document.createElement('canvas');c.width=W;c.height=H;
     const x=c.getContext('2d'),sc=Math.max(W/img.width,H/img.height),w=img.width*sc,h=img.height*sc;
-    x.drawImage(img,(W-w)/2,(H-h)/2,w,h);
-    D.who.av=c.toDataURL('image/jpeg',.82);URL.revokeObjectURL(url);paintAvatar();save();
+    x.drawImage(img,(W-w)/2,(H-h)/2,w,h);URL.revokeObjectURL(url);
+    c.toBlob(b=>{if(!b){toast('Imagem inválida','Não consegui processar essa imagem.');return}setCocAvatar(b).catch(()=>toast('Retrato não atualizado','Tente de novo.'))},'image/jpeg',.82);
   };
   img.onerror=()=>{URL.revokeObjectURL(url);toast('Imagem inválida','Escolha um arquivo JPG, PNG ou WebP.')};
   img.src=url;
@@ -1181,7 +1212,7 @@ $('#cfClear').onclick=e=>{
   const b=e.currentTarget;
   if(clearArm){
     clearTimeout(clearArm);clearArm=null;b.classList.remove('arm');b.textContent='Apagar esta ficha';
-    {const x=idxLoad();x.list=x.list.filter(e=>e.id!==x.cur);try{localStorage.removeItem(SLP+x.cur)}catch(e){}x.cur=newCocId();idxSave(x)}clearTimeout(cloudSaveT);activeCloudId=null;D=fresh();flush();renderAll();closeM('mCfg');toast('Ficha apagada','Uma ficha em branco foi criada.');return;
+    {const x=idxLoad();Cloud.cocForget(x.cur);x.list=x.list.filter(e=>e.id!==x.cur);try{localStorage.removeItem(SLP+x.cur)}catch(e){Util.warn('coc: apagar ficha local',e)}x.cur=newCocId();idxSave(x)}clearTimeout(cloudSaveT);activeCloudId=null;D=fresh();flush();renderAll();closeM('mCfg');toast('Ficha apagada','Uma ficha em branco foi criada.');return;
   }
   b.classList.add('arm');b.textContent='Toque de novo para apagar tudo';
   clearArm=setTimeout(()=>{clearArm=null;b.classList.remove('arm');b.textContent='Apagar esta ficha'},3500);
@@ -1209,22 +1240,41 @@ $('#ioFile').onchange=async e=>{
 /* =====================================================================
    CONTA E FICHAS NA NUVEM (campanha Call of Cthulhu)
    ===================================================================== */
-function cloudSaveLabel(){$('#cloudSave').textContent=activeCloudId?'Salvar alterações desta ficha':'Salvar na nuvem'}
+const curCloudId=()=>{try{const ix=idxLoad(),m=JSON.parse(localStorage.getItem('coc-cloud-v1')||'{}');return ix.cur&&m[ix.cur]?m[ix.cur].id:null}catch(e){return null}};
+function cloudSaveLabel(){$('#cloudSave').textContent=curCloudId()?'Salvar alterações desta ficha':'Salvar na nuvem'}
+/* adaptador da sincronização: a ficha aberta (D) + os outros investigadores guardados neste aparelho */
+const cocAd=()=>Cloud.cocAdapter({userId:cloudUser.id,live:{get:()=>D,set:sh=>{clearTimeout(saveT);D=normalize(sh);flush();renderAll()},touch:()=>{flush();paintAvatar()}}});
+let autoT=0,autoRun=false;
+async function cocAutoSync(force){
+  if(!cloudClient||!cloudUser||autoRun)return;
+  if(!force&&Date.now()-autoT<20000)return;
+  autoRun=true;Cloud.ui.pending();
+  try{const st=await Cloud.syncAll(cocAd());autoT=Date.now();if(!st.aborted)cloudConflict=false;
+    if(st.aborted){Cloud.ui.fail(new Error('sincronização cancelada'));return}
+    Cloud.ui.ok();
+    if(st.down||st.created||st.removed||st.conflict){cloudSaveLabel();void loadCocCloudList()}
+    if(st.created)toast('Nuvem',st.created+(st.created===1?' investigador baixado':' investigadores baixados')+' da sua conta.');
+    if(st.conflict)toast('Nuvem','Um investigador mudou nos dois lugares. Guardei as duas versões.')}
+  catch(err){Cloud.ui.fail(err)}
+  finally{autoRun=false}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)void cocAutoSync(false)});
+addEventListener('online',()=>void cocAutoSync(true));
 async function loadCocCloudList(){
   if(!cloudClient||!cloudUser)return;
   $('#cloudMsg').textContent='Carregando fichas de Call of Cthulhu…';
   try{
     const {data,error}=await cloudClient.from(CLOUD_TABLE).select('id,name,updated_at').eq('user_id',cloudUser.id).eq('campaign','coc').order('updated_at',{ascending:false});
     if(error)throw error;
-    $('#cloudList').innerHTML=data.length?data.map(r=>'<li><span>'+esc(r.name||'Investigador sem nome')+'<br><small>'+ (r.updated_at?new Date(r.updated_at).toLocaleString('pt-BR'):'')+'</small></span><button class="btn sm" type="button" data-cloud-id="'+esc(r.id)+'">'+(r.id===activeCloudId?'Selecionada':'Carregar')+'</button></li>').join(''):'<li><span>Nenhum investigador de Call of Cthulhu na nuvem.</span></li>';
-    $('#cloudMsg').textContent=data.length?(activeCloudId?'Ficha selecionada; as alterações seguintes sincronizam automaticamente.':'Escolha uma ficha CoC ou salve esta ficha como nova.'):'Salve o investigador atual para começar a lista na nuvem.';
+    $('#cloudList').innerHTML=data.length?data.map(r=>'<li><span>'+esc(r.name||'Investigador sem nome')+'<br><small>'+ (r.updated_at?new Date(r.updated_at).toLocaleString('pt-BR'):'')+'</small></span><button class="btn sm" type="button" data-cloud-id="'+esc(r.id)+'">'+(r.id===curCloudId()?'Selecionada':'Carregar')+'</button></li>').join(''):'<li><span>Nenhum investigador de Call of Cthulhu na nuvem.</span></li>';
+    $('#cloudMsg').textContent=data.length?(curCloudId()?'Seus investigadores sincronizam sozinhos com a conta.':'Escolha uma ficha CoC ou salve esta ficha como nova.'):'Seus investigadores serão enviados para a conta automaticamente.';
     cloudSaveLabel();
   }catch(error){$('#cloudMsg').textContent='Não foi possível listar as fichas CoC: '+cloudError(error)}
 }
 function paintCocCloudSession(user){
-  cloudUser=user||null;$('#cloudSignedOut').hidden=!!cloudUser;$('#cloudSignedIn').hidden=!cloudUser;$('#cloudProfile').hidden=!cloudUser;$('#cloudPanel').hidden=!cloudUser;
-  if(!cloudUser){$('#cloudAuthMsg').textContent='Entre com o Google ou receba um link de acesso por e-mail (abra-o neste mesmo navegador).';$('#cloudAccount').textContent='';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudDisplayName').value='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;accountAvatarPath=null;activeCloudId=null;cloudSaveLabel();return}
-  $('#cloudProfileEmail').textContent=cloudUser.email||'';$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');void loadCocCloudProfile(cloudUser.id);void loadCocCloudList();
+  cloudUser=user||null;paintAvatar();$('#cloudSignedOut').hidden=!!cloudUser;$('#cloudSignedIn').hidden=!cloudUser;$('#cloudProfile').hidden=!cloudUser;$('#cloudPanel').hidden=!cloudUser;
+  if(!cloudUser){$('#cloudAuthMsg').textContent='Entre com sua conta Google para guardar e sincronizar suas fichas.';$('#cloudAccount').textContent='';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudDisplayName').value='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;accountAvatarPath=null;activeCloudId=null;cloudSaveLabel();return}
+  $('#cloudProfileEmail').textContent=cloudUser.email||'';$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');void loadCocCloudProfile(cloudUser.id);void loadCocCloudList();void cocAutoSync(false);
 }
 let accountAvatarPath=null,accountProfileRequest=null;
 async function loadCocCloudProfile(userId){
@@ -1243,7 +1293,7 @@ async function loadCocCloudProfile(userId){
 async function saveCocCloudProfile(){
   if(!cloudUser)return;const name=$('#cloudDisplayName').value.trim(),button=$('#cloudProfileSave');if(!name){$('#cloudProfileMsg').textContent='Digite um nome para o perfil.';return}
   button.disabled=true;$('#cloudProfileMsg').textContent='Salvando perfil…';
-  try{const {error}=await cloudClient.from('user_profiles').upsert({user_id:cloudUser.id,display_name:name,avatar_path:accountAvatarPath,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(error)throw error;
+  try{const {error}=await cloudClient.from('user_profiles').upsert({user_id:cloudUser.id,display_name:name,avatar_path:accountAvatarPath},{onConflict:'user_id'});if(error)throw error;
     $('#cloudAccount').textContent='Conectado como '+name+' · '+(cloudUser.email||'conta Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileMsg').textContent='Perfil salvo na sua conta.'
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível salvar o perfil: '+cloudError(error)}finally{button.disabled=false}
 }
@@ -1258,34 +1308,27 @@ async function saveCocCloudAvatar(file){
 async function syncCocCloud(manual,newCopy){
   if(!cloudClient||!cloudUser){if(manual)$('#cloudMsg').textContent='Entre na conta antes de salvar.';return}
   if(cloudSyncBusy){cloudSyncAgain=true;return}cloudSyncBusy=true;if(manual)$('#cloudMsg').textContent='Salvando investigador na nuvem…';
-  try{const payload={campaign:'coc',name:(D.who.nome||'Investigador sem nome').trim()||'Investigador sem nome',sheet:JSON.parse(JSON.stringify(D)),updated_at:new Date().toISOString()};
-    if(!manual&&cloudConflict)return;
-    const r=await Cloud.saveSheet({client:cloudClient,table:CLOUD_TABLE,campaign:'coc',userId:cloudUser.id,id:newCopy?null:activeCloudId,rev:cloudRev,force:!!(manual&&cloudConflict),payload});
-    activeCloudId=r.id;cloudRev=r.rev;cloudConflict=false;Cloud.ui.ok();$('#cloudMsg').textContent='Investigador salvo na nuvem.';if(manual)await loadCocCloudList();
+  try{if(!manual&&cloudConflict)return;
+    if(!(D.made||D.who.nome)){if(manual)$('#cloudMsg').textContent='Crie o investigador antes de salvar na nuvem.';return}
+    await Cloud.pushLive(cocAd(),{force:!!(manual&&cloudConflict),asNew:!!newCopy});
+    cloudConflict=false;Cloud.ui.ok();$('#cloudMsg').textContent='Investigador salvo na nuvem.';if(manual)await loadCocCloudList();
   }catch(error){if(error&&error.conflict){cloudConflict=true;cloudSyncAgain=false;clearTimeout(cloudSaveT);Cloud.ui.conflict();$('#cloudMsg').textContent='A ficha mudou na nuvem (outro aparelho ou aba?). Sincronização pausada. Salvar de novo sobrescreve a nuvem; "Salvar como nova ficha" mantém as duas.'}else{Cloud.ui.fail(error);$('#cloudMsg').textContent='Falha na sincronização; o salvamento local continua ativo. '+cloudError(error)}}
   finally{cloudSyncBusy=false;if(cloudSyncAgain){cloudSyncAgain=false;clearTimeout(cloudSaveT);Cloud.ui.pending();cloudSaveT=setTimeout(()=>syncCocCloud(false,false),350)}}
 }
 async function initCocCloud(){
-  if(!cloudClient){$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='O cliente Supabase não carregou.';return}
+  if(!cloudClient){$('#cloudGoogle').disabled=true;$('#cloudAuthMsg').textContent='O cliente Supabase não carregou.';return}
   const authErr=window.parent===window?Cloud.takeAuthError():'';
   try{const {data,error}=await cloudClient.auth.getSession();if(error)throw error;paintCocCloudSession(data?.session?.user||null)}catch(error){$('#cloudAuthMsg').textContent='Não foi possível verificar a sessão: '+cloudError(error)}
   if(authErr)$('#cloudAuthMsg').textContent=authErr;
   const authSub=cloudClient.auth.onAuthStateChange((event,session)=>{const next=session?.user||null;if(next?.id!==cloudUser?.id){clearTimeout(cloudSaveT);activeCloudId=null;cloudRev=null;cloudConflict=false}paintCocCloudSession(next)}).data.subscription;
   addEventListener('pagehide',()=>authSub.unsubscribe())
 }
-$('#cloudLogin').onclick=async()=>{
-  const email=$('#cloudEmail').value.trim();if(!email||!$('#cloudEmail').checkValidity()){$('#cloudAuthMsg').textContent='Informe um endereço de e-mail válido.';return}
-  if(location.protocol==='file:'){$('#cloudAuthMsg').textContent='Abra esta ficha por servidor local ou HTTPS para entrar na nuvem.';return}
-  $('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='Enviando link de acesso…';
-  try{const {error}=await cloudClient.auth.signInWithOtp({email,options:{emailRedirectTo:(window.parent!==window?window.parent.location.href:location.href),shouldCreateUser:true}});$('#cloudAuthMsg').textContent=error?'Não foi possível enviar o link: '+cloudError(error):'Link enviado. Abra-o neste mesmo navegador e confira o spam.'}
-  catch(error){$('#cloudAuthMsg').textContent='Falha ao enviar link: '+cloudError(error)}finally{$('#cloudLogin').disabled=false}
-};
 $('#cloudLogout').onclick=async()=>{const {error}=await cloudClient.auth.signOut();if(error)$('#cloudMsg').textContent='Não foi possível sair: '+cloudError(error)};
 $('#cloudGoogle').onclick=async()=>{
-  const b=$('#cloudGoogle');b.disabled=true;$('#cloudLogin').disabled=true;$('#cloudAuthMsg').textContent='Abrindo o login do Google…';
+  const b=$('#cloudGoogle');b.disabled=true;$('#cloudAuthMsg').textContent='Abrindo o login do Google…';
   try{await Cloud.signInGoogle()}
   catch(error){$('#cloudAuthMsg').textContent='Não foi possível entrar com o Google: '+cloudError(error);console.error('Falha no login Google:',error)}
-  finally{b.disabled=false;$('#cloudLogin').disabled=false}
+  finally{b.disabled=false}
 };
 $('#cloudProfileSave').onclick=saveCocCloudProfile;$('#cloudAvatarPick').onclick=()=>$('#cloudAvatarFile').click();
 $('#cloudAvatarFile').addEventListener('change',e=>{const file=e.target.files?.[0];if(file)void saveCocCloudAvatar(file);e.target.value=''});
@@ -1295,7 +1338,7 @@ $('#cloudList').addEventListener('click',async e=>{
   button.disabled=true;$('#cloudMsg').textContent='Carregando ficha…';
   try{const {data,error}=await cloudClient.from(CLOUD_TABLE).select('id,name,sheet,updated_at').eq('id',button.dataset.cloudId).eq('user_id',cloudUser.id).eq('campaign','coc').single();if(error)throw error;
     if(!data.sheet||data.sheet.app!=='coc')throw new Error('A ficha selecionada não é uma ficha CoC.');
-    clearTimeout(cloudSaveT);activeCloudId=data.id;cloudRev=data.updated_at||null;cloudConflict=false;D=normalize(data.sheet);flush();renderAll();closeM('mIO');$('#cloudMsg').textContent='Investigador carregado e vinculado à nuvem.';await loadCocCloudList();
+    clearTimeout(cloudSaveT);cloudConflict=false;D=normalize(data.sheet);flush();{const ix=idxLoad();if(ix.cur)Cloud.cocRelink(ix.cur,{id:data.id,rev:data.updated_at,h:Cloud.hash(D),uid:cloudUser.id})}renderAll();closeM('mIO');$('#cloudMsg').textContent='Investigador carregado e vinculado à nuvem.';await loadCocCloudList();
   }catch(error){$('#cloudMsg').textContent='Não foi possível carregar a ficha: '+cloudError(error);button.disabled=false}
 });
 
@@ -2819,6 +2862,39 @@ $('#itList').addEventListener('click',e=>{
   if(b.dataset.act==='add'){const it=ITEM_BY[b.dataset.k];if(it){libAdd(it);libRender()}}
 });
 
+/* ---------- biblioteca no Supabase (tabela catalog_coc_items, igual aos catálogos da OP) ----------
+   A lista embutida acima é a reserva: vale enquanto o Supabase não responde e se a tabela estiver vazia.
+   A última lista baixada fica em cache neste aparelho para abrir rápido e funcionar offline. */
+const CCAT_KEY='coc-catalog-v1';
+function applyCocCatalog(rows){
+  if(!Array.isArray(rows))return false;
+  const out=[],seen=new Set();
+  rows.forEach(r=>{
+    if(!r||typeof r.id!=='string'||!r.name||!ICATN[r.category]||!['2','m','b'].includes(r.era)||seen.has(r.id))return;
+    seen.add(r.id);
+    const it={c:r.category,e:r.era,g:r.group_name?String(r.group_name):'',n:String(r.name),p20:r.price_1920?String(r.price_1920):'',pm:r.price_modern?String(r.price_modern):'',rare:!!r.rare,id:r.id},w=r.weapon;
+    if(w&&typeof w==='object'&&w.sk){const f=k=>w[k]==null?'':String(w[k]);it.w={sk:f('sk'),d0:f('d0'),al0:f('al0'),dano:f('dano'),al:f('al'),nat:f('nat'),mun:f('mun'),mal:f('mal')}}
+    out.push(it);
+  });
+  if(out.length<20)return false;           /* tabela vazia ou quase: fica com a lista embutida */
+  ITEMS.length=0;Object.keys(ITEM_BY).forEach(k=>delete ITEM_BY[k]);
+  out.forEach(it=>{ITEMS.push(it);ITEM_BY[it.id]=it});
+  return true;
+}
+function refreshCocCatalog(){
+  try{if(!$('#mIt').hidden)libRender();if(!wz.hidden&&W)wzRender()}catch(e){}
+}
+async function loadCocCatalog(){
+  try{const c=JSON.parse(localStorage.getItem(CCAT_KEY)||'null');if(c&&applyCocCatalog(c.rows))refreshCocCatalog()}catch(e){}
+  if(!cloudClient)return;
+  try{
+    const {data,error}=await cloudClient.from('catalog_coc_items').select('id,category,era,group_name,name,price_1920,price_modern,rare,weapon').order('sort_order');
+    if(error)throw error;
+    if(applyCocCatalog(data)){try{localStorage.setItem(CCAT_KEY,JSON.stringify({v:1,t:Date.now(),rows:data}))}catch(e){}refreshCocCatalog()}
+  }catch(e){console.warn('Biblioteca do CoC: usando a lista guardada neste aparelho.',e)}
+}
+void loadCocCatalog();
+
 /* primeira vez: abre o assistente */
 if(!D.made)openWiz(false);
 
@@ -2836,4 +2912,4 @@ if(!D.made)openWiz(false);
   R.style.removeProperty('--teal');R.style.removeProperty('--brass');mark(t||'');if(mt)mt.content=getComputedStyle(R).getPropertyValue('--felt').trim()||'#0a1411'}
  g.addEventListener('click',function(e){var b=e.target.closest('[data-tema]');if(b)set(b.dataset.tema)});mark(R.dataset.theme||'')})();
 
-document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-back]');if(a){e.preventDefault();parent.postMessage({coc:'back'},'*')}});
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('[data-back]');if(a){e.preventDefault();parent.postMessage({coc:'back'},location.origin)}});

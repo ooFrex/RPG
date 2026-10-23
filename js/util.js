@@ -8,5 +8,8 @@ window.Util = (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = n => (n >= 0 ? '+' : '−') + Math.abs(n);
   const cloudError = err => err && err.message ? err.message : 'Erro de conexão. Confira a internet e a configuração do Supabase.';
-  return { $, $$, wait, rnd, clamp, esc, fmt, cloudError };
+  /* registra falha que antes era engolida em catch{} (gravar/sincronizar/excluir). No máx. 1 aviso por contexto a cada 30 s. */
+  const _w = {};
+  const warn = (ctx, e) => { const t = Date.now(); if (_w[ctx] && t - _w[ctx] < 30000) return; _w[ctx] = t; try { console.warn('[' + ctx + ']', e && e.message ? e.message : e); } catch (_) {} };
+  return { $, $$, wait, rnd, clamp, esc, fmt, cloudError, warn };
 })();

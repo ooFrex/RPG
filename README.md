@@ -18,7 +18,9 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
     js/cloud.js       nuvem compartilhada: 1 cliente Supabase, saveSheet() com controle de conflito, indicador de status
     js/announce.js    aviso em pop-up no menu (lê public.announcements; teste: ?anuncio=demo)
     supabase/announcements.sql  tabela dos avisos (aplicar uma vez)
-    js/util.js        utilitários comuns ($, $$, wait, rnd, clamp, esc, fmt, cloudError)
+    supabase/catalog_coc_items.sql  biblioteca de itens/armas do CoC (aplicar uma vez; 449 itens)
+    supabase/updated_at_trigger.sql  trigger que carimba updated_at no servidor (aplicar ANTES de publicar esta versão)
+    js/util.js        utilitários comuns ($, $$, wait, rnd, clamp, esc, fmt, cloudError, warn)
     js/op.js          lógica da OP
     js/coc.js         lógica do CoC
     js/dicefx.js      dados 3D com física (OP e CoC, paleta própria de cada um); carrega js/vendor/* sob demanda
@@ -29,8 +31,24 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
 ## Nuvem (js/cloud.js)
 - Um único cliente Supabase: o CoC reaproveita o da página-mãe (evita duas sessões brigando pelo mesmo token).
 - OP e CoC gravam pelo mesmo `Cloud.saveSheet` (com controle de conflito).
+- `updated_at` é carimbado pelo Postgres (trigger em `character_sheets` e `user_profiles`, ver `supabase/updated_at_trigger.sql`); o front não envia mais esse campo, só compara a versão devolvida. Sem o trigger o conflito não é detectado (o console avisa).
+- Falhas que antes eram engolidas (`catch{}`) ao gravar, sincronizar ou excluir agora vão para o console via `Util.warn(contexto, erro)` (no máx. 1 aviso por contexto a cada 30 s). `catch{}` vazio ficou só onde é inofensivo (foco, scroll, vibração, leitura de `localStorage`).
 - Indicador fixo no topo: sincronizando / salvo / falhou / conflito. Após 3 falhas seguidas a OP também mostra aviso na tela.
 - CoC agora guarda a versão (`updated_at`) da ficha aberta e pausa a sincronização se a nuvem mudou (como a OP já fazia).
+
+## Personagens na conta (login com Google)
+Quem entra na conta tem todos os personagens sincronizados sozinho, sem apertar nada:
+- Ao entrar, os personagens deste aparelho (ficha aberta + guardados, OP e CoC) sobem para a conta; os que só existem na conta descem para o aparelho.
+- Cada alteração da ficha aberta é enviada em ~1 s. Ao voltar para a aba/app ou quando a internet volta, confere o que mudou em outros aparelhos (no máx. a cada 20 s).
+- Mudou nos dois lugares: guarda as duas versões ("… (da nuvem)"), nunca sobrescreve em silêncio.
+- Excluir um personagem aqui também exclui da conta (fica na fila e vai quando houver internet); excluído em outro aparelho some aqui se não foi mexido.
+- Entrar com outra conta no mesmo aparelho pergunta antes de enviar os personagens dele para a conta nova.
+- O retrato (OP e CoC) fica no bucket privado `account-avatars`, e a ficha guarda só o caminho (`sb:<user_id>/…`). Sem login, ou se o envio falhar, o retrato fica dentro da ficha e é movido para o bucket no próximo sincronismo. A OP leva o sistema (molde) dentro da ficha.
+- Os vínculos ficam em `D.cl` (OP, dentro da ficha) e em `coc-cloud-v1` (CoC). O motor está em `js/cloud.js` (`syncAll`, `pushLive`).
+- Ainda não sincronizam: a biblioteca de sistemas personalizados da OP (`LIBK`) e as preferências de aparência.
+
+## Biblioteca do CoC no Supabase
+`js/coc.js` lê `catalog_coc_items` (leitura pública, como os catálogos da OP). Rode `supabase/catalog_coc_items.sql` uma vez. Se a tabela estiver vazia ou o Supabase falhar, usa o último download em cache (`coc-catalog-v1`) e, sem isso, a lista embutida no `coc.js`. Para corrigir/adicionar item, edite a linha na tabela (campo `weapon` só para armas).
 
 ## Supabase (conferido em 19/10/2026)
 - `character_sheets`: RLS ligado, políticas só do próprio `user_id`; coluna `campaign` ('op' | 'coc').
@@ -39,7 +57,7 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
 - Catálogos (`catalog_*`, `game_catalogs`): leitura pública, sem escrita.
 - `campaigns`: RLS ligado e sem políticas (fechada); este front não usa.
 - Todas as imagens do CoC (logo, fundo, card em Sistemas/Meus agentes e ícones) vêm do bucket `ficha-assets`; nada depende do GitHub e não há mais imagem local do CoC (só o som dos dados, `assets/dice.mp3`).
-- Falta (painel Auth): ligar "Leaked password protection" (baixo impacto, o login é por link no e-mail).
+- O login é só pelo Google (não há senha nem link por e-mail), então "Leaked password protection" não se aplica. No painel Auth, o provedor Email pode ser desativado para não deixar a porta aberta.
 
 ## Pendente
 - Os helpers específicos de cada sistema (toast, modais, edge, shake, parseF/evalF) continuam em op.js e coc.js porque o HTML e o comportamento são diferentes.
@@ -47,3 +65,20 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
 ## Dentro da ficha (OP)
 - O botão de novo agente do topo da ficha fica escondido (o menu continua criando fichas por ele, por isso o elemento existe).
 - Engrenagem e backup abrem as configurações sem a barra do menu, com "Voltar à ficha" (Esc também volta para a ficha). Pelo menu, continua como antes.
+
+## Segurança (notas)
+- Toda ficha que entra de fora (importar arquivo, código `RPG1:`, nuvem) passa por `normalize()`, que força IDs numéricos, limita textos, valida avatar e descarta `__proto__`. Não renderize dados de ficha sem passar por ele.
+- Pendente: o `supabase-js` vem do jsDelivr sem SRI. Gere o hash e coloque no `<script>` de `index.html` e `coc.html`:
+  `curl -s https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1 | openssl dgst -sha384 -binary | openssl base64 -A`
+  (use `integrity="sha384-HASH" crossorigin="anonymous"`) ou copie o arquivo para `js/vendor/`.
+- Pendente: exporte as políticas de RLS de `character_sheets`, `user_profiles` e dos buckets para `supabase/*.sql`.
+
+## Biblioteca online (compartilhar por link)
+Menu → **Biblioteca**. Personagens (OP, CoC e sistema próprio) e sistemas são publicados com o botão **Compartilhar** e abertos por `?b=código`.
+- `supabase/shared_items.sql`: tabela, RLS e funções (`get_shared`, `register_copy`, `report_shared`). Aplique **antes** de publicar o front. Pode rodar mais de uma vez; precisa do `updated_at_trigger.sql` antes.
+- `js/share.js`: acesso ao Supabase. As telas ficam no bloco "BIBLIOTECA ONLINE" do `js/op.js`.
+- Tudo publicado nasce `unlisted` (só abre com o link). O app não consegue marcar nada como `public`: quem destaca no catálogo é você, no SQL Editor (comandos no fim do `shared_items.sql`). A aba **Destaques** só aparece quando existe algo `public`.
+- 5 denúncias de contas diferentes escondem o item sozinho; você restaura no SQL.
+- Limites no servidor: 60 itens por conta, 15 publicações por hora, 400 kB por item.
+- O que chega de fora nunca é confiado: sistemas passam por `cleanMold()` e fichas por `normalize()` ao abrir.
+- O JSON/código `RPG1:` continua existindo como backup offline (Configurações e editor de sistemas).
