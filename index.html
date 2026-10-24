@@ -15,7 +15,7 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/op.css?v=9">
+<link rel="stylesheet" href="css/op.css?v=12">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Ficha RPG">
 <meta property="og:title" content="Ficha RPG — Ordem Paranormal e Call of Cthulhu"><meta property="og:description" content="Crie fichas, compartilhe personagens e sistemas e explore a Biblioteca online.">
 <meta property="og:image" content="https://oofrex.github.io/RPG/img/opw.jpg"><meta property="og:url" content="https://oofrex.github.io/RPG/"><meta name="twitter:card" content="summary_large_image">
@@ -37,12 +37,13 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 <header class="top">
   <img class="logo" alt="Ordem Paranormal">
   <div class="tools">
-    <button class="tl" id="bHome" type="button" aria-label="Menu inicial" title="Menu inicial"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
-    <button class="tl" id="bNew" type="button" hidden aria-label="Novo agente" title="Novo agente"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
-    <button class="tl" id="bDice" type="button" aria-label="Dados e histórico" title="Dados"><svg viewBox="0 0 24 24"><use href="#i-dice"/></svg></button>
-    <button class="tl" id="bEdit" type="button" aria-pressed="false" aria-label="Editar valores" title="Editar valores"><svg viewBox="0 0 24 24"><use href="#i-edit"/></svg></button>
-    <button class="tl" id="bIO" type="button" aria-label="Backup da ficha" title="Exportar ou importar"><svg viewBox="0 0 24 24"><use href="#i-swap"/></svg></button>
-    <button class="tl" id="bCfg" type="button" aria-label="Configurações" title="Configurações"><svg viewBox="0 0 18 18"><use href="#i-gear"/></svg></button>
+    <button class="tl" id="bHome" type="button" aria-label="Menu inicial"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+    <button class="tl" id="bNew" type="button" hidden aria-label="Novo agente"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+    <button class="tl" id="bDice" type="button" aria-label="Dados e histórico"><svg viewBox="0 0 24 24"><use href="#i-dice"/></svg></button>
+    <button class="tl" id="bEdit" type="button" aria-pressed="false" aria-label="Editar valores"><svg viewBox="0 0 24 24"><use href="#i-edit"/></svg></button>
+    <button class="tl" id="bIO" type="button" aria-label="Exportar ou importar ficha"><svg viewBox="0 0 24 24"><use href="#i-swap"/></svg></button>
+    <button class="tl" id="bCfg" type="button" aria-label="Configurações"><svg viewBox="0 0 18 18"><use href="#i-gear"/></svg></button>
+    <button class="tl acct-b acct-dock" id="acctDock" type="button" aria-label="Entrar na conta" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span class="acct-l" hidden></span><img class="acct-i" alt="" hidden></button>
   </div>
 </header>
 
@@ -73,8 +74,8 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
       <svg class="wsvg" viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="48.5" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".4" stroke-dasharray="1.2 1.8"/>
         <circle cx="50" cy="50" r="45.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".3"/>
-        <circle cx="50" cy="50" r="20" fill="#e9e5f2"/>
-        <text x="50" y="51.8" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="4.6" fill="#15121c" letter-spacing=".2">ATRIBUTOS</text>
+        <circle cx="50" cy="50" r="15.5" fill="#e9e5f2"/>
+        <text x="50" y="51.4" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="3.5" fill="#15121c" letter-spacing=".12">ATRIBUTOS</text>
       </svg>
     </div>
 
@@ -481,16 +482,15 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 </section>
 <input type="file" id="avFile" accept="image/*" hidden>
 
-<button class="acct-b acct-dock" id="acctDock" type="button" aria-label="Entrar na conta" title="Entrar na conta" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-user"/></svg><span class="acct-l" hidden></span><img class="acct-i" alt="" hidden></button>
-<script src="js/config.js"></script>
+<script src="js/config.js?v=12"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1"></script>
-<script src="js/cloud.js"></script>
-<script src="js/coc-names.js"></script>
-<script src="js/share.js"></script>
-<script src="js/assets.js"></script>
-<script src="js/util.js"></script>
-<script src="js/op.js?v=9"></script>
-<script src="js/announce.js"></script>
-<script src="js/dicefx.js"></script>
+<script src="js/cloud.js?v=12"></script>
+<script src="js/coc-names.js?v=12"></script>
+<script src="js/share.js?v=12"></script>
+<script src="js/assets.js?v=12"></script>
+<script src="js/util.js?v=12"></script>
+<script src="js/op.js?v=12"></script>
+<script src="js/announce.js?v=12"></script>
+<script src="js/dicefx.js?v=12"></script>
 </body>
 </html>

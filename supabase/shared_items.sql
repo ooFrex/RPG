@@ -19,7 +19,7 @@ create table if not exists public.shared_items (
   payload     jsonb not null check (jsonb_typeof(payload) = 'object' and pg_column_size(payload) <= 400000),
   thumb       text,
   version     int  not null default 1,
-  visibility  text not null default 'unlisted' check (visibility in ('unlisted', 'public')),
+  visibility  text not null default 'unlisted' check (visibility in ('private', 'unlisted', 'public')),
   status      text not null default 'ok' check (status in ('ok', 'hidden')),
   copies      int  not null default 0,
   reports     int  not null default 0,
@@ -28,6 +28,9 @@ create table if not exists public.shared_items (
 );
 -- foto pequena (miniatura JPEG gerada no app) para o marketplace
 alter table public.shared_items add column if not exists thumb text;
+-- tabelas criadas antes do modo Privado: atualiza a regra (pode rodar mais de uma vez)
+alter table public.shared_items drop constraint if exists shared_items_visibility_check;
+alter table public.shared_items add constraint shared_items_visibility_check check (visibility in ('private', 'unlisted', 'public'));
 alter table public.shared_items drop constraint if exists shared_items_thumb_check;
 alter table public.shared_items add constraint shared_items_thumb_check
   check (thumb is null or (char_length(thumb) <= 40000 and thumb ~ '^data:image/jpeg;base64,[A-Za-z0-9+/=]+$'));
@@ -60,7 +63,8 @@ create policy "shared: delete own" on public.shared_items
 
 -- privilégios por coluna: o dono escolhe visibility, mas nunca status, copies, reports nem version
 revoke all on public.shared_items from anon, authenticated;
-grant select on public.shared_items to anon, authenticated;
+-- só as colunas que a tela usa: owner_id, reports, payload e origin_key NÃO são legíveis direto (o conteúdo vem por get_shared; os meus itens, por my_items)
+grant select (id, kind, campaign, title, summary, author_name, thumb, version, copies, visibility, status, created_at, updated_at) on public.shared_items to anon, authenticated;
 grant insert (kind, campaign, title, summary, author_name, payload, thumb, visibility) on public.shared_items to authenticated;
 grant update (title, summary, author_name, payload, thumb, visibility) on public.shared_items to authenticated;
 grant delete on public.shared_items to authenticated;
@@ -81,6 +85,7 @@ begin
   if tg_op = 'INSERT' then
     new.owner_id := auth.uid();
     if new.owner_id is null then raise exception 'login obrigatório'; end if;
+    perform pg_advisory_xact_lock(hashtext(new.owner_id::text));  -- duas publicações ao mesmo tempo não furam os limites
     if (select count(*) from public.shared_items where owner_id = new.owner_id) >= 60 then
       raise exception 'limite de 60 itens publicados por conta';
     end if;
@@ -91,6 +96,7 @@ begin
       raise exception 'limite de 30 itens no marketplace por conta';
     end if;
   elsif tg_op = 'UPDATE' then
+    perform pg_advisory_xact_lock(hashtext(new.owner_id::text));
     if new.payload is distinct from old.payload then new.version := old.version + 1; end if;
     if new.visibility = 'public' and old.visibility <> 'public'
        and (select count(*) from public.shared_items where owner_id = new.owner_id and visibility = 'public') >= 30 then
@@ -117,7 +123,7 @@ set search_path = ''
 as $$
   select s.id, s.kind, s.campaign, s.title, s.summary, s.author_name, s.thumb, s.payload, s.version, s.copies, s.created_at, s.updated_at
   from public.shared_items s
-  where s.id = p_id and s.status = 'ok'
+  where s.id = p_id and s.status = 'ok' and (s.visibility <> 'private' or s.owner_id = auth.uid())
 $$;
 revoke all on function public.get_shared(text) from public;
 grant execute on function public.get_shared(text) to anon, authenticated;
@@ -149,7 +155,7 @@ $$;
 revoke all on function public.register_copy(text) from public;
 grant execute on function public.register_copy(text) to authenticated;
 
--- denúncias: 1 por conta por item; com 5 contas diferentes o item some sozinho até você revisar
+-- denúncias: 1 por conta por item; só contas com mais de 7 dias contam para esconder (5 delas escondem o item até você revisar)
 create table if not exists public.shared_reports (
   item_id text not null references public.shared_items(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -172,12 +178,40 @@ begin
   select s.id, auth.uid(), left(p_reason, 300) from public.shared_items s where s.id = p_id
   on conflict do nothing;
   if found then
-    update public.shared_items set reports = reports + 1, status = case when reports + 1 >= 5 then 'hidden' else status end where id = p_id;
+    if exists (select 1 from auth.users u where u.id = auth.uid() and u.created_at < now() - interval '7 days') then
+      update public.shared_items set reports = reports + 1, status = case when reports + 1 >= 5 then 'hidden' else status end where id = p_id;
+    end if;
   end if;
 end;
 $$;
 revoke all on function public.report_shared(text, text) from public;
 grant execute on function public.report_shared(text, text) to authenticated;
+
+-- meus itens e o vínculo de origem (a tabela não deixa ler owner_id direto)
+create or replace function public.my_items()
+returns table (id text, kind text, campaign text, title text, version int, copies int, visibility text, status text, thumb text, updated_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select s.id, s.kind, s.campaign, s.title, s.version, s.copies, s.visibility, s.status, s.thumb, s.updated_at
+  from public.shared_items s where s.owner_id = auth.uid() order by s.updated_at desc limit 100
+$$;
+revoke all on function public.my_items() from public;
+grant execute on function public.my_items() to authenticated;
+
+create or replace function public.my_origin(p_key text)
+returns text language plpgsql stable security definer set search_path = '' as $$
+declare r text;
+begin
+  select s.id into r from public.shared_items s where s.owner_id = auth.uid() and s.origin_key = p_key limit 1;
+  return r;
+end $$;
+revoke all on function public.my_origin(text) from public;
+grant execute on function public.my_origin(text) to authenticated;
+
+-- busca do marketplace: índices para o ilike '%termo%' continuar rápido quando o catálogo crescer
+create extension if not exists pg_trgm with schema extensions;
+create index if not exists shared_items_title_trgm  on public.shared_items using gin (title extensions.gin_trgm_ops);
+create index if not exists shared_items_sum_trgm    on public.shared_items using gin (summary extensions.gin_trgm_ops);
+create index if not exists shared_items_author_trgm on public.shared_items using gin (author_name extensions.gin_trgm_ops);
 
 -- ---------------------------------------------------------------------------
 -- Curadoria (só você, no SQL Editor):

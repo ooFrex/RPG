@@ -72,7 +72,10 @@ window.Cloud = (function () {
     if (!r.data || !r.data.url) throw new Error('O Supabase não devolveu o endereço de login do Google.');
     w.location.assign(r.data.url);
     /* se a página ainda existe depois de alguns segundos, a navegação foi bloqueada */
-    await new Promise((_, rej) => setTimeout(() => rej(new Error('o navegador não abriu a tela do Google. Tente de novo.')), 6000));
+    await new Promise((res, rej) => {
+      const t = setTimeout(() => rej(new Error('o navegador não abriu a tela do Google. Tente de novo.')), 20000);
+      addEventListener('pagehide', () => { clearTimeout(t); res(); }, { once: true });   // a página está saindo: não é erro
+    });
   }
 
   /* destino guardado antes do login ('coc' ou null); lido uma vez */
@@ -173,6 +176,9 @@ window.Cloud = (function () {
       const lr = await client.from(APP_CONFIG.CLOUD_TABLE).select('id,name,updated_at').eq('user_id', ad.userId).eq('campaign', ad.campaign);
       if (lr.error) throw lr.error;
       const rows = new Map(lr.data.map(r => [r.id, r])), seen = new Set();
+      /* tudo o que já está ligado a um personagem local (no instante deste snapshot) nunca é baixado de novo como "só existe na conta",
+         mesmo que o personagem seja aberto/excluído aqui enquanto a sincronização roda */
+      for (const e of ents) { const l = e.link; if (l && l.id) seen.add(l.id); }
       for (const e of ents) {
         try {
           if (ad.prepare) await ad.prepare(e);

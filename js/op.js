@@ -2,6 +2,7 @@
 (function(){
 'use strict';
 const {$,$$,wait,rnd,clamp,esc,fmt,cloudError}=Util;
+const WR=32.5; /* raio dos hexágonos de atributo (% da roda) */
 
 /* ---------- dados do sistema ---------- */
 /* ---------- MOLDE DO SISTEMA (as regras do jogo ficam aqui; o personagem fica em D) ---------- */
@@ -411,6 +412,7 @@ const slSave=ix=>{try{localStorage.setItem(SLX,JSON.stringify(ix));return true}c
 const slNoRoom=()=>confirm('Não há espaço para guardar a ficha atual neste aparelho. Continuar vai substituí-la. Exporte um backup antes se quiser guardá-la. Continuar mesmo assim?');
 function slPush(){
   slLast=null;if(!D.created)return true;
+  if(autoRun&&Date.now()-autoStart<8000){toast('Sincronizando','Aguarde um instante e tente de novo.');return false}
   const ix=slIdx(),id='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   try{localStorage.setItem(SLK+id,JSON.stringify(D))}catch(e){return slNoRoom()}
   ix.list.push({id,t:Date.now()});
@@ -418,7 +420,20 @@ function slPush(){
   slLast=id;return true}
 function slInfo(j){return{n:String(j.pers||'').trim()||'Agente sem nome',s:[j.cls,j.ori].map(x=>String(x||'').trim()).filter(Boolean).join(' · ')||'Sem classe',av:typeof j.av==='string'&&j.av.indexOf('data:image/')===0?j.av:'',sb:typeof j.av==='string'&&j.av.indexOf('sb:')===0?j.av.slice(3):''}}
 const slAv=i=>`<span class="sl-av" aria-hidden="true"${i.sb?` data-sb="${esc(i.sb)}"`:''}>${i.av?`<img alt="" src="${esc(i.av)}">`:esc(i.n.charAt(0).toUpperCase())}</span>`;
+/* fichas que apontam para a MESMA linha da nuvem são o mesmo personagem: nunca apagar a linha da nuvem se ainda sobrar uma cópia aqui,
+   e limpar sozinho as cópias idênticas (sobras de uma sincronização que rodou enquanto você trocava de ficha) */
+function slEntries(){const out=[];if(D.created)out.push({key:'__cur',j:D,live:1,t:Date.now()});
+  slIdx().list.forEach(x=>{let j=null;try{j=JSON.parse(localStorage.getItem(SLK+x.id))}catch(e){}if(j&&typeof j==='object')out.push({key:x.id,j,live:0,t:x.t})});return out}
+const slLinkUsed=(lid,exceptKey)=>!!lid&&slEntries().some(e=>e.key!==exceptKey&&e.j.cl&&e.j.cl.id===lid);
+function slDedupe(){
+  const by=new Map(),core=j=>{const c=Object.assign({},j);delete c.cfg;delete c.created;delete c.cl;return c},rm=[];
+  slEntries().forEach(e=>{const l=e.j.cl&&e.j.cl.id;if(l){if(!by.has(l))by.set(l,[]);by.get(l).push(e)}});
+  by.forEach(g=>{if(g.length<2)return;g.sort((a,b)=>(b.live-a.live)||(b.t-a.t));const kh=Cloud.hash(core(g[0].j));
+    g.slice(1).forEach(e=>{if(!e.live&&Cloud.hash(core(e.j))===kh)rm.push(e.key)})});
+  if(!rm.length)return 0;
+  const ix=slIdx();ix.list=ix.list.filter(x=>!rm.includes(x.id));slSave(ix);rm.forEach(id=>{try{localStorage.removeItem(SLK+id)}catch(e){}});return rm.length}
 function slRender(){
+  try{slDedupe()}catch(e){Util.warn('op: limpar duplicadas',e)}
   const ix=slIdx().list.slice().sort((a,b)=>b.t-a.t);let n=0,h='';
   const st=()=>` style="--i:${n++}"`;
   if(D.created){const c=slInfo(D);
@@ -447,7 +462,7 @@ $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');
   if(b.dataset.sl==='cur'){closeM('mSl');return}
   if(b.dataset.sl==='curdel'){
     if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para excluir';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='Excluir'}},4000);return}
-    if(D.cl)Cloud.forget('op',D.cl);
+    if(D.cl&&!slLinkUsed(D.cl.id,'__cur'))Cloud.forget('op',D.cl);
     clearTimeout(saveT);saveT=null;clearTimeout(cloudSaveT);activeCloudId=null;cloudConflict=false;
     const cfg=D.cfg;useMold(OP);D=fresh();D.cfg=cfg;writeNow();renderAll();cloudSaveLabel();slRender();
     $('#slMsg').textContent=cloudUser?'Ficha excluída deste aparelho e da sua conta.':'Ficha excluída deste aparelho.';return}
@@ -459,7 +474,7 @@ $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');
   if(b.dataset.sl==='cocdel'){if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para excluir';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='Excluir'}},4000);return}
     cocDelete(id,()=>{slRender();$('#slMsg').textContent='Investigador excluído deste aparelho.'});return}
   if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para excluir';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='Excluir'}},4000);return}
-  {let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(err){}if(j&&j.cl)Cloud.forget('op',j.cl)}
+  {let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(err){}if(j&&j.cl&&!slLinkUsed(j.cl.id,id))Cloud.forget('op',j.cl)}
   const ix=slIdx();ix.list=ix.list.filter(x=>x.id!==id);slSave(ix);try{localStorage.removeItem(SLK+id)}catch(err){Util.warn('op: excluir ficha local',err)}
   slRender();$('#slMsg').textContent=cloudUser?'Ficha excluída deste aparelho e da sua conta.':'Ficha excluída deste aparelho.'});
 $('#slNew').onclick=()=>{closeM('mSl');newFlow(null)};
@@ -806,7 +821,7 @@ function testSkill(i){const s=D.sk[i];if(PCT)return show(()=>pctRoll(skLabel(s),
 function buildWheel(){
   const nA=ATTRS.length,chord=nA>1?2*31*Math.sin(Math.PI/nA):62,hw=Math.min(31,Math.round(chord*86)/100),wh=$('#wheel');wh.style.setProperty('--hw',hw);wh.style.setProperty('--k',(hw/31).toFixed(3));
   $$('.hex').forEach(h=>h.remove());
-  $('#wheel').insertAdjacentHTML('beforeend',ATTRS.map(a=>{const g=wheelAng(a)*Math.PI/180,x=50+31*Math.cos(g),y=50+31*Math.sin(g);
+  $('#wheel').insertAdjacentHTML('beforeend',ATTRS.map(a=>{const g=wheelAng(a)*Math.PI/180,x=50+WR*Math.cos(g),y=50+WR*Math.sin(g);
     return`<div class="hex" role="button" tabindex="0" data-a="${a}" style="--x:${x.toFixed(2)};--y:${y.toFixed(2)}" aria-label="Testar ${ANAME[a]}"><span class="hn">${D.attr[a]}</span><input class="hin" type="number" min="0" max="${SYS.atributo.maxFicha}" value="${D.attr[a]}" aria-label="Valor de ${ANAME[a]}"><span class="hk">${ANAME[a]}</span><span class="ha">${a}</span></div>`}).join(''))}
 $('#wheel').addEventListener('click',e=>{if(document.body.classList.contains('edit'))return;const h=e.target.closest('.hex');if(h)testAttr(h.dataset.a)});
 $('#wheel').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('hex')&&!document.body.classList.contains('edit')){e.preventDefault();testAttr(e.target.dataset.a)}});
@@ -845,7 +860,7 @@ const fld=(l,f,v,extra)=>`<label class="fl"><span>${l}</span><input data-f="${f}
 function atkHTML(k){return`<li class="cc" data-id="${k.id}"><div class="g2" style="grid-template-columns:1fr 1fr 70px">${fld('Arma / ataque','n',k.n)}<label class="fl"><span>Perícia</span><select data-f="sk">${D.sk.map(s=>`<option${s.n===k.sk?' selected':''}>${esc(s.n)}</option>`).join('')}</select></label>${fld('Bônus','b',k.b,'type="number" inputmode="numeric"')}</div>
 <div class="g3">${fld('Dano','dano',k.dano,'placeholder="1d8+2"')}${fld('Crítico','crit',k.crit,'placeholder="19"')}${fld('Alcance','al',k.al)}</div>
 <div class="rowb"><button class="btn pri sm" type="button" data-act="atk">Atacar</button><button class="btn sm" type="button" data-act="dmg">Dano</button><button class="btn dng sm" type="button" data-act="rm"><svg class="ic" viewBox="0 0 11 12" aria-hidden="true"><use href="#i-trash"/></svg>Remover</button></div></li>`}
-function renderAtk(){$('#atkList').innerHTML=D.atk.map(atkHTML).join('')||'<li class="empty">Nenhum ataque. Adicione sua arma ou ataque desarmado.</li>'}
+function renderAtk(){$('#atkList').innerHTML=D.atk.map(atkHTML).join('')||'<li class="empty emp-v"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 4.5 20 4l-.5 5.5L9 20l-5-5zM4 20l3-3M13 11l-2-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Nenhum ataque ainda</b><span>Use <em>+ Ataque</em> para adicionar sua arma ou o ataque desarmado.</span></li>'}
 $('#atkAdd').onclick=()=>{D.atk.push({id:uid(),n:'',sk:(D.sk.find(s=>s.n==='Luta')||D.sk[0]||{n:''}).n,b:0,dano:'1d6',crit:'20',al:''});save();renderAtk();const l=$('#atkList').lastElementChild;if(l&&!rm())l.animate([{opacity:0,transform:'translateX(-16px)'},{opacity:1,transform:'none'}],{duration:260});if(l)$('input',l).focus()};
 bindList($('#atkList'),'atk');
 $('#atkList').addEventListener('click',e=>{const b=e.target.closest('[data-act]'),li=e.target.closest('[data-id]');if(!b||!li)return;const k=D.atk.find(x=>x.id===+li.dataset.id);
@@ -1115,10 +1130,13 @@ $('#cgMax').addEventListener('input',e=>{D.carga=e.target.value;save();cargaRefr
 const MP=['char','skills','combat','abil','rit','inv','desc'],RP=['combat','abil','rit','inv','desc'];let curM='char',curR='combat';
 function go(id,dir){curM=id;if(RP.indexOf(id)>-1)curR=id;
   $$('.pane').forEach(p=>{const n=p.id.slice(2);p.classList.toggle('m-on',n===curM);if(RP.indexOf(n)>-1)p.classList.toggle('r-on',n===curR)});
-  $$('#mtabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.p===curM));$$('#rtabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.p===curR));
+  $$('#mtabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.p===curM));$$('#rtabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.p===curR));{const rb=$('#rtabs button[data-p='+curR+']');if(rb&&rb.scrollIntoView)requestAnimationFrame(()=>rb.scrollIntoView({inline:'nearest',block:'nearest',behavior:rm()?'auto':'smooth'}))}
   const b=$('#mtabs button[data-p='+curM+']');if(b&&b.scrollIntoView)requestAnimationFrame(()=>b.scrollIntoView({inline:'center',block:'nearest',behavior:rm()?'auto':'smooth'}));
   const p=$('#p-'+id);if(p&&!rm()&&p.animate){if(dir&&mobile())p.animate([{opacity:0,transform:'translateX('+(dir*46)+'px)'},{opacity:1,transform:'none'}],{duration:320,easing:'cubic-bezier(.22,.8,.3,1)'});else p.animate([{opacity:0},{opacity:1}],{duration:140})}}
 $('#mtabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.dataset.p===curM)return;go(b.dataset.p,MP.indexOf(b.dataset.p)>MP.indexOf(curM)?1:-1)});
+/* abas da direita: aviso visual quando há mais abas escondidas à direita (telas médias) */
+{const rt=$('#rtabs'),more=()=>rt.classList.toggle('more',rt.scrollWidth-rt.clientWidth-rt.scrollLeft>4);
+  rt.addEventListener('scroll',more,{passive:true});if(window.ResizeObserver)new ResizeObserver(more).observe(rt);else addEventListener('resize',more)}
 $('#rtabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.dataset.p===curR)return;go(b.dataset.p,RP.indexOf(b.dataset.p)>RP.indexOf(curR)?1:-1)});
 const mqDesk=matchMedia('(min-width:1000px)');function mobile(){return !mqDesk.matches}
 let swp=null;
@@ -1473,9 +1491,9 @@ const sf=(label,inner,hint)=>`<label class="fl"><span>${label}</span>${inner}${h
 const inp=(bind,val,ex)=>`<input class="sin" data-bind="${bind}" value="${esc(val)}" ${ex||''}>`;
 function pvWheel(){
   const n=E.at.length,chord=n>1?2*31*Math.sin(Math.PI/n):62,hw=Math.min(31,Math.round(chord*86)/100);
-  const hex=E.at.map((a,i)=>{const g=(-90+i*360/n)*Math.PI/180,x=50+31*Math.cos(g),y=50+31*Math.sin(g);
+  const hex=E.at.map((a,i)=>{const g=(-90+i*360/n)*Math.PI/180,x=50+WR*Math.cos(g),y=50+WR*Math.sin(g);
     return`<div class="hex" style="--x:${x.toFixed(2)};--y:${y.toFixed(2)}"><span class="hn">${esc(String(E.ini))}</span><span class="hk">${esc(a.n.trim()||'sem nome')}</span><span class="ha">${esc(a.k.trim().toUpperCase()||'?')}</span></div>`}).join('');
-  return`<div class="wheel pv" style="--hw:${hw};--k:${(hw/31).toFixed(3)}"><svg class="wsvg" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48.5" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".4" stroke-dasharray="1.2 1.8"/><circle cx="50" cy="50" r="45.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".3"/><circle cx="50" cy="50" r="20" fill="#e9e5f2"/><text x="50" y="51.8" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="4.6" fill="#15121c" letter-spacing=".2">ATRIBUTOS</text></svg>${hex}</div>`}
+  return`<div class="wheel pv" style="--hw:${hw};--k:${(hw/31).toFixed(3)}"><svg class="wsvg" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48.5" fill="none" stroke="rgba(255,255,255,.18)" stroke-width=".4" stroke-dasharray="1.2 1.8"/><circle cx="50" cy="50" r="45.5" fill="none" stroke="rgba(255,255,255,.1)" stroke-width=".3"/><circle cx="50" cy="50" r="15.5" fill="#e9e5f2"/><text x="50" y="51.4" text-anchor="middle" font-family="Cinzel,serif" font-weight="700" font-size="3.5" fill="#15121c" letter-spacing=".12">ATRIBUTOS</text></svg>${hex}</div>`}
 const head=(t,d)=>`<div class="sed-h"><h2>${t}</h2><p>${d}</p></div>`;
 
 function somaPanel(){
@@ -2074,11 +2092,11 @@ const opAd=()=>{
       try{localStorage.setItem(SLK+id,JSON.stringify(Object.assign({},sheet,{cl:link})))}catch(e){return}
       const ix=slIdx();ix.list.push({id,t:Date.now()});slSave(ix)}}
 };
-let autoT=0,autoRun=false;
+let autoT=0,autoRun=false,autoStart=0;
 async function autoSync(force){
   if(!cloudClient||!cloudUser||autoRun)return;
   if(!force&&Date.now()-autoT<20000)return;
-  autoRun=true;Cloud.ui.pending();
+  autoRun=true;autoStart=Date.now();Cloud.ui.pending();
   let ch=0,created=0,conf=0,aborted=false;
   try{
     for(const ad of [opAd(),Cloud.cocAdapter({userId:cloudUser.id,live:null})]){
@@ -2153,7 +2171,7 @@ async function setAccountAvatar(file){
   const button=$('#cloudAvatarPick');button.disabled=true;$('#cloudProfileMsg').textContent='Preparando foto…';
   try{
     const blob=await imageFileToSquareJpeg(file,512,.82);
-    const path=cloudUser.id+'/avatar.jpg';
+    const path=cloudUser.id+'/profile/avatar.jpg';
     const {error:uploadError}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});
     if(uploadError)throw uploadError;
     cloudProfileAvatarPath=path;
@@ -2206,7 +2224,7 @@ async function pfSetBanner(file){
   if(!/^image\/(jpeg|png|webp)$/.test(file.type)){m.textContent='Escolha uma imagem JPG, PNG ou WebP.';return}
   if(file.size>8*1024*1024){m.textContent='A imagem deve ter menos de 8 MB.';return}
   m.textContent='Preparando banner…';
-  try{const blob=await imageFileToBannerJpeg(file,1200,400,.8),path=cloudUser.id+'/banner-'+Date.now().toString(36)+'.jpg';
+  try{const blob=await imageFileToBannerJpeg(file,1200,400,.8),path=cloudUser.id+'/profile/banner-'+Date.now().toString(36)+'.jpg';
     const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});if(error)throw error;
     const old=pf.banner;pf.banner=path;if(old&&old.startsWith(cloudUser.id+'/'))cloudClient.storage.from('account-avatars').remove([old]).catch(()=>{});
     pfPaint();await saveCloudProfile()}
@@ -2373,9 +2391,11 @@ function wzHint(){const h=[];
   if(W.step===1&&W.ori<0)h.push('Você ainda não escolheu uma origem.');
   if(W.step===2&&!W.cls)h.push('Escolha uma classe ou comece como Mundano.');
   return h.join(' ')}
-function wzStepsHTML(){return['Atributos','Origem','Classe','Toques Finais'].map((n,i)=>`<button class="wz-s${i===W.step?' on':''}" type="button" data-step="${i}"${i===W.step?' aria-current="step"':''}>${n}</button>`).join('<i class="wz-l"></i>')}
+function wzStepsHTML(){const N=['Atributos','Origem','Classe','Toques Finais'];
+  return N.map((n,i)=>`<button class="wz-s${i===W.step?' on':''}" type="button" data-step="${i}"${i===W.step?' aria-current="step"':''}>${n}</button>`).join('<i class="wz-l"></i>')
+    +`<div class="wz-cur" aria-hidden="true"><span>Etapa ${W.step+1} de ${N.length} · <b>${N[W.step]}</b></span><span class="wz-seg">${N.map((n,i)=>`<i class="${i<W.step?'done':i===W.step?'on':''}"></i>`).join('')}</span></div>`}
 function wzHexes(){
-  return OPATTRS.map(a=>{const g=wzAng(a)*Math.PI/180,x=50+31*Math.cos(g),y=50+31*Math.sin(g),v=W.attr[a],left=wzLeft();
+  return OPATTRS.map(a=>{const g=wzAng(a)*Math.PI/180,x=50+WR*Math.cos(g),y=50+WR*Math.sin(g),v=W.attr[a],left=wzLeft();
     const decDis=v<=0||(v===1&&wzZero(a)),incDis=v>=OP.atributo.criacao.max||left<=0;
     return`<div class="hex" data-a="${a}" style="--x:${x.toFixed(2)};--y:${y.toFixed(2)}"><span class="hn">${v}</span><span class="hk">${OPNAME[a]}</span><span class="ha">${a}</span><span class="ctl"><button type="button" data-act="dec" data-a="${a}" aria-label="Diminuir ${OPNAME[a]}"${decDis?' disabled':''}>−</button><button type="button" data-act="inc" data-a="${a}" aria-label="Aumentar ${OPNAME[a]}"${incDis?' disabled':''}>+</button></span></div>`}).join('')}
 function wzBody(){
@@ -2398,7 +2418,7 @@ function wzOrigHTML(o,i){const sel=W.ori===i,sk=o.s||W.amn.filter(Boolean);
 function wzClsHTML(k){const c=CLS[k],sel=W.cls===k,v=W.attr,pk=c.sk.filter(g=>g.length>1).length?`<div class="pk">${c.sk.map((g,i)=>g.length>1?`<select data-pick="${i}" aria-label="Escolha de perícia">${g.map((n,j)=>`<option value="${j}"${(W.pick[i]||0)===j?' selected':''}>${n}</option>`).join('')}</select>`:'').join('')}</div>`:'';
   return`<div class="cp${sel?' sel':''}" data-c="${k}"><h3>${k}</h3><p>${c.t}</p><p>${c.txt}</p><div class="st">PV ${c.pv+v.VIG} · PE ${c.pe+v.PRE} · SAN ${c.san}</div>${sel?pk:''}<button class="wz-btn" type="button" data-act="cls" data-c="${k}">${sel?'Escolhida ✓':'Escolher'}</button></div>`}
 function wzFoot(){const last=W.step===3;
-  return`<button class="wz-link" type="button" data-act="skip">Pular criação</button><span class="wz-hint" id="wzHint">${esc(wzHint())}</span><span style="display:flex;gap:8px">${W.step>0?'<button class="wz-btn ghost" type="button" data-act="back">Voltar</button>':'<button class="wz-btn ghost" type="button" data-act="camps">Campanhas</button>'}<button class="wz-btn${last?' ok':''}" type="button" data-act="${last?'fin':'next'}">${last?'Finalizar':'Próximo'}</button></span>`}
+  return`<button class="wz-link" type="button" data-act="skip">Pular criação</button><span class="wz-hint" id="wzHint">${esc(wzHint())}</span><span style="display:flex;gap:8px">${W.step>0?'<button class="wz-btn ghost" type="button" data-act="back">Voltar</button>':'<button class="wz-btn ghost" type="button" data-act="camps" title="Voltar para a escolha de campanha">Voltar</button>'}<button class="wz-btn${last?' ok':''}" type="button" data-act="${last?'fin':'next'}">${last?'Finalizar':'Próximo'}</button></span>`}
 function wzRender(dir){const body=$('#wzBody');
   $('#wzSteps').innerHTML=wzStepsHTML();body.innerHTML=wzBody();$('#wzFoot').innerHTML=wzFoot();wzMax=Math.max(wzMax,W.step);
   if(dir&&!rm())body.animate([{opacity:0,transform:'translateX('+(dir*30)+'px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
@@ -2408,7 +2428,7 @@ function wzGo(n,dir){if(n<0||n>3)return;const d=dir||(n>W.step?1:-1);W.step=n;wz
 async function openWiz(){
   if(editableCatalogLoading)await catalogsReady;
   if(editableCatalogError){toast('Criação indisponível',editableCatalogError);return}
-  loadImgs('wiz');W=wzNewState();wzMax=0;const w=$('#wiz');w.hidden=false;document.body.style.overflow='hidden';wzRender(0);if(!rm())w.animate([{opacity:0},{opacity:1}],{duration:250})}
+  loadImgs('wiz');W=wzNewState();wzMax=0;const w=$('#wiz');w.hidden=false;document.body.style.overflow='hidden';wzRender(0);setTimeout(()=>{const a=document.activeElement;if(!w.hidden&&a&&a.classList&&a.classList.contains('wz-s')){w.tabIndex=-1;w.focus({preventScroll:true})}},90);if(!rm())w.animate([{opacity:0},{opacity:1}],{duration:250})}
 async function closeWiz(){const w=$('#wiz');if(!rm())await w.animate([{opacity:1},{opacity:0}],{duration:220}).finished;w.hidden=true;document.body.style.overflow=''}
 function wzApply(){
   if(!slPush())return;
@@ -2426,7 +2446,7 @@ $('#wzBody').addEventListener('click',e=>{const b=e.target.closest('[data-act]')
     else if(a==='dec'){if(v>1)W.attr[k]=v-1;else if(v===1&&!wzZero(k))W.attr[k]=0}
     else return;
     const wh=$('#wzWheel');wh.querySelectorAll('.hex').forEach(h=>h.remove());wh.insertAdjacentHTML('beforeend',wzHexes());$('#wzLeft').textContent=wzLeft();$('#wzHint').textContent=wzHint();
-    const hn=$('.hex[data-a='+k+'] .hn',wh);if(!rm())hn.animate([{transform:'scale(1.6)',color:'#a64dff'},{transform:'none'}],{duration:260,easing:'cubic-bezier(.3,1.6,.5,1)'});
+    const hn=$('.hex[data-a='+k+'] .hn',wh);if(!rm())hn.animate([{transform:'scale(1.6)',color:getComputedStyle(document.documentElement).getPropertyValue('--kr').trim()||'#e60049'},{transform:'none'}],{duration:260,easing:'cubic-bezier(.3,1.6,.5,1)'});
     const nb=$('.hex[data-a='+k+'] [data-act='+a+']',wh);if(nb&&!nb.disabled)nb.focus({preventScroll:true})}
   else if(a==='ori'){W.ori=+b.dataset.i;$$('#olist .oc').forEach(li=>{const on=+li.dataset.i===W.ori;li.classList.toggle('sel',on);$('[data-act=ori]',li).textContent=on?'Escolhida ✓':'Escolher'});
     const li=$('#olist .oc[data-i="'+W.ori+'"]');const o=ORIG[W.ori];
@@ -2638,7 +2658,7 @@ const shVC=new Map();
 function shPortrait(row,v){const a=v&&v.s&&typeof v.s.av==='string'?v.s.av:'';
   if(a.length<400000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(a))return a;
   return Share.thumbOk(row.thumb)?row.thumb:''}
-const PFPATH=/^[0-9a-f-]{36}\/[\w.-]{1,80}$/i,PFACC=/^#[0-9a-fA-F]{6}$/;
+const PFPATH=/^[0-9a-f-]{36}\/profile\/[\w.-]{1,80}$/i,PFACC=/^#[0-9a-fA-F]{6}$/;
 function shAuthor(row,side){
   const box=shEl('section','sv-card sv-au');box.hidden=true;side.append(box);
   const fill=(a,items)=>{
@@ -2959,7 +2979,7 @@ function paintRailAcct(){const pv=$('#cloudAvatarPreview');
   $$('.acct-b').forEach(b=>{const img=$('.acct-i',b),ltr=$('.acct-l',b),svg=b.querySelector('svg');
     if(photo){img.onerror=()=>{img.hidden=true;paintRailAcct()};if(img.getAttribute('src')!==pv.getAttribute('src'))img.src=pv.getAttribute('src');img.hidden=false}else{img.hidden=true;img.removeAttribute('src')}
     ltr.textContent=letter?name[0].toUpperCase():'';ltr.hidden=!letter;svg.style.display=(photo||letter)?'none':'';
-    b.classList.toggle('on-acct',!!cloudUser);b.title=t;b.setAttribute('aria-label',t)})}
+    b.classList.toggle('on-acct',!!cloudUser);if(b.closest('.tools'))b.removeAttribute('title');else b.title=t;b.setAttribute('aria-label',t)})}
 {const dn=$('#cloudDisplayName');if(dn)dn.addEventListener('input',paintRailAcct)}
 paintRailAcct();
 

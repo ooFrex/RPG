@@ -614,3 +614,21 @@ html[data-theme="medo"]{--felt:#080b10;--cloth:#0e131b;--cloth2:#141b26;--teal:#
 .gbtn svg{width:18px;height:18px;flex:none}
 .gbtn:disabled{opacity:.6;cursor:wait}
 .cloud-provider{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;font-size:.68rem;font-weight:700;letter-spacing:.04em;background:rgba(255,255,255,.12)}
+
+/* ===== v12: ajustes de acabamento ===== */
+/* foco programático (título da etapa) não desenha moldura */
+[tabindex="-1"]:focus,[tabindex="-1"]:focus-visible,#wzSub:focus-visible{outline:0}
+/* campos com borda leve em volta, visíveis sobre o fundo escuro */
+.fld input,.fld select,.fld textarea{background:rgba(0,0,0,.34);border:1px solid var(--line);border-bottom-color:var(--line2);border-radius:2px;padding-left:10px;padding-right:10px}
+.fld input:hover,.fld select:hover,.fld textarea:hover{border-color:var(--line2)}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--teal);background:rgba(0,0,0,.45)}
+.bk .fld textarea{border:1px solid var(--line)}
+/* aviso de validação: discreto antes de tentar avançar, vermelho depois */
+.wz-msg.hint{color:var(--mu)}
+.wz-msg.shake{animation:wzShake .35s}
+@keyframes wzShake{20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+@media(prefers-reduced-motion:reduce){.wz-msg.shake{animation:none}}
+/* "Avançar" ainda não liberado: cinza, claramente em espera (e ainda clicável para mostrar o motivo) */
+.btn.pri.off{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.22);color:rgba(236,230,211,.55)}
+.btn.pri.off:hover{background:rgba(255,255,255,.1);border-color:var(--line2)}
+.btn:disabled{opacity:.5}

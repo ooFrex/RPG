@@ -46,7 +46,7 @@ window.Share = (function () {
       : /limite de 30/.test(m) ? 'Você já tem 30 itens no marketplace. Tire algum de lá antes.'
       : /muitas publica/.test(m) ? 'Muitas publicações seguidas. Tente de novo daqui a pouco.'
       : /login/.test(m) ? 'Entre com sua conta Google para fazer isso.'
-      : /visibility.*check|check.*visibility/i.test(m) ? 'Para usar "Privado", rode supabase/visibility_private.sql no Supabase.'
+      : /visibility.*check|check.*visibility/i.test(m) ? 'Para usar "Privado", rode supabase/shared_items.sql no Supabase.'
       : m || 'Não deu certo. Tente de novo.');
   };
 
@@ -87,11 +87,7 @@ window.Share = (function () {
   /* procura, na minha conta, o item já publicado a partir desta mesma ficha */
   async function byOrigin(c, key) {
     if (!key) return null;
-    try {
-      const u = await c.auth.getSession(), id = u.data && u.data.session && u.data.session.user.id; if (!id) return null;
-      const r = await c.from('shared_items').select('id').eq('owner_id', id).eq('origin_key', key).maybeSingle();
-      return r.error || !r.data ? null : r.data.id;
-    } catch (e) { return null; }
+    try { const r = await c.rpc('my_origin', { p_key: key }); return r.error || !r.data ? null : r.data; } catch (e) { return null; }
   }
   /* perfil do autor (só vem preenchido se ele ligou "perfil público") e outros itens dele; null = SQL ainda não rodou */
   async function author(code) {
@@ -118,7 +114,7 @@ window.Share = (function () {
       .eq('visibility', 'public').eq('status', 'ok');
     if (o.campaign) q = q.eq('campaign', o.campaign);
     if (o.kind) q = q.eq('kind', o.kind);
-    const t = String(o.q || '').replace(/[%,()*\\_]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const t = String(o.q || '').replace(/[%,()*\\_"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
     if (t) q = q.or('title.ilike.%' + t + '%,summary.ilike.%' + t + '%,author_name.ilike.%' + t + '%');
     q = o.sort === 'recent' ? q.order('created_at', { ascending: false }) : q.order('copies', { ascending: false }).order('created_at', { ascending: false });
     const r = await q.range(from, from + PAGE - 1);
@@ -126,8 +122,8 @@ window.Share = (function () {
     const rows = r.data || [];
     return { rows, more: rows.length === PAGE };
   }
-  async function listMine(userId) {
-    const r = await need().from('shared_items').select('id,kind,campaign,title,version,copies,visibility,status,thumb,updated_at').eq('owner_id', userId).order('updated_at', { ascending: false }).limit(100);
+  async function listMine() {
+    const r = await need().rpc('my_items');
     if (r.error) throw fail(r.error);
     return r.data || [];
   }

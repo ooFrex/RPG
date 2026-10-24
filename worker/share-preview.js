@@ -3,7 +3,7 @@
 // Depois de publicar, coloque o endereço do Worker em SHARE_PREVIEW_URL no js/config.js.
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export default { async fetch(req, env) {
-  const u = new URL(req.url), code = (u.searchParams.get('b') || '').toLowerCase(), app = env.APP_URL;
+  const u = new URL(req.url), code = (u.searchParams.get('b') || '').toLowerCase(), app = env.APP_URL || 'https://oofrex.github.io/RPG/';
   if (!/^[a-z0-9]{10}$/.test(code)) return Response.redirect(app, 302);
   const r = await fetch(env.SUPABASE_URL + '/rest/v1/rpc/get_shared', { method: 'POST', headers: { apikey: env.SUPABASE_KEY, Authorization: 'Bearer ' + env.SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_id: code }) });
   const it = r.ok ? (await r.json())[0] : null; if (!it) return Response.redirect(app, 302);

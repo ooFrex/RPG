@@ -1301,7 +1301,7 @@ async function saveCocCloudAvatar(file){
   if(!cloudUser||!file)return;if(!/^image\/(jpeg|png|webp)$/.test(file.type)){ $('#cloudProfileMsg').textContent='Escolha uma imagem JPG, PNG ou WebP.';return }
   if(file.size>8*1024*1024){$('#cloudProfileMsg').textContent='A imagem deve ter menos de 8 MB.';return}
   const button=$('#cloudAvatarPick');button.disabled=true;$('#cloudProfileMsg').textContent='Enviando foto…';
-  try{const blob=await imageFileToSquareJpeg(file,512,.82),path=cloudUser.id+'/avatar.jpg';const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});if(error)throw error;
+  try{const blob=await imageFileToSquareJpeg(file,512,.82),path=cloudUser.id+'/profile/avatar.jpg';const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});if(error)throw error;
     accountAvatarPath=path;const {data:signed,error:signedError}=await cloudClient.storage.from('account-avatars').createSignedUrl(path,3600);if(signedError)throw signedError;$('#cloudAvatarPreview').src=signed.signedUrl;$('#cloudAvatarPreview').hidden=false;$('#cloudAvatarFallback').hidden=true;await saveCocCloudProfile();
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível enviar a foto: '+cloudError(error)}finally{button.disabled=false}
 }
@@ -2567,10 +2567,15 @@ function check(n){
   }
   return ok();
 }
+/* Etapas em que a pessoa já tentou avançar (ou saiu do campo com valor inválido): só aí o aviso vira vermelho. */
+const wzTried=new Set();
 function wzFoot(){
   const c=check(W.step),m=$('#wzMsg');
-  m.textContent=c.msg;m.className='wz-msg'+(c.cls?' '+c.cls:'');
-  $('#wzNext').disabled=!c.ok;
+  let cls=c.cls,msg=c.msg;
+  if(cls==='bad'&&!wzTried.has(W.step)){cls='hint';if(W.step===1)msg=''}   /* antes de tentar: só orientação discreta */
+  m.textContent=msg;m.className='wz-msg'+(cls?' '+cls:'');
+  const nx=$('#wzNext');nx.classList.toggle('off',!c.ok);nx.setAttribute('aria-disabled',c.ok?'false':'true');
+  nx.removeAttribute('disabled');
   $('#wzNext').textContent=W.step===8?'Entrar na ficha':'Avançar';
   $('#wzBack').disabled=W.step===1;
   $('#wzSkip').textContent=W.replace?'Cancelar':'Pular criação';
@@ -2597,6 +2602,7 @@ function openWiz(replace){
   if(d&&!!d.replace===!!replace){W=d;toast('Rascunho retomado','Você parou na etapa '+W.step+'. Pode continuar de onde parou.')}
   else W=newW(replace);
   $$(INERT).forEach(e=>{e.inert=true});
+  wzTried.clear();
   wz.hidden=false;$('#wzBody')._step=0;wzRender();wz.scrollTop=0;
   try{$('#wzSub').tabIndex=-1;$('#wzSub').focus({preventScroll:true})}catch(e){}
 }
@@ -2610,7 +2616,12 @@ $('#wzSkip').onclick=()=>{
 };
 $('#wzBack').onclick=()=>wzGo(W.step-1);
 $('#wzNext').onclick=()=>{
-  if(!check(W.step).ok)return;
+  if(!check(W.step).ok){
+    wzTried.add(W.step);wzFoot();
+    const m=$('#wzMsg');m.classList.remove('shake');void m.offsetWidth;if(!rm())m.classList.add('shake');
+    if(W.step===1){const f=$('#wzBody [data-w1=idade]');if(f)try{f.focus({preventScroll:true})}catch(e){}}
+    return;
+  }
   if(W.step===8){applyWiz();return}
   if(W.step===3&&!W.sel.length)initSel();
   wzGo(W.step+1);
@@ -2704,6 +2715,11 @@ $('#wzBody').addEventListener('input',e=>{
   else if(t.matches('[data-weq]'))W.equip=str(t.value,1500);
   else return;
   wzFoot();saveW();
+});
+
+$('#wzBody').addEventListener('focusout',e=>{
+  const t=e.target;
+  if(t.matches&&t.matches('[data-w1=idade]')&&t.value!==''&&!wzTried.has(1)){wzTried.add(1);wzFoot()}
 });
 
 /* ---------- seletor de perícias ---------- */
