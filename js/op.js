@@ -459,14 +459,16 @@ $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');
 $('#slNew').onclick=()=>{closeM('mSl');newFlow(null)};
 $('#mSl .k-rail').addEventListener('click',e=>{const b=e.target.closest('[data-rail]');if(!b)return;const a=b.dataset.rail;
   if(a==='acct'){if(scrMode!=='cfg')setScreen('cfg',true);const t=$('#cft-conta');if(t)t.click();return}
-  if(a==='sl'||a==='sys'||a==='help'||a==='shop'||a==='cfg'){if(a!==scrMode)setScreen(a,true);return}
+  if(a==='shop'){shF.kind='';shF.campaign=''}
+  if(a==='sl'||a==='sys'||a==='help'||a==='shop'||a==='cfg'){if(a!==scrMode||a==='shop')setScreen(a,true);return}
   if(a==='new'){closeM('mSl');newFlow(null);return}
   closeM('mSl');
   openHome()});
 $('#mSl').addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(!b)return;const a=b.dataset.sc;
+  if(a==='lib'){shF.kind='sistema';shF.campaign='';shF.q='';setScreen('shop',true);return}
   closeM('mSl');
   if(a==='new')newFlow(b.dataset.sys||null);
-  else{fromMenu=true;if(a==='edit')sysOpen();else if(a==='lib')sysOpen('geral')}});
+  else{fromMenu=true;if(a==='edit'){sysBack=scrMode;sysOpen()}}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||$('#mSl').hidden||!$('#rov').hidden||document.querySelector('.modal:not([hidden])')||!$('#sysEd').hidden||!$('#cw').hidden)return;e.preventDefault();e.stopImmediatePropagation();closeM('mSl');if(!$('#mSl').classList.contains('solo'))openHome()});
 /* ===== PATCH NOTES =====
    Para registrar uma novidade, acrescente um item no começo da lista abaixo, assim:
@@ -476,7 +478,7 @@ function pnRender(){const el=$('#pnList');el.innerHTML=PATCH_NOTES.length?PATCH_
 const SCR={sl:['ARQUIVO','Meus Personagens','Fichas guardadas neste aparelho. A aberta salva sozinha; ao abrir outra, a atual fica guardada aqui.'],
   sys:['REGRAS','Sistemas','Os sistemas que você tem. Toque em um para ver como ele funciona e criar uma ficha com ele.'],
   help:['GUIA RÁPIDO','Ajuda','Como a ficha funciona, em poucas linhas.'],
-  shop:['ONLINE','Biblioteca','Sistemas e personagens compartilhados por link. Abra um link que recebeu ou veja o que você já publicou.'],
+  shop:['MARKETPLACE','Biblioteca','Fichas e sistemas publicados pela comunidade. Veja os detalhes, visualize a ficha inteira e adicione à sua biblioteca.'],
   cfg:['AJUSTES','Configurações','Conta, aparência, backup e novidades desta versão.']};
 let scrMode='sl';
 function scSysFill(){syGrid();syDet(false);syCur()}
@@ -1739,7 +1741,9 @@ function sysOpen(sec){
   const ed=$('#sysEd');ed.hidden=false;document.body.style.overflow='hidden';$('#sedAsk').hidden=true;sedRender();
   if(!rm())ed.animate([{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
   $('#sedMain').focus({preventScroll:true})}
-function sysClose(){const lib=E&&E.lib;$('#sysEd').hidden=true;document.body.style.overflow=$('#mSl').hidden?'':'hidden';E=null;if(lib&&!$('#mSl').hidden&&scrMode==='sys'){syGrid();syDet(false)}}
+let sysBack=null;
+function sysClose(){const lib=E&&E.lib,back=!lib&&sysBack;sysBack=null;$('#sysEd').hidden=true;document.body.style.overflow=$('#mSl').hidden?'':'hidden';E=null;if(lib&&!$('#mSl').hidden&&scrMode==='sys'){syGrid();syDet(false)}
+  if(back){if(back==='home')openHome();else openSl(back)}}
 function sedBack(){if(!E)return;if(sedDirty()){$('#sedAsk').hidden=false;try{$('#sedKeep').focus()}catch(x){}}else sysClose()}
 /* ---------- editor de sistema fora de uma ficha: edita a biblioteca, sem tocar em nenhuma ficha ---------- */
 function sedLabels(lib){const t=lib?'Voltar aos sistemas':'Voltar à ficha';$('#sedBack span').textContent=t;$('#sedBack').setAttribute('aria-label',t);$('#sedSave').textContent=lib?'Salvar sistema':'Salvar'}
@@ -2420,9 +2424,9 @@ $('#home').addEventListener('click',e=>{
   fromMenu=true;
   if(a==='new')newFlow(b.dataset.sys||null);
   else if(a==='open')openCfg('abrir')
-  else if(a==='edit')sysOpen();
-  else if(a==='lib')sysOpen('geral');
-  else if(a==='cfg'||a==='acct')openCfg('conta');else if(a==='sl'||a==='sys'||a==='help')openSl(a)});
+  else if(a==='edit'){sysBack='home';sysOpen()}
+  else if(a==='lib'){shF.kind='sistema';shF.campaign='';shF.q='';openSl('shop')}
+  else if(a==='cfg'||a==='acct')openCfg('conta');else if(a==='sl'||a==='sys'||a==='help'||a==='shop'){if(a==='shop'){shF.kind='';shF.campaign=''}openSl(a)}});
 document.addEventListener('keydown',e=>{
   const el=$('#home');if(el.hidden)return;
   if(e.key==='Escape'&&D.created){e.preventDefault();closeHome();return}
@@ -2438,115 +2442,247 @@ function renderAll(){
   [['d-a','a'],['d-p','p'],['d-h','h'],['d-o','o']].forEach(([id,k])=>$('#'+id).value=D.desc[k]||'');
   paintAv();buildBars();applyMoldUI();buildWheel();BARS.forEach(([k])=>paintBar(k,null));renderSkills();renderAtk();renderHab();renderRit();renderInv();dtRefresh()}
 $('.splogo').src=GH+'Logoordemparanormal_HIGH.webp';$('.logo').src=GH+'Logoordemparanormal_LOW.webp';
-/* ===== BIBLIOTECA ONLINE: publicar e abrir por link (js/share.js + supabase/shared_items.sql) =====
-   Tudo que vem do servidor é dado de terceiros: entra na tela por textContent/esc() e, ao adicionar,
-   passa por cleanMold() (sistemas) ou fica como cópia crua que o normalize() limpa ao abrir (fichas). */
+/* ===== BIBLIOTECA ONLINE: marketplace + links (js/share.js, supabase/shared_items.sql) =====
+   Tudo que vem do servidor é dado de terceiros: entra na tela por textContent, a ficha completa é montada só
+   com valores limpos (sem normalize(), que trocaria o sistema da ficha aberta) e, ao adicionar, sistemas passam
+   por cleanMold() e fichas ficam como cópia crua que o normalize() limpa ao abrir. */
 const SHN={op:'Ordem Paranormal',coc:'Call of Cthulhu',nova:'Sistema próprio'};
 const shKind=r=>(r.kind==='sistema'?'Sistema':'Personagem')+' · '+(SHN[r.campaign]||'?');
-let shPending=Share.takeFromUrl(),shF={kind:'',campaign:''};
+let shPending=Share.takeFromUrl(),shF={kind:'',campaign:'',q:'',sort:'popular'},shPage=0,shTok=0;
 const shEl=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n};
 const shBtn=(txt,cls,fn)=>{const b=shEl('button','btn '+(cls||''),txt);b.type='button';b.onclick=fn;return b};
 const shClose=()=>closeM('mShare');
+const shS=(v,n)=>nStr(v,n||200).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'');
 async function shCopy(text,btn){
   try{await navigator.clipboard.writeText(text)}catch(e){const t=shEl('textarea');t.value=text;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();try{document.execCommand('copy')}catch(x){}t.remove()}
   if(btn){const o=btn.textContent;btn.textContent='Copiado!';setTimeout(()=>{if(btn.isConnected)btn.textContent=o},1600)}}
+function shThumbEl(thumb,name,cls){
+  const w=shEl('span','sh-th'+(cls?' '+cls:''));w.setAttribute('aria-hidden','true');
+  if(Share.thumbOk(thumb)){const i=shEl('img');i.alt='';i.src=thumb;i.decoding='async';w.append(i)}else w.textContent=String(name||'?').trim().charAt(0).toUpperCase()||'?';return w}
+
+/* ---- foto: pega a imagem do avatar e faz uma miniatura quadrada de JPEG (o banco aceita até ~30 kB) ---- */
+async function shAvatarBlob(av){
+  if(typeof av!=='string'||!av)return null;
+  try{if(av.indexOf('data:image/')===0)return await (await fetch(av)).blob();
+    if(av.indexOf('sb:')===0&&cloudClient&&cloudUser)return await (await fetch(await avUrl(av.slice(3)))).blob()}catch(e){}return null}
+async function shMakeThumb(av){
+  const blob=await shAvatarBlob(av);if(!blob)return null;
+  try{const bmp=await createImageBitmap(blob),S=160,c=document.createElement('canvas');c.width=c.height=S;
+    const m=Math.min(bmp.width,bmp.height);c.getContext('2d').drawImage(bmp,(bmp.width-m)/2,(bmp.height-m)/2,m,m,0,0,S,S);
+    for(const q of [.78,.65,.5,.38]){const u=c.toDataURL('image/jpeg',q);if(u.length<=38000)return u}}catch(e){}
+  return null}
 
 /* ---- o que dá para publicar ---- */
-function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),s=noProto(j);delete s.cl;s.av='';
-  return{key,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
+function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),av=typeof j.av==='string'?j.av:'',s=noProto(j);delete s.cl;s.av='';
+  return{key,av,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
 function shSrcSlot(id){let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(e){}return shSrcOp(j,'op:'+id)}
 function shSrcCoc(id){let j=null;try{j=JSON.parse(localStorage.getItem('coc-slot-v1:'+id))}catch(e){}
-  if(!j||typeof j!=='object'||j.app!=='coc')return null;const s=noProto(j);s.who=Object.assign({},s.who,{av:''});
-  return{key:'coc:'+id,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
+  if(!j||typeof j!=='object'||j.app!=='coc')return null;const s=noProto(j),av=typeof(j.who&&j.who.av)==='string'?j.who.av:'';s.who=Object.assign({},s.who,{av:''});
+  return{key:'coc:'+id,av,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
 function shSrcSys(en){const m=en&&cleanMold(en.mold);if(!m)return null;
-  return{key:'sys:'+en.id,kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:{rpgSistema:1,nome:m.nome,mold:moldObj(m)}}}
+  return{key:'sys:'+en.id,av:'',kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:{rpgSistema:1,nome:m.nome,mold:moldObj(m)}}}
 
 /* ---- janela: publicar ---- */
 const AUTHK='rpg-share-author';
 function shOpenPublish(src){
   if(!src){toast('Compartilhar','Não consegui ler este item.');return}
   const had=Share.linked(src.key),b=$('#shBody'),a=$('#shAct');
-  $('#shT').textContent=had?'Atualizar publicação':'Compartilhar por link';b.textContent='';a.textContent='';
+  $('#shT').textContent=had?'Atualizar publicação':'Compartilhar';b.textContent='';a.textContent='';$('#mShare .mbox').classList.remove('sh-wide');
   if(!cloudUser){
-    b.append(shEl('p',null,'Para compartilhar, entre com a sua conta Google. Quem receber o link não precisa de conta para ver e copiar.'));
+    b.append(shEl('p',null,'Para compartilhar, entre com a sua conta Google. Quem receber o link, ou abrir o marketplace, não precisa de conta para ver e copiar.'));
     a.append(shBtn('Entrar','pri',()=>{shClose();closeM('mSl');openCfg('conta')}),shBtn('Cancelar','',shClose));openM('mShare');return}
-  b.innerHTML='<label class="fl"><span>Nome</span><input id="shTi" maxlength="80"></label><label class="fl"><span>Descrição (opcional)</span><textarea id="shSu" maxlength="300" rows="3"></textarea></label><label class="fl"><span>Assinar como (opcional)</span><input id="shAu" maxlength="40"></label><p id="shNote"></p><p id="shErr" role="alert" class="sh-err"></p>';
+  b.innerHTML='<label class="fl"><span>Nome</span><input id="shTi" maxlength="80"></label>'
+    +'<label class="fl"><span>Descrição (opcional)</span><textarea id="shSu" maxlength="300" rows="3"></textarea></label>'
+    +'<label class="fl"><span>Assinar como (opcional)</span><input id="shAu" maxlength="40"></label>'
+    +'<fieldset class="sh-vis"><legend>Onde publicar</legend>'
+    +'<label class="sh-opt"><input type="radio" name="shVis" value="unlisted" checked><span><b>Só por link</b><small>Só quem receber o link consegue abrir.</small></span></label>'
+    +'<label class="sh-opt"><input type="radio" name="shVis" value="public"><span><b>Marketplace</b><small>Aparece na aba Biblioteca para qualquer pessoa ver, adicionar e visualizar a ficha inteira.</small></span></label></fieldset>'
+    +'<label class="sh-opt sh-photo" id="shPhotoRow" hidden><input type="checkbox" id="shPhoto" checked><span><b>Incluir a foto</b><small>Vai uma miniatura quadrada, visível para quem abrir.</small></span></label>'
+    +'<p id="shNote"></p><p id="shErr" role="alert" class="sh-err"></p>';
   $('#shTi').value=src.title;$('#shSu').value=src.summary||'';
   let au='';try{au=localStorage.getItem(AUTHK)||''}catch(e){}
   if(!au){try{au=Cloud.accountInfo(cloudUser).name||''}catch(e){}}$('#shAu').value=au.slice(0,40);
-  $('#shNote').textContent=(src.kind==='sistema'?'O sistema completo ficará acessível a quem tiver o link.':'A ficha inteira (atributos, inventário, anotações) ficará acessível a quem tiver o link. A foto não é incluída.')+(had?' Você já publicou este item: publicar de novo atualiza o mesmo link.':'');
+  if(src.av&&(src.av.indexOf('data:image/')===0||src.av.indexOf('sb:')===0))$('#shPhotoRow').hidden=false;
+  $('#shNote').textContent=(src.kind==='sistema'?'O sistema completo ficará acessível.':'A ficha inteira (atributos, inventário, anotações) ficará acessível. Você pode tirar do marketplace ou despublicar quando quiser.')+(had?' Você já publicou este item: publicar de novo atualiza o mesmo link.':'');
+  if(had)Share.mine(had).then(r=>{if(r){const rd=$('#mShare input[name=shVis][value='+(r.visibility==='public'?'public':'unlisted')+']');if(rd)rd.checked=true}}).catch(()=>{});
   const go=shBtn(had?'Atualizar':'Publicar','pri',async()=>{
     const err=$('#shErr');err.textContent='';go.disabled=true;go.textContent='Publicando…';
-    try{const au=$('#shAu').value.trim();try{localStorage.setItem(AUTHK,au)}catch(e){}
-      const r=await Share.publish({key:src.key,kind:src.kind,campaign:src.campaign,title:$('#shTi').value,summary:$('#shSu').value,author:au,payload:src.payload});
-      shDone(r,$('#shTi').value.trim());shMineRender()}
+    try{const au2=$('#shAu').value.trim();try{localStorage.setItem(AUTHK,au2)}catch(e){}
+      const vis=($('#mShare input[name=shVis]:checked')||{}).value==='public'?'public':'unlisted';
+      const thumb=(!$('#shPhotoRow').hidden&&$('#shPhoto').checked)?await shMakeThumb(src.av):null;
+      const r=await Share.publish({key:src.key,kind:src.kind,campaign:src.campaign,title:$('#shTi').value,summary:$('#shSu').value,author:au2,visibility:vis,thumb,payload:src.payload});
+      shDone(r,$('#shTi').value.trim());shMineRender();if(vis==='public')shCatRender(false)}
     catch(e){err.textContent=cloudError(e);go.disabled=false;go.textContent=had?'Atualizar':'Publicar'}});
   a.append(go,shBtn('Cancelar','',shClose));openM('mShare');setTimeout(()=>{try{$('#shTi').focus()}catch(e){}},60)}
 function shDone(r,title){
-  const url=Share.link(r.code),b=$('#shBody'),a=$('#shAct');
+  const url=Share.link(r.code),b=$('#shBody'),a=$('#shAct'),pub=r.visibility==='public';
   $('#shT').textContent=r.updated?'Publicação atualizada':'Publicado!';b.textContent='';a.textContent='';
-  b.append(shEl('p',null,'Mande este link. Quem abrir vê uma prévia e escolhe se quer adicionar à própria conta.'));
+  b.append(shEl('p',null,pub?'Já está no marketplace, na aba Biblioteca. Se quiser, mande também o link:':'Mande este link. Quem abrir vê uma prévia e escolhe se quer adicionar à própria biblioteca.'));
   const inp=shEl('input','in sh-link');inp.readOnly=true;inp.value=url;inp.setAttribute('aria-label','Link para compartilhar');inp.onfocus=()=>inp.select();b.append(inp);
-  b.append(shEl('p','sh-small','Versão '+r.version+'. Para apagar, vá em Biblioteca → Meus compartilhamentos.'));
+  b.append(shEl('p','sh-small','Versão '+r.version+'. Para tirar do ar, vá em Biblioteca → Meus compartilhamentos.'));
   const c=shBtn('Copiar link','pri',()=>shCopy(url,c));a.append(c);
   if(navigator.share)a.append(shBtn('Enviar…','',()=>{navigator.share({title:title||'Ficha',url}).catch(()=>{})}));
   a.append(shBtn('Fechar','',shClose))}
 
-/* ---- janela: abrir um link ---- */
-function shCheck(row){
+/* ---- resumo e ficha completa: só valores limpos ---- */
+const SHVALID=row=>{
   const p=row&&row.payload;if(!p||typeof p!=='object')return null;
-  if(row.kind==='sistema'){if(p.rpgSistema!==1||!p.mold)return null;const m=cleanMold(p.mold);if(!m)return null;
-    return{m,facts:[m.atributos.length+' atributos · '+m.pericias.length+' perícias']}}
+  if(row.kind==='sistema'){if(p.rpgSistema!==1||!p.mold)return null;const m=cleanMold(p.mold);return m?{m}:null}
   if(row.kind==='personagem'){const s=p.sheet;if(!s||typeof s!=='object'||Array.isArray(s))return null;
-    if(row.campaign==='coc'){if(s.app!=='coc')return null;const w=s.who||{};return{facts:[[w.nome,w.ocup].map(x=>String(x||'').trim()).filter(Boolean).join(' · ')||'Investigador sem nome']}}
-    if(!s.attr||typeof s.attr!=='object')return null;const i=slInfo(s);return{facts:[i.n+' · '+i.s]}}
-  return null}
+    if(row.campaign==='coc')return s.app==='coc'?{s:noProto(s)}:null;
+    return s.attr&&typeof s.attr==='object'?{s:noProto(s)}:null}
+  return null};
+const shNum=(v,a,b)=>{v=Math.round(+v);return isFinite(v)?clamp(v,a,b):null};
+const shKV=o=>Object.keys(o&&typeof o==='object'?o:{}).slice(0,40).map(k=>[shS(k,12),o[k]]);
+/* o básico: linhas de texto + quadradinhos (atributos) */
+function shBasics(row,v){
+  const info=[],chips=[];
+  if(v.m){const m=v.m;chips.push(...m.atributos.map(a=>[a.k,a.n]));
+    info.push(['Teste',m.teste.tipo==='d100'?'Percentil (d100)':m.teste.tipo==='soma'?'Soma de dados ('+shS(m.teste.dados||'',20)+')':'Reserva de d'+(m.teste.faces||20)],['Perícias',String(m.pericias.length)],['Barras',m.barras.map(b=>b.n).join(', ')||'Nenhuma']);
+    if((m.criacao||[]).length)info.push(['Criação passo a passo',m.criacao.length+' etapas'])}
+  else if(row.campaign==='coc'){const s=v.s,w=s.who&&typeof s.who==='object'?s.who:{};
+    [['Ocupação',w.ocup],['Idade',w.idade],['Residência',w.res]].forEach(([l,x])=>{if(shS(x,60).trim())info.push([l,shS(x,60)])});
+    const cars={FOR:'FOR',CON:'CON',TAM:'TAM',DES:'DES',APA:'APA',EDU:'EDU',INT:'INT',POD:'POD'};
+    Object.keys(cars).forEach(k=>{const n=shNum(s.car&&s.car[k],0,999);if(n!=null)chips.push([k,n])});
+    [['pv','PV'],['san','SAN'],['pm','PM'],['sorte','Sorte']].forEach(([k,l])=>{const n=shNum(s.cur&&s.cur[k],0,999);if(n!=null)info.push([l,String(n)])})}
+  else{const s=v.s;
+    [['Classe',s.cls],['Origem',s.ori],['Nível',s.nivel],['NEX',s.nex]].forEach(([l,x])=>{if(shS(x,40).trim())info.push([l,shS(x,40)])});
+    shKV(s.attr).forEach(([k,x])=>{const n=shNum(x,0,999);if(n!=null)chips.push([k,n])});
+    const bars=s.bars&&typeof s.bars==='object'?Object.keys(s.bars).slice(0,8).map(k=>{const b=s.bars[k];return Array.isArray(b)?shS(k,6).toUpperCase()+' '+shNum(b[1],0,99999):''}).filter(Boolean):[];
+    if(bars.length)info.push(['Máximos',bars.join(' · ')])}
+  return{info,chips}}
+
+/* janela de detalhe (marketplace ou link) */
 async function shOpenView(code){
-  const b=$('#shBody'),a=$('#shAct');$('#shT').textContent='Biblioteca online';b.textContent='';a.textContent='';
+  const b=$('#shBody'),a=$('#shAct');$('#shT').textContent='Biblioteca';b.textContent='';a.textContent='';$('#mShare .mbox').classList.add('sh-wide');
   b.append(shEl('p',null,'Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
   let row=null,err='';try{row=await Share.get(code)}catch(e){err=cloudError(e)}
   b.textContent='';
-  const chk=row&&shCheck(row);
-  if(!row||!chk){b.append(shEl('p',null,err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
+  const v=row&&SHVALID(row);
+  if(!row||!v){b.append(shEl('p',null,err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
   $('#shT').textContent=String(row.title).slice(0,80);
-  b.append(shEl('p','sh-meta',shKind(row)+' · versão '+row.version+(row.copies?' · '+row.copies+(row.copies===1?' cópia':' cópias'):'')));
-  if(row.author_name)b.append(shEl('p','sh-small','por '+row.author_name));
-  if(row.summary)b.append(shEl('p',null,row.summary));
-  chk.facts.forEach(f=>{if(f!==row.summary&&(row.kind==='sistema'||!row.summary))b.append(shEl('p','sh-small',f))});
-  b.append(shEl('p','sh-small',row.kind==='sistema'?'Será adicionado à sua biblioteca de sistemas, neste aparelho.':'Será adicionado como uma cópia nova, neste aparelho. Seus outros personagens não mudam.'));
+  const head=shEl('div','sh-head');head.append(shThumbEl(row.thumb,row.title,'big'));
+  const ht=shEl('div','sh-ht');ht.append(shEl('p','sh-meta',shKind(row)+' · versão '+row.version+(row.copies?' · '+row.copies+(row.copies===1?' cópia':' cópias'):'')));
+  if(row.author_name)ht.append(shEl('p','sh-small','por '+row.author_name));head.append(ht);b.append(head);
+  if(row.summary)b.append(shEl('p','sh-sum2',row.summary));
+  const bs=shBasics(row,v);
+  if(bs.chips.length){const g=shEl('div','sh-chips');bs.chips.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});b.append(g)}
+  if(bs.info.length){const d=shEl('dl','sh-dl');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});b.append(d)}
+  b.append(shEl('p','sh-small',row.kind==='sistema'?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
   const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
-  const add=shBtn(have?'Atualizar meu sistema':row.kind==='sistema'?'Adicionar aos meus sistemas':'Adicionar aos meus personagens','pri',()=>shAdd(row,chk));
+  const add=shBtn(have?'Atualizar na minha biblioteca':'Adicionar à minha biblioteca','pri',()=>shAdd(row,v));
+  const full=shBtn('Ver tudo','',()=>shOpenFull(row,v));
   const rep=shBtn('Denunciar','',()=>{
     if(!cloudUser){toast('Denunciar','Entre com sua conta Google para denunciar.');return}
     if(!rep.classList.contains('arm')){rep.classList.add('arm');rep.textContent='Toque de novo para denunciar';setTimeout(()=>{if(rep.isConnected){rep.classList.remove('arm');rep.textContent='Denunciar'}},4000);return}
     rep.disabled=true;Share.report(row.id).then(()=>{rep.textContent='Denúncia enviada'}).catch(e=>{rep.disabled=false;toast('Denunciar',cloudError(e))})});
-  a.textContent='';a.append(add,rep,shBtn('Fechar','',shClose))}
+  a.textContent='';a.append(add,full,rep,shBtn('Fechar','',shClose))}
 
-/* ---- adicionar à minha conta (cópia local) ---- */
-function shAdd(row,chk){
+/* ---- ficha completa, somente leitura ---- */
+function shSec(body,title,node){if(!node)return;const s=shEl('section','vw-sec');s.append(shEl('h3',null,title),node);body.append(s)}
+function shDl(pairs){pairs=pairs.filter(p=>p[1]!=null&&String(p[1]).trim()!=='');if(!pairs.length)return null;const d=shEl('dl','sh-dl');pairs.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,String(x)));d.append(r)});return d}
+function shChips(pairs){pairs=pairs.filter(p=>p[1]!=null&&p[1]!=='');if(!pairs.length)return null;const g=shEl('div','sh-chips');pairs.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});return g}
+function shCards(items,fn){if(!items.length)return null;const u=shEl('ul','vw-l');items.forEach(x=>{const li=shEl('li','vw-i'),r=fn(x);if(!r)return;li.append(...r);u.append(li)});return u.children.length?u:null}
+const shLine=(t,cls)=>shEl('p',cls||'vw-p',t);
+const shTxt=(t,cls)=>t&&String(t).trim()?shEl('p',cls||'vw-txt',String(t)):null;
+function shFullOp(body,s,m){
+  const sv=k=>shS(s[k],60);
+  shSec(body,'Identidade',shDl([['Personagem',sv('pers')],['Jogador',sv('jog')],['Classe',sv('cls')],['Origem',sv('ori')],['Nível',sv('nivel')],['NEX',sv('nex')],['PE',sv('pe')],['Deslocamento',sv('desl')],['Defesa',sv('def')],['Proteção',sv('prot')],['Resistências',sv('res')],['Carga',sv('carga')],['DT',sv('dt')]]));
+  shSec(body,'Atributos',shChips(shKV(s.attr).map(([k,x])=>[k,shNum(x,0,999)])));
+  const bars=s.bars&&typeof s.bars==='object'?Object.keys(s.bars).slice(0,8).map(k=>{const b=s.bars[k];return Array.isArray(b)?[shS(k,6).toUpperCase(),shNum(b[0],0,99999)+' / '+shNum(b[1],0,99999)]:null}).filter(Boolean):[];
+  shSec(body,'Barras',shChips(bars));
+  const sk=(Array.isArray(s.sk)?s.sk:[]).filter(x=>x&&typeof x==='object').slice(0,120).map(x=>({n:cleanTxt(x.n,40),a:cleanTxt(x.a,6),tr:shNum(x.tr,0,9)||0,ex:shNum(x.ex,-99,99)||0,v:x.v==null||x.v===''?null:shNum(x.v,0,999),bn:shNum(x.bn,-99,99)||0,sp:cleanTxt(x.sp,30)})).filter(x=>x.n&&(x.tr>0||x.ex||x.v!=null||x.bn));
+  shSec(body,'Perícias',shCards(sk,x=>[shEl('b',null,x.n+(x.sp?' ('+x.sp+')':'')),shEl('span','vw-r',[x.a,x.tr>0?'treino '+x.tr:'',x.ex?'extra '+(x.ex>0?'+':'')+x.ex:'',x.v!=null?x.v+'%':'',x.bn?'bônus '+(x.bn>0?'+':'')+x.bn:''].filter(Boolean).join(' · '))]));
+  shSec(body,'Ataques',shCards(cleanItems('atk',s.atk),k=>[shEl('b',null,shS(k.n)||'Ataque'),shEl('span','vw-r',[shS(k.sk),k.b?'bônus '+k.b:'',k.dano&&'dano '+shS(k.dano),k.crit&&'crítico '+shS(k.crit),shS(k.al)].filter(Boolean).join(' · '))]));
+  shSec(body,'Habilidades',shCards(cleanItems('hab',s.hab),h=>[shEl('b',null,(shS(h.n)||'Habilidade')+(h.custo?' ('+shS(h.custo)+')':'')),shTxt(h.d)].filter(Boolean)));
+  shSec(body,'Rituais',shCards(cleanItems('rit',s.rit),r=>[shEl('b',null,(shS(r.n)||'Ritual')+' · '+CIRC[r.c]+'º círculo · '+ELEM[r.e]),shEl('span','vw-r',[r.nor&&'Normal '+shS(r.nor),r.dis&&'Discente '+shS(r.dis),r.ver&&'Verdadeiro '+shS(r.ver),r.pe&&'custo '+shS(r.pe,20)+' PE',r.ex&&'exec. '+shS(r.ex),r.al&&'alcance '+shS(r.al),r.alvo&&'alvo '+shS(r.alvo),r.dur&&'duração '+shS(r.dur),r.res&&'resistência '+shS(r.res)].filter(Boolean).join(' · ')),shTxt(r.d)].filter(Boolean)));
+  shSec(body,'Inventário',shCards(cleanItems('inv',s.inv),i=>[shEl('b',null,(shS(i.n)||'Item')+(i.q>1?' ×'+i.q:'')),shEl('span','vw-r',i.esp?i.esp+' esp.':''),shTxt(i.d)].filter(Boolean)));
+  const d=s.desc&&typeof s.desc==='object'?s.desc:{};
+  [['a','Aparência'],['p','Personalidade'],['h','Histórico'],['o','Objetivo']].forEach(([k,l])=>shSec(body,l,shTxt(shS(d[k],4000))))}
+const COC_BK=[['desc','Descrição pessoal'],['ideo','Ideologia e crenças'],['pess','Pessoas significativas'],['loc','Locais importantes'],['pert','Pertences queridos'],['trac','Características'],['ferm','Ferimentos e cicatrizes'],['fob','Fobias e manias'],['tomo','Tomos arcanos, feitiços e artefatos'],['enc','Encontros com entidades estranhas'],['comp','Companheiros investigadores']];
+function shFullCoc(body,s){
+  const w=s.who&&typeof s.who==='object'?s.who:{},wv=k=>shS(w[k],60);
+  shSec(body,'Investigador',shDl([['Nome',wv('nome')],['Ocupação',wv('ocup')],['Idade',wv('idade')],['Gênero',wv('gen')],['Residência',wv('res')],['Local de nascimento',wv('nasc')]]));
+  const NM={FOR:'Força',CON:'Constituição',TAM:'Tamanho',DES:'Destreza',APA:'Aparência',EDU:'Educação',INT:'Inteligência',POD:'Poder'};
+  shSec(body,'Características',shChips(Object.keys(NM).map(k=>[NM[k],shNum(s.car&&s.car[k],0,999)])));
+  shSec(body,'Situação',shChips([['Pontos de vida','pv'],['Sanidade','san'],['Pontos de magia','pm'],['Sorte','sorte']].map(([l,k])=>[l,shNum(s.cur&&s.cur[k],0,999)])));
+  const names=window.COC_SK||{},sk=[];
+  if(s.sk&&typeof s.sk==='object')Object.keys(s.sk).slice(0,200).forEach(id=>{const st=s.sk[id];if(!Object.prototype.hasOwnProperty.call(names,id)||!st||typeof st!=='object')return;const v=st.v==null||st.v===''?null:shNum(st.v,0,999);if(v!=null)sk.push([names[id]+(st.sp?' ('+cleanTxt(st.sp,30)+')':''),v])});
+  (Array.isArray(s.skx)?s.skx:[]).slice(0,100).forEach(x=>{if(x&&typeof x==='object'){const v=x.v==null||x.v===''?null:shNum(x.v,0,999);if(v!=null&&cleanTxt(x.n,40))sk.push([cleanTxt(x.n,40),v])}});
+  shSec(body,'Perícias',shChips(sk));
+  const list=(raw,f)=>(Array.isArray(raw)?raw:[]).filter(x=>x&&typeof x==='object').slice(0,200).map(x=>{const o={};f.forEach(k=>o[k]=shS(x[k],k==='d'?2000:120));return o});
+  shSec(body,'Armas',shCards(list(s.atk,['n','sk','dano','al','nat','mun','mal']),k=>[shEl('b',null,k.n||'Arma'),shEl('span','vw-r',[k.dano&&'dano '+k.dano,k.al&&'alcance '+k.al,k.nat&&k.nat+' ataque(s)',k.mun&&'munição '+k.mun,k.mal&&'defeito '+k.mal].filter(Boolean).join(' · '))]));
+  shSec(body,'Magias',shCards(list(s.mag,['n','pm','san','pod','tmp','d']),k=>[shEl('b',null,k.n||'Magia'),shEl('span','vw-r',[k.pm&&'PM '+k.pm,k.san&&'SAN '+k.san,k.pod&&'POD '+k.pod,k.tmp&&k.tmp].filter(Boolean).join(' · ')),shTxt(k.d)].filter(Boolean)));
+  shSec(body,'Posses',shCards(list(s.inv,['n','q','d']),k=>[shEl('b',null,(k.n||'Item')+(k.q&&k.q!=='1'?' ×'+k.q:'')),shTxt(k.d)].filter(Boolean)));
+  const din=s.din&&typeof s.din==='object'?s.din:{};
+  shSec(body,'Finanças',shDl([['Gasto por dia',shS(din.gasto,30)],['Dinheiro em mãos',shS(din.cash,30)],['Bens',shS(din.bens,30)],['Armadura',shS(s.armor,80)]]));
+  const bk=s.bk&&typeof s.bk==='object'?s.bk:{};COC_BK.forEach(([k,l])=>shSec(body,l,shTxt(shS(bk[k],4000))))}
+function shFullSys(body,m){
+  shSec(body,'Atributos',shCards(m.atributos,a=>[shEl('b',null,a.k+' · '+a.n)]));
+  shSec(body,'Teste',shDl([['Tipo',m.teste.tipo==='d100'?'Percentil (d100)':m.teste.tipo==='soma'?'Soma de dados ('+shS(m.teste.dados||'',20)+')':'Reserva de d'+(m.teste.faces||20)],['Dificuldade',shS(m.formulas&&m.formulas.dt,60)],['Carga',shS(m.formulas&&m.formulas.carga,60)]]));
+  shSec(body,'Barras',shChips(m.barras.map(b=>[b.n,shS(b.maxF,40)])));
+  shSec(body,'Recursos',shChips((m.recursos||[]).map(r=>[cleanTxt(r.n,24),cleanTxt(r.tipo,12)])));
+  shSec(body,'Classes',shLine((m.classes||[]).join(', ')));
+  shSec(body,'Perícias ('+m.pericias.length+')',shChips(m.pericias.slice(0,120).map(p=>[p.n,[p.a,p.t?'treinada':''].filter(Boolean).join(' · ')])));
+  shSec(body,'Criação passo a passo',shCards(m.criacao||[],c=>[shEl('b',null,cleanTxt(c.t,40))]))}
+function shOpenFull(row,v){
+  const b=$('#vwBody'),a=$('#vwAct');b.textContent='';a.textContent='';$('#vwT').textContent=String(row.title).slice(0,80);
+  const head=shEl('div','sh-head');head.append(shThumbEl(row.thumb,row.title,'big'));const ht=shEl('div','sh-ht');
+  ht.append(shEl('p','sh-meta',shKind(row)+(row.author_name?' · por '+row.author_name:'')));if(row.summary)ht.append(shEl('p','sh-small',row.summary));head.append(ht);b.append(head);
+  if(v.m)shFullSys(b,v.m);else if(row.campaign==='coc')shFullCoc(b,v.s);else shFullOp(b,v.s);
+  const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
+  a.append(shBtn(have?'Atualizar na minha biblioteca':'Adicionar à minha biblioteca','pri',()=>{closeM('mView');shAdd(row,v)}),shBtn('Fechar','',()=>closeM('mView')));
+  $('#mView .mbox').scrollTop=0;openM('mView')}
+
+/* ---- adicionar à minha biblioteca (cópia local) ---- */
+function shAdd(row,v){
   try{
     if(row.kind==='sistema'){
-      const l=libRead(),i=l.findIndex(x=>x.src===row.id),old=i>=0?l[i]:null,m=chk.m;
+      const l=libRead(),i=l.findIndex(x=>x.src===row.id),old=i>=0?l[i]:null,m=v.m;
       const e={id:old?old.id:libId(),nome:m.nome,v:old?old.v+1:1,t:Date.now(),mold:moldObj(m),src:row.id,sver:row.version};
       if(old)l[i]=e;else l.push(e);
       if(!libWrite(l))throw new Error('Sem espaço no navegador para guardar o sistema.');
       Share.registerCopy(row.id);shClose();toast(old?'Sistema atualizado':'Sistema adicionado',m.nome);if(scrMode==='sys')scSysFill();else setScreen('sys',true);return}
-    const s=noProto(row.payload.sheet);delete s.cl;
+    const s=noProto(row.payload.sheet);delete s.cl;const photo=Share.thumbOk(row.thumb)?row.thumb:'';
     if(row.campaign==='coc'){
-      s.who=Object.assign({},s.who,{av:''});
+      s.who=Object.assign({},s.who,{av:photo});
       const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),x=cocIdx();
       localStorage.setItem('coc-slot-v1:'+id,JSON.stringify(s));
       x.list.unshift({id,nome:cleanTxt(s.who.nome||'Investigador sem nome',60)||'Investigador sem nome',ocup:cleanTxt(s.who.ocup||'',60),t:Date.now()});
       localStorage.setItem('coc-idx-v1',JSON.stringify(x))}
     else{
-      s.av='';const id='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),ix=slIdx();
+      s.av=photo;const id='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),ix=slIdx();
       localStorage.setItem(SLK+id,JSON.stringify(s));ix.list.push({id,t:Date.now()});
       if(!slSave(ix)){try{localStorage.removeItem(SLK+id)}catch(x){}throw new Error('Sem espaço no navegador para guardar a ficha.')}}
-    Share.registerCopy(row.id);shClose();toast('Personagem adicionado',String(row.title).slice(0,60));setScreen('sl',true)}
+    Share.registerCopy(row.id);shClose();toast('Adicionado à sua biblioteca',String(row.title).slice(0,60));setScreen('sl',true)}
   catch(e){toast('Não foi possível adicionar',cloudError(e))}}
 
-/* ---- tela Biblioteca ---- */
-function shopOpen(){shMineRender();shCatRender()}
+/* ---- tela Biblioteca (marketplace) ---- */
+function shFltRender(){
+  const f=$('#shFlt');f.textContent='';
+  [['kind','','Tudo'],['kind','sistema','Sistemas'],['kind','personagem','Personagens'],['campaign','op','OP'],['campaign','coc','CoC'],['campaign','nova','Próprios']].forEach(([k,val,l])=>{
+    const on=k==='kind'?shF.kind===val:shF.campaign===val,b=shEl('button','sh-chip',l);b.type='button';b.setAttribute('aria-pressed',String(!!on));
+    b.onclick=()=>{if(k==='kind')shF.kind=val;else shF.campaign=shF.campaign===val?'':val;shFltRender();shCatRender(false)};f.append(b)})}
+function shopOpen(){shFltRender();$('#shQ').value=shF.q;$('#shSort').value=shF.sort;shCatRender(false);shMineRender()}
+function shCard(r){
+  const li=shEl('li','sh-card'),b=shEl('button','sh-cb');b.type='button';b.setAttribute('aria-label','Abrir '+r.title);
+  const t=shEl('span','sh-ct');t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)),shEl('small',null,(r.author_name?'por '+r.author_name:'')+(r.author_name&&r.copies?' · ':'')+(r.copies?r.copies+(r.copies===1?' cópia':' cópias'):'')));
+  if(r.summary)t.append(shEl('span','sh-cs',r.summary));
+  b.append(shThumbEl(r.thumb,r.title),t);b.onclick=()=>shOpenView(r.id);li.append(b);return li}
+async function shCatRender(more){
+  const ul=$('#shCatList'),msg=$('#shCatMsg'),mb=$('#shMore'),tok=++shTok;
+  if(!more){shPage=0;ul.textContent='';msg.textContent='Carregando…';mb.hidden=true}
+  let res;try{res=await Share.listPublic({q:shF.q,kind:shF.kind,campaign:shF.campaign,sort:shF.sort,page:shPage})}
+  catch(e){if(tok===shTok)msg.textContent='Não consegui carregar o marketplace. '+cloudError(e);return}
+  if(tok!==shTok)return;
+  res.rows.forEach(r=>ul.append(shCard(r)));
+  msg.textContent=ul.children.length?'':(shF.q||shF.kind||shF.campaign?'Nada encontrado com esses filtros.':'Ainda não há nada no marketplace. Seja o primeiro: use o botão Compartilhar em um personagem ou sistema e escolha Marketplace.');
+  mb.hidden=!res.more}
+$('#shMore').onclick=()=>{shPage++;shCatRender(true)};
+let shQT=null;
+$('#shSearch').addEventListener('submit',e=>{e.preventDefault();clearTimeout(shQT);shF.q=$('#shQ').value.trim();shCatRender(false)});
+$('#shQ').addEventListener('input',()=>{clearTimeout(shQT);shQT=setTimeout(()=>{const q=$('#shQ').value.trim();if(q!==shF.q){shF.q=q;shCatRender(false)}},350)});
+$('#shSort').addEventListener('change',()=>{shF.sort=$('#shSort').value==='recent'?'recent':'popular';shCatRender(false)});
 $('#shOpenForm').addEventListener('submit',e=>{e.preventDefault();const c=Share.parse($('#shOpenIn').value);
   if(!c){$('#shMsg').textContent='Não reconheci esse link ou código.';return}
   $('#shMsg').textContent='';$('#shOpenIn').value='';shOpenView(c)});
@@ -2555,32 +2691,19 @@ async function shMineRender(){
   if(!cloudUser){msg.textContent='Entre com sua conta Google para publicar e ver o que você já compartilhou.';return}
   msg.textContent='Carregando…';
   let rows=[];try{rows=await Share.listMine(cloudUser.id)}catch(e){msg.textContent=cloudError(e);return}
-  msg.textContent=rows.length?'':'Você ainda não compartilhou nada. Use o botão Compartilhar em um personagem (Início) ou em um sistema (Sistemas).';
-  rows.forEach(r=>{const li=shEl('li','sh-r'),t=shEl('div','sh-t');
-    t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+' · v'+r.version+' · '+r.copies+' '+(r.copies===1?'cópia':'cópias')+(r.visibility==='public'?' · em destaque':'')+(r.status==='hidden'?' · oculto por denúncias':'')));
+  msg.textContent=rows.length?'':'Você ainda não compartilhou nada. Use o botão Compartilhar em um personagem (Agentes) ou em um sistema (Sistemas).';
+  rows.forEach(r=>{const li=shEl('li','sh-r'),t=shEl('div','sh-t'),pub=r.visibility==='public';
+    t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+' · v'+r.version+' · '+r.copies+' '+(r.copies===1?'cópia':'cópias')+' · '+(pub?'no marketplace':'só por link')+(r.status==='hidden'?' · oculto por denúncias':'')));
+    const row=shEl('div','sh-rr');row.append(shThumbEl(r.thumb,r.title),t);
     const act=shEl('div','rowb');
     const cp=shBtn('Copiar link','sm',()=>shCopy(Share.link(r.id),cp)),vw=shBtn('Ver','sm',()=>shOpenView(r.id));
+    const tg=shBtn(pub?'Tirar do marketplace':'Colocar no marketplace','sm',()=>{tg.disabled=true;Share.setVisibility(r.id,pub?'unlisted':'public').then(()=>{toast(pub?'Fora do marketplace':'No marketplace',r.title);shMineRender();shCatRender(false)}).catch(e=>{tg.disabled=false;toast('Marketplace',cloudError(e))})});
     const del=shBtn('Despublicar','sm',()=>{
       if(!del.classList.contains('arm')){del.classList.add('arm');del.textContent='Toque de novo';setTimeout(()=>{if(del.isConnected){del.classList.remove('arm');del.textContent='Despublicar'}},4000);return}
-      del.disabled=true;Share.remove(r.id).then(()=>{toast('Despublicado','O link deixou de funcionar.');shMineRender()}).catch(e=>{del.disabled=false;toast('Despublicar',cloudError(e))})});
-    act.append(cp,vw,del);li.append(t,act);ul.append(li)})}
-async function shCatRender(){
-  const card=$('#shCat'),ul=$('#shCatList'),f=$('#shFlt');
-  let rows=[];try{rows=await Share.listPublic(shF)}catch(e){rows=[]}
-  const anyFilter=shF.kind||shF.campaign;
-  if(!rows.length&&!anyFilter){card.hidden=true;return}
-  card.hidden=false;f.textContent='';
-  [['kind','','Tudo'],['kind','sistema','Sistemas'],['kind','personagem','Personagens'],['campaign','op','OP'],['campaign','coc','CoC'],['campaign','nova','Próprios']].forEach(([k,v,l])=>{
-    const on=k==='kind'?shF.kind===v:v&&shF.campaign===v,b=shEl('button','sh-chip',l);b.type='button';b.setAttribute('aria-pressed',String(!!on));
-    b.onclick=()=>{if(k==='kind')shF.kind=v;else shF.campaign=shF.campaign===v?'':v;shCatRender()};f.append(b)});
-  ul.textContent='';if(!rows.length)ul.append(shEl('li','sh-small','Nada com esses filtros.'));
-  rows.forEach(r=>{const li=shEl('li','sh-r'),t=shEl('div','sh-t');
-    t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+(r.author_name?' · por '+r.author_name:'')+(r.copies?' · '+r.copies+(r.copies===1?' cópia':' cópias'):'')));
-    if(r.summary)t.append(shEl('small','sh-sum',r.summary));
-    li.append(t,shBtn('Ver','sm pri',()=>shOpenView(r.id)));ul.append(li)})}
+      del.disabled=true;Share.remove(r.id).then(()=>{toast('Despublicado','O link deixou de funcionar.');shMineRender();shCatRender(false)}).catch(e=>{del.disabled=false;toast('Despublicar',cloudError(e))})});
+    act.append(cp,vw,tg,del);li.append(row,act);ul.append(li)})}
 /* link recebido (?b=código): abre a prévia assim que o menu inicial aparece */
 function shLaunch(){if(!shPending)return;const c=shPending;shPending=null;closeHome();openSl('shop');shOpenView(c)}
-
 const catalogsReady=loadGameCatalogs();buildBars();buildFilters();renderAll();initCloud();
 
 /* ---------- foco e teclado dos diálogos ---------- */

@@ -73,12 +73,12 @@ Quem entra na conta tem todos os personagens sincronizados sozinho, sem apertar 
   (use `integrity="sha384-HASH" crossorigin="anonymous"`) ou copie o arquivo para `js/vendor/`.
 - Pendente: exporte as políticas de RLS de `character_sheets`, `user_profiles` e dos buckets para `supabase/*.sql`.
 
-## Biblioteca online (compartilhar por link)
-Menu → **Biblioteca**. Personagens (OP, CoC e sistema próprio) e sistemas são publicados com o botão **Compartilhar** e abertos por `?b=código`.
-- `supabase/shared_items.sql`: tabela, RLS e funções (`get_shared`, `register_copy`, `report_shared`). Aplique **antes** de publicar o front. Pode rodar mais de uma vez; precisa do `updated_at_trigger.sql` antes.
-- `js/share.js`: acesso ao Supabase. As telas ficam no bloco "BIBLIOTECA ONLINE" do `js/op.js`.
-- Tudo publicado nasce `unlisted` (só abre com o link). O app não consegue marcar nada como `public`: quem destaca no catálogo é você, no SQL Editor (comandos no fim do `shared_items.sql`). A aba **Destaques** só aparece quando existe algo `public`.
-- 5 denúncias de contas diferentes escondem o item sozinho; você restaura no SQL.
-- Limites no servidor: 60 itens por conta, 15 publicações por hora, 400 kB por item.
-- O que chega de fora nunca é confiado: sistemas passam por `cleanMold()` e fichas por `normalize()` ao abrir.
-- O JSON/código `RPG1:` continua existindo como backup offline (Configurações e editor de sistemas).
+## Biblioteca online (marketplace + links)
+Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar** (personagem ou sistema) a pessoa escolhe **Só por link** ou **Marketplace**, e se inclui a foto (miniatura JPEG guardada na própria linha, coluna `thumb`).
+- Marketplace: catálogo aberto com busca, filtros e ordenação. Clicar abre o detalhe (nome, foto, descrição, atributos básicos) com **Adicionar à minha biblioteca** ou **Ver tudo** (ficha completa somente leitura). Quem não tem conta também vê e copia.
+- `supabase/shared_items.sql`: tabela, RLS e funções (`get_shared`, `register_copy`, `report_shared`). Aplique **antes** de publicar o front. Pode rodar mais de uma vez (também serve de atualização); precisa do `updated_at_trigger.sql` antes.
+- `js/share.js`: acesso ao Supabase. As telas ficam no bloco "BIBLIOTECA ONLINE" do `js/op.js`. `js/coc-names.js` só guarda os nomes das perícias do CoC para a visualização somente leitura (regenere se mudar `SK0` em `coc.js`).
+- Limites no servidor: 60 itens por conta, 30 no marketplace, 15 publicações por hora, 400 kB por item, miniatura até 40 kB.
+- Moderação: 5 denúncias de contas diferentes escondem o item sozinho; você revisa e restaura no SQL Editor (comandos no fim do `shared_items.sql`).
+- O que chega de fora nunca é confiado: sistemas passam por `cleanMold()`, fichas por `normalize()` ao abrir, e a visualização somente leitura monta só valores limpos, via `textContent`.
+- O JSON/código `RPG1:` continua como backup offline (Configurações e editor de sistemas).

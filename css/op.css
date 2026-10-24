@@ -1202,3 +1202,34 @@ body{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 72px)}
 
 .sl-act .btn.sl-sh{flex:0 0 40px;display:grid;place-items:center;padding:0}.sl-act .btn.sl-sh svg{width:18px;height:18px}
 .sl-act{gap:6px}.sl-act .btn{letter-spacing:.04em}.sl-act .btn.sl-sh{flex:0 0 34px}
+
+/* ===== marketplace ===== */
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+#sc-shop{display:grid;gap:14px;max-width:1000px}
+.sh-bar{display:flex;gap:10px;flex-wrap:wrap}.sh-search{flex:1 1 260px;min-width:0}.sh-search .in{width:100%}.sh-sort{flex:0 0 auto}
+.sh-grid{list-style:none;margin:0;padding:0;display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.sh-card{min-width:0}
+.sh-cb{width:100%;height:100%;display:flex;gap:12px;align-items:flex-start;text-align:left;padding:12px;border:1px solid var(--ln);border-radius:14px;background:color-mix(in oklab,color-mix(in oklab,var(--tint) 28.6%,#000) 86%,transparent);color:var(--tx);transition:border-color .15s,transform .15s,background .15s}
+.sh-cb:hover{border-color:var(--kr);transform:translateY(-2px)}.sh-cb:focus-visible{outline:2px solid var(--kr);outline-offset:2px}
+.sh-th{flex:none;width:64px;height:64px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.03));border:1px solid var(--ln);font:700 1.5rem var(--disp,inherit);color:var(--mu)}
+.sh-th img{width:100%;height:100%;object-fit:cover;display:block}.sh-th.big{width:88px;height:88px;font-size:2rem}
+.sh-ct{display:grid;gap:2px;min-width:0}.sh-ct b{overflow-wrap:anywhere;line-height:1.2}.sh-ct small{color:var(--mu);font-size:.8rem}
+.sh-cs{color:var(--tx);opacity:.85;font-size:.88rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:3px}
+.sh-empty{text-align:center;padding:10px}.sh-more{justify-content:center}
+.sh-rr{display:flex;gap:10px;align-items:center;min-width:0;flex:1 1 220px}.sh-rr .sh-th{width:44px;height:44px;font-size:1.1rem}
+.mbox.sh-wide{width:min(640px,100%)}
+.sh-head{display:flex;gap:14px;align-items:center}.sh-ht{display:grid;gap:3px;min-width:0}
+.sh-sum2{white-space:pre-wrap;color:var(--tx)!important}
+.sh-chips{display:flex;flex-wrap:wrap;gap:8px}
+.sh-stat{display:grid;gap:1px;min-width:54px;padding:6px 10px;text-align:center;border:1px solid var(--ln);border-radius:10px;background:rgba(0,0,0,.2)}.sh-stat small{color:var(--mu);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase}.sh-stat b{font-size:1.05rem}
+.sh-dl{display:grid;gap:6px;margin:0}.sh-dl>div{display:flex;gap:10px;justify-content:space-between;border-top:1px solid var(--ln);padding-top:6px}.sh-dl dt{color:var(--mu);font-size:.88rem}.sh-dl dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.sh-vis{display:grid;gap:8px;margin:0;padding:10px 12px;border:1px solid var(--ln);border-radius:10px}.sh-vis legend{padding:0 6px;color:var(--mu);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+.sh-opt{display:flex;gap:10px;align-items:flex-start;cursor:pointer}.sh-opt input{margin-top:4px;flex:none}.sh-opt span{display:grid;gap:1px}.sh-opt small{color:var(--mu);font-size:.82rem}
+.sh-full{max-height:calc(100dvh - 28px)}
+.vw-head{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:flex-start}
+.vw-body{display:grid;gap:14px}.vw-sec{display:grid;gap:8px;padding-top:10px;border-top:1px solid var(--ln)}.vw-sec h3{margin:0;font-size:.85rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mu)}
+.vw-l{list-style:none;margin:0;padding:0;display:grid;gap:8px}.vw-i{display:grid;gap:3px;padding:8px 10px;border:1px solid var(--ln);border-radius:10px;background:rgba(0,0,0,.18)}
+.vw-r{color:var(--mu);font-size:.85rem;overflow-wrap:anywhere}.vw-txt,.vw-p{white-space:pre-wrap;overflow-wrap:anywhere;margin:0!important;color:var(--tx)!important}
+#mView{z-index:130}
+@media(max-width:560px){.sh-grid{grid-template-columns:1fr}.sh-head{align-items:flex-start}}
+.k-ri:nth-of-type(7){animation-delay:.41s}#home.in .k-rail button:nth-of-type(7),#mSl.in .k-rail button:nth-of-type(7){animation-delay:.41s}
