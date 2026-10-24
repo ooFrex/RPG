@@ -197,12 +197,6 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 
 <!-- assistente de criação -->
 <div id="wiz" hidden role="dialog" aria-modal="true" aria-label="Criar agente"><div class="wz-top"><nav class="wz-steps" id="wzSteps" aria-label="Etapas da criação"></nav></div><div class="wz-body" id="wzBody"></div><div class="wz-foot" id="wzFoot"></div></div>
-<div class="modal" id="mNew" hidden><div class="mbox" role="dialog" aria-modal="true" aria-label="Novo agente">
-  <h2>NOVO AGENTE</h2>
-  <p>A ficha atual fica guardada em <b>Meus agentes</b>, neste aparelho, e você pode voltar a ela quando quiser. Um backup (.json) continua sendo uma boa ideia de vez em quando.</p>
-  <div class="rowb"><button class="btn" id="nwExp" type="button">Exportar backup da ficha atual</button></div>
-  <div class="rowb" style="justify-content:flex-end"><button class="btn" data-close type="button">Cancelar</button><button class="btn pri" id="nwGo" type="button">Guardar atual e criar</button></div>
-</div></div>
 
 <section id="mSl" hidden role="dialog" aria-modal="true" aria-labelledby="slT">
   <div class="hm-bg" aria-hidden="true"></div><div class="hm-vig" aria-hidden="true"></div><div class="hm-fx" aria-hidden="true"></div>
@@ -257,23 +251,45 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
   <header class="pf-card pf-hero" id="pfCard">
     <div class="pf-banner" id="pfBanner" role="img" aria-label="Banner do perfil"></div>
     <button class="pf-gear" id="pfGear" type="button" aria-label="Configurações" title="Configurações"><svg viewBox="0 0 18 18" aria-hidden="true"><use href="#i-gear"/></svg></button>
-    <div class="pf-top">
+    <div class="pf-main">
       <span class="pf-av"><span class="cloud-avatar" id="cloudAvatarFallback" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-user"/></svg></span><img class="cloud-avatar" id="cloudAvatarPreview" alt="Foto do perfil" hidden></span>
-      <button class="btn sm pri" id="pfEdit" type="button">Editar perfil</button>
-    </div>
-    <div class="pf-info">
-      <h3 class="pf-nm"><strong id="pfName">Visitante</strong></h3>
-      <span class="pf-handle" id="pfHandle" hidden></span><span id="cloudProfileEmail" hidden></span>
-      <p class="pf-stats" id="pfStats"></p>
-      <p class="pf-bio" id="pfBio" hidden></p>
-      <div class="pf-chips" id="pfChips" hidden></div>
+      <div class="pf-info">
+        <h3 class="pf-nm"><strong id="pfName">Visitante</strong></h3>
+        <span class="pf-handle" id="pfHandle" hidden></span><span id="cloudProfileEmail" hidden></span>
+        <p class="pf-bio" id="pfBio" hidden></p>
+        <div class="pf-chips" id="pfChips" hidden></div>
+      </div>
+      <div class="pf-acts"><button class="btn sm pri" id="pfEdit" type="button">Editar perfil</button></div>
     </div>
   </header>
-  <section class="pf-pub" id="pfPub"><section class="sc-card" id="shMine">
+  <nav class="pf-tabs" id="pfTabs" role="tablist" aria-label="Seções do perfil">
+    <button type="button" role="tab" id="pft-geral" data-pt="geral" aria-controls="pfp-geral" aria-selected="true">Visão geral</button>
+    <button type="button" role="tab" id="pft-pub" data-pt="pub" aria-controls="pfp-pub" aria-selected="false" tabindex="-1">Publicações</button>
+    <button type="button" role="tab" id="pft-amigos" data-pt="amigos" aria-controls="pfp-amigos" aria-selected="false" tabindex="-1">Amigos<i class="pf-badge" id="pfBadge" hidden></i></button>
+  </nav>
+  <section class="pf-pane" id="pfp-geral" role="tabpanel" aria-labelledby="pft-geral">
+    <div class="pf-tiles" id="pfStats" aria-label="Resumo"></div>
+    <section class="sc-card pf-codecard" id="pfCodeCard">
+      <small class="sc-lb">SEU CÓDIGO DE AMIGO</small>
+      <div class="pf-coderow"><b id="pfCodeV" aria-live="polite">—</b><button class="btn sm" id="pfCodeCp" type="button" disabled>Copiar</button></div>
+      <p class="hm-note" id="pfCodeN">Entre na sua conta para ter um código e adicionar amigos.</p>
+    </section>
+  </section>
+  <section class="pf-pane pf-pub" id="pfp-pub" role="tabpanel" aria-labelledby="pft-pub" hidden><section class="sc-card" id="shMine">
             <small class="sc-lb">MEUS COMPARTILHAMENTOS</small>
             <p class="hm-note" id="shMineMsg"></p>
             <ul class="sh-l" id="shMineList"></ul>
           </section></section>
+  <section class="pf-pane" id="pfp-amigos" role="tabpanel" aria-labelledby="pft-amigos" hidden>
+    <section class="sc-card fr-add">
+      <small class="sc-lb">ADICIONAR AMIGO</small>
+      <form class="rowb sh-form" id="frForm"><input class="in" id="frCodeIn" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Código do amigo" aria-label="Código do amigo"><button class="btn pri" type="submit">Enviar pedido</button></form>
+      <p class="hm-note" id="frMsg" role="status" aria-live="polite"></p>
+    </section>
+    <section class="sc-card" id="frInBox" hidden><small class="sc-lb">PEDIDOS RECEBIDOS</small><ul class="fr-rows" id="frInList"></ul></section>
+    <section class="sc-card"><small class="sc-lb">MEUS AMIGOS <span id="frN"></span></small><ul class="fr-grid" id="frList"></ul><p class="hm-note fr-empty" id="frEmpty" role="status"></p></section>
+    <section class="sc-card" id="frOutBox" hidden><small class="sc-lb">PEDIDOS ENVIADOS</small><ul class="fr-rows" id="frOutList"></ul></section>
+  </section>
   <div class="cf-bar"><button class="btn sm" id="cfBack" type="button">← Perfil</button><h3>Configurações</h3></div>
   <div class="cf-tabs" role="tablist" aria-label="Seções das configurações" id="cfTabs"><button type="button" role="tab" id="cft-conta" aria-controls="cfp-conta" data-cf="conta" aria-selected="true" tabindex="0">Conta e nuvem</button><button type="button" role="tab" id="cft-visual" aria-controls="cfp-visual" data-cf="visual" aria-selected="false" tabindex="-1">Aparência</button><button type="button" role="tab" id="cft-geral" aria-controls="cfp-geral" data-cf="geral" aria-selected="false" tabindex="-1">Geral</button><button type="button" role="tab" id="cft-abrir" aria-controls="cfp-abrir" data-cf="abrir" aria-selected="false" tabindex="-1">Abrir ficha</button><button type="button" role="tab" id="cft-ficha" aria-controls="cfp-ficha" data-cf="ficha" aria-selected="false" tabindex="-1">Ficha</button><button type="button" role="tab" id="cft-ajuda" aria-controls="cfp-ajuda" data-cf="ajuda" aria-selected="false" tabindex="-1">Ajuda</button></div>
   <section class="cf-p" id="cfp-ajuda" role="tabpanel" aria-labelledby="cft-ajuda" hidden><div class="hm-pn hm-help">
@@ -426,8 +442,18 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
       <button class="hm-c" type="button" data-hm="sl"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1M16.5 4.8a3.2 3.2 0 0 1 0 6.1M18 14.3a5 5 0 0 1 3 4.7v1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><b>Meus agentes</b><span id="hmSlN" data-d="Guarde vários agentes e troque entre eles">Guarde vários agentes e troque entre eles</span></button>
       <button class="hm-c" type="button" data-hm="open"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg><b>Abrir ficha</b><span id="hmOpN" data-d="Importe um backup ou carregue da nuvem.">Importe um backup ou carregue da nuvem.</span></button>
       <button class="hm-c" type="button" data-hm="sys"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><b>Sistemas</b><span id="hmSysC" data-d="Edite regras, contas e a biblioteca.">Edite regras, contas e a biblioteca.</span></button>
-      <button class="hm-c" type="button" data-hm="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10v16H5.5A1.5 1.5 0 0 1 4 18.5zM14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14zM10 4h4v16h-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><b>Biblioteca</b><span>Fichas e sistemas da comunidade. Publique os seus.</span></button>
     </div>
+    <button class="hm-lib" type="button" data-hm="shop" aria-label="Abrir a Biblioteca da comunidade">
+      <span class="hl-bg" data-img="for" aria-hidden="true"></span>
+      <span class="hl-in">
+        <small class="hl-k">MARKETPLACE</small>
+        <b class="hl-t">Biblioteca</b>
+        <span class="hl-d">Fichas e sistemas da comunidade, prontos para adicionar à sua coleção. Explore, visualize a ficha inteira e publique os seus.</span>
+        <span class="hl-tags"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5v-1a5.5 5.5 0 0 1 5.5-5.5h4a5.5 5.5 0 0 1 5.5 5.5v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Personagens</i><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Sistemas</i></span>
+        <span class="k-cta">Explorar biblioteca<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </span>
+      <svg class="hl-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H10v16H5.5A1.5 1.5 0 0 1 4 18.5zM14 4h4.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H14zM10 4h4v16h-4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </button>
     <div class="k-hrow"><h2 class="k-h">Sistemas</h2><div class="k-arrows"><button type="button" id="kPrev" aria-label="Anterior">‹</button><button type="button" id="kNext" aria-label="Próximo">›</button></div></div>
     <div class="k-row" id="kRow">
       <button class="k-p" type="button" data-hm="new" data-sys="op" data-img="op" aria-label="Criar agente em Ordem Paranormal"><i class="k-pc" aria-hidden="true">Criar agente ›</i><b>Ordem Paranormal</b><small>Investigação sobrenatural</small></button>
@@ -489,6 +515,7 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 <script src="js/cloud.js?v=14"></script>
 <script src="js/coc-names.js?v=13"></script>
 <script src="js/share.js?v=14"></script>
+<script src="js/friends.js?v=1"></script>
 <script src="js/assets.js?v=13"></script>
 <script src="js/util.js?v=13"></script>
 <script src="js/imgcrop.js?v=14"></script>

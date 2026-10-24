@@ -274,6 +274,7 @@ const SUPABASE_URL=APP_CONFIG.SUPABASE_URL;
 const SUPABASE_KEY=APP_CONFIG.SUPABASE_KEY;
 const CLOUD_TABLE=APP_CONFIG.CLOUD_TABLE;
 const cloudClient=Cloud.client;
+var FR={rows:[],code:'',err:'',at:0};
 let cloudUser=null,activeCloudId=null,cloudSaveT=null,cloudSyncBusy=false,cloudSyncAgain=false,cloudApplying=false;
 let cloudRev=null,cloudConflict=false;
 let remoteCatalogItems=[],remoteCatalogError='',remoteCatalogLoading=false;
@@ -480,7 +481,7 @@ $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');
 $('#slNew').onclick=()=>{closeM('mSl');newFlow(null)};
 $('#mSl .k-rail').addEventListener('click',e=>{const b=e.target.closest('[data-rail]');if(!b)return;const a=b.dataset.rail;
   if(a==='acct'){if(scrMode!=='cfg')setScreen('cfg',true);cfgView(false);return}
-  if(a==='shop'){shF.kind='';shF.campaign=''}
+  if(a==='shop'){shF.kind='personagem';shF.campaign=''}
   if(a==='help'){if(scrMode!=='cfg')setScreen('cfg',true);cfgView(true);const t=$('#cft-ajuda');if(t)t.click();return}
   if(a==='sl'||a==='sys'||a==='shop'||a==='cfg'){if(a!==scrMode||a==='shop')setScreen(a,true);return}
   if(a==='new'){closeM('mSl');newFlow(null);return}
@@ -2215,8 +2216,8 @@ async function loadCloudList(){
 function paintCloudSession(user){
   cloudUser=user||null;paintRailAcct();
   $('#cloudSignedOut').hidden=!!cloudUser;$('#cloudSignedIn').hidden=!cloudUser;$('#cloudProfile').hidden=!cloudUser;$('#cloudPanel').hidden=!cloudUser;
-  if(cloudUser){$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileEmail').textContent=cloudUser.email||'';void loadCloudProfile(cloudUser.id);void loadCloudList();void autoSync(false)}
-  else{profileRequestUser=null;$('#cloudAuthMsg').textContent=cloudClient?'Entre com sua conta Google para guardar e sincronizar suas fichas.':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;pfLoad({});cloudSaveLabel()}
+  if(cloudUser){$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileEmail').textContent=cloudUser.email||'';void loadCloudProfile(cloudUser.id);void loadCloudList();void autoSync(false);void frRefresh()}
+  else{profileRequestUser=null;FR.rows=[];FR.code='';FR.err='';pf.nPub=null;frRender();$('#cloudAuthMsg').textContent=cloudClient?'Entre com sua conta Google para guardar e sincronizar suas fichas.':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;pfLoad({});cloudSaveLabel()}
 }
 let cloudProfileAvatarPath=null,profileRequestUser=null;
 async function loadCloudProfile(userId){
@@ -2277,7 +2278,7 @@ async function setAccountAvatar(file){
 }
 /* ---------- perfil: banner, bio e cor ---------- */
 const PF_ACC=['#c0392b','#d6336c','#9b59d0','#4f7cff','#1fa5a5','#2f9e5b','#d9a21b','#e8731a'];
-let pf={bio:'',banner:null,accent:'',pub:false};
+let pf={bio:'',banner:null,accent:'',pub:false,nPub:null};
 async function pfUpsert(row){
   const ex={bio:pf.bio||null,banner_path:pf.banner,accent:pf.accent||null},t=r=>cloudClient.from('user_profiles').upsert(r,{onConflict:'user_id'});
   let r=await t(Object.assign({},row,ex,{public_profile:!!pf.pub}));if(!r.error)return r;
@@ -2307,13 +2308,16 @@ function pfPaint(full){
   $$('#pfSw button').forEach(x=>x.setAttribute('aria-checked',String((x.dataset.c||'')===(pf.accent||''))));
   if(!full)return;
   const st=$('#pfStats');st.textContent='';
-  [[agentCount(),'Personagens'],[libRead().length,'Sistemas próprios']].forEach(([n,l])=>{const s=document.createElement('span'),q=document.createElement('b');q.textContent=n;s.append(q,' '+l);st.append(s)});
+  const nF=FR.rows.filter(r=>r.status==='accepted').length;
+  [[agentCount(),'Personagens'],[libRead().length,'Sistemas próprios'],[cloudUser&&pf.nPub!=null?pf.nPub:'–','Publicados'],[cloudUser?nF:'–','Amigos']].forEach(([n,l])=>{
+    const t=document.createElement('div'),q=document.createElement('b'),m=document.createElement('small');t.className='pf-tile';q.textContent=n;m.textContent=l;t.append(q,m);st.append(t)});
+  frPaintCode();
   const ch=$('#pfChips');ch.textContent='';const tags=[];
   if((D.created&&(D.camp||'op')==='op')||slIdx().list.length)tags.push('Ordem Paranormal');if(cocIdx().list.length)tags.push('Call of Cthulhu');libRead().slice(0,4).forEach(x=>tags.push(x.nome));
   tags.forEach(t=>{const s=document.createElement('span');s.className='pf-chip';s.textContent=t;ch.append(s)});ch.hidden=!tags.length;}
 $('#pfEdit').onclick=()=>{cfgView(true);if(window.cfgTab)window.cfgTab('conta');const t=cloudUser?$('#cloudProfile'):$('#cloudSignedOut');
   if(t){t.scrollIntoView({behavior:rm()?'auto':'smooth',block:'start'});if(cloudUser)setTimeout(()=>$('#cloudDisplayName').focus({preventScroll:true}),300)}};
-function pfLoad(d){pf={bio:String(d.bio||'').slice(0,200),banner:typeof d.banner_path==='string'?d.banner_path:null,accent:/^#[0-9a-fA-F]{6}$/.test(d.accent||'')?d.accent:'',pub:!!d.public_profile};
+function pfLoad(d){pf={bio:String(d.bio||'').slice(0,200),banner:typeof d.banner_path==='string'?d.banner_path:null,accent:/^#[0-9a-fA-F]{6}$/.test(d.accent||'')?d.accent:'',pub:!!d.public_profile,nPub:pf.nPub};
   pfSwInit();$('#pfPublic').checked=pf.pub;$('#pfBioIn').value=pf.bio;$('#pfCount').textContent=pf.bio.length+'/200';pfPaint(true)}
 function imageFileToBannerJpeg(file,w,h,q){return new Promise((res,rej)=>{
   const url=URL.createObjectURL(file),img=new Image();
@@ -2337,10 +2341,79 @@ $('#pfBannerDel').onclick=async()=>{const old=pf.banner;pf.banner=null;pfPaint()
 $('#pfBioIn').addEventListener('input',e=>{pf.bio=e.target.value.slice(0,200);$('#pfCount').textContent=pf.bio.length+'/200';pfPaint()});
 $('#cloudDisplayName').addEventListener('input',pfPaint);
 $('#pfPublic').addEventListener('change',e=>{pf.pub=e.target.checked;$('#cloudProfileMsg').textContent=pf.pub?'Toque em Salvar perfil para mostrar sua foto, banner e bio nos seus itens.':'Toque em Salvar perfil para esconder seu perfil dos seus itens.'});
+
+/* ===== PERFIL: abas + AMIGOS (js/friends.js, supabase/friends.sql) ===== */
+function pfTab(k,focus){
+  if(!['geral','pub','amigos'].includes(k))k='geral';
+  $$('#pfTabs [data-pt]').forEach(b=>{const on=b.dataset.pt===k;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;if(on&&focus)b.focus()});
+  $$('#sc-cfg .pf-pane').forEach(p=>p.hidden=p.id!=='pfp-'+k);
+  if(k==='amigos'&&cloudUser&&Date.now()-FR.at>15e3)frRefresh();
+  if(k==='pub'&&cloudUser&&Date.now()-shMineAt>3e4){shMineAt=Date.now();shMineRender()}}
+$('#pfTabs').addEventListener('click',e=>{const b=e.target.closest('[data-pt]');if(b)pfTab(b.dataset.pt)});
+$('#pfTabs').addEventListener('keydown',e=>{if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft')return;
+  const t=['geral','pub','amigos'],i=t.indexOf(($('#pfTabs [aria-selected=true]')||{dataset:{}}).dataset.pt);e.preventDefault();pfTab(t[(i+(e.key==='ArrowRight'?1:t.length-1))%t.length],true)});
+function frPaintCode(){
+  const v=$('#pfCodeV'),n=$('#pfCodeN'),b=$('#pfCodeCp');if(!v)return;
+  if(!cloudUser){v.textContent='—';b.disabled=true;n.textContent='Entre na sua conta para ter um código e adicionar amigos.';return}
+  if(FR.code){v.textContent=FR.code.slice(0,4)+' '+FR.code.slice(4);b.disabled=false;n.textContent='Passe esse código para quem quiser te adicionar. Quem tem o código só consegue mandar um pedido, você decide se aceita.'}
+  else{v.textContent='—';b.disabled=true;n.textContent=FR.err||'Gerando seu código…'}}
+$('#pfCodeCp').onclick=async()=>{if(!FR.code)return;const b=$('#pfCodeCp');try{await navigator.clipboard.writeText(FR.code);b.textContent='Copiado!'}catch(e){b.textContent=FR.code}setTimeout(()=>{b.textContent='Copiar'},1800)};
+async function frRefresh(){
+  if(!cloudUser){FR.rows=[];FR.code='';FR.err='';frRender();return}
+  const uid=cloudUser.id;let err='';
+  try{const [rows,code]=await Promise.all([Friends.list(),Friends.code().catch(()=>'')]);if(!cloudUser||cloudUser.id!==uid)return;FR.rows=rows;FR.code=code||FR.code}
+  catch(e){err=cloudError(e)}
+  FR.err=err;FR.at=Date.now();frRender();pfPaint(true)}
+/* foto do amigo: URL assinada (a policy do storage deixa amigos lerem a pasta profile/) */
+function frAvEl(r,cls){
+  const a=document.createElement('span');a.className='fr-av'+(cls?' '+cls:'');a.setAttribute('aria-hidden','true');a.textContent=(r.name||'?').trim().charAt(0).toUpperCase()||'?';
+  if(r.accent)a.style.setProperty('--pf',r.accent);
+  if(r.avatar&&cloudClient)avUrl(r.avatar).then(u=>{const i=document.createElement('img');i.alt='';i.src=u;a.textContent='';a.append(i)}).catch(()=>{});
+  return a}
+function frAct(btn,fn,okMsg){btn.disabled=true;Promise.resolve().then(fn).then(()=>{if(okMsg)toast('Amigos',okMsg);return frRefresh()}).catch(e=>{btn.disabled=false;toast('Amigos',cloudError(e))})}
+function frRender(){
+  const grid=$('#frList'),inb=$('#frInBox'),outb=$('#frOutBox'),inl=$('#frInList'),outl=$('#frOutList'),emp=$('#frEmpty'),bd=$('#pfBadge');
+  [grid,inl,outl].forEach(u=>u.textContent='');
+  const form=$('#frForm');form.querySelectorAll('input,button').forEach(x=>x.disabled=!cloudUser);
+  const inc=FR.rows.filter(r=>r.status==='pending'&&r.incoming),out=FR.rows.filter(r=>r.status==='pending'&&!r.incoming),fr=FR.rows.filter(r=>r.status==='accepted');
+  bd.hidden=!inc.length;bd.textContent=inc.length>9?'9+':String(inc.length);bd.setAttribute('aria-label',inc.length+' pedidos novos');
+  inb.hidden=!inc.length;outb.hidden=!out.length;$('#frN').textContent=fr.length?'· '+fr.length:'';
+  if(!cloudUser){emp.textContent='Entre na sua conta (Perfil › engrenagem › Conta e nuvem) para adicionar amigos.';return}
+  if(FR.err&&!FR.rows.length){emp.textContent=FR.err;return}
+  emp.textContent=fr.length?'':'Você ainda não tem amigos por aqui. Troque códigos com a sua mesa e comecem a se adicionar.';
+  const row=(r,btns)=>{const li=document.createElement('li'),t=document.createElement('span'),b=document.createElement('b'),sm=document.createElement('small');li.className='fr-row';t.className='fr-rt';
+    b.textContent=r.name;sm.textContent=r.since?new Date(r.since).toLocaleDateString('pt-BR'):'';t.append(b,sm);const act=document.createElement('div');act.className='fr-ra';act.append(...btns);li.append(frAvEl(r),t,act);return li};
+  inc.forEach(r=>{const ok=shBtn('Aceitar','sm pri',()=>frAct(ok,()=>Friends.respond(r.id,true),r.name+' agora é seu amigo.')),no=shBtn('Recusar','sm',()=>frAct(no,()=>Friends.respond(r.id,false)));inl.append(row(r,[ok,no]))});
+  out.forEach(r=>{const c=shBtn('Cancelar','sm',()=>frAct(c,()=>Friends.remove(r.id),'Pedido cancelado.'));outl.append(row(r,[c]))});
+  fr.forEach(r=>grid.append(frCard(r)))}
+function frCard(r){
+  const li=document.createElement('li'),bn=document.createElement('div'),body=document.createElement('div'),nm=document.createElement('b'),meta=document.createElement('small'),acts=document.createElement('div'),box=document.createElement('div');
+  li.className='fr-c';if(r.accent)li.style.setProperty('--pf',r.accent);bn.className='fr-bn';bn.setAttribute('aria-hidden','true');
+  if(r.banner&&cloudClient)avUrl(r.banner).then(u=>{bn.style.backgroundImage='url("'+u+'")'}).catch(()=>{});
+  body.className='fr-body';nm.textContent=r.name;meta.textContent=r.items?r.items+(r.items===1?' publicação':' publicações'):'Sem publicações';
+  body.append(nm,meta);
+  if(r.bio){const p=document.createElement('p');p.className='fr-bio';p.textContent=r.bio;body.append(p)}
+  box.className='fr-items';box.hidden=true;let loaded=false;
+  const see=shBtn('Ver publicações','sm',async()=>{
+    box.hidden=!box.hidden;see.textContent=box.hidden?'Ver publicações':'Ocultar';if(box.hidden||loaded)return;loaded=true;box.textContent='Carregando…';
+    try{const it=await Friends.items(r.id);box.textContent='';if(!it.length){box.textContent='Nenhuma publicação pública ainda.';return}
+      it.forEach(x=>{const b=document.createElement('button'),t=document.createElement('span');b.type='button';b.className='fr-it';t.textContent=x.title;b.append(shThumbEl(x.thumb,x.title),t);b.onclick=()=>shOpenView(x.id);box.append(b)})}
+    catch(e){loaded=false;box.textContent=cloudError(e)}});
+  const rm=shBtn('Remover','sm',()=>{if(!rm.classList.contains('arm')){rm.classList.add('arm');rm.textContent='Toque de novo';setTimeout(()=>{if(rm.isConnected){rm.classList.remove('arm');rm.textContent='Remover'}},4000);return}
+    frAct(rm,()=>Friends.remove(r.id),'Amizade desfeita.')});
+  if(!r.items)see.disabled=true;
+  acts.className='fr-acts';acts.append(see,rm);
+  li.append(bn,frAvEl(r,'big'),body,acts,box);return li}
+$('#frForm').addEventListener('submit',async e=>{e.preventDefault();const inp=$('#frCodeIn'),m=$('#frMsg'),c=inp.value.trim();if(!c||!cloudUser)return;
+  m.textContent='Enviando…';const btn=e.submitter||$('#frForm button');btn.disabled=true;
+  try{const r=await Friends.request(c);inp.value='';
+    m.textContent=r==='accepted'?'Vocês já tinham se adicionado: agora são amigos!':r==='friends'?'Vocês já são amigos.':r==='pending'?'Esse pedido já estava enviado.':'Pedido enviado! Falta a outra pessoa aceitar.';
+    await frRefresh()}
+  catch(x){m.textContent=cloudError(x)}finally{btn.disabled=false}});
 /* perfil x configurações: o perfil é a tela principal; a engrenagem abre as configurações */
 const cfgView=on=>{$('#sc-cfg').classList.toggle('cf-on',!!on);$('#mSl').scrollTop=0};
 {const o=window.openCfg;window.openCfg=k=>{o(k);cfgView(true)}}
-function openProfile(){openSl('cfg');cfgView(false)}
+function openProfile(){openSl('cfg');cfgView(false);if(cloudUser&&Date.now()-FR.at>6e4)frRefresh()}
 $('#pfGear').onclick=()=>{cfgView(true);if(window.cfgTab)window.cfgTab('conta')};
 $('#cfBack').onclick=()=>cfgView(false);
 $('#cloudGoogle').addEventListener('click',()=>{try{sessionStorage.setItem('op-pf-return','1')}catch(e){}});
@@ -2569,11 +2642,11 @@ $('#wzFoot').addEventListener('click',async e=>{const b=e.target.closest('[data-
   else if(a==='fin'){wzApply();await closeWiz();toast('Agente criado','Bom jogo, '+(D.pers||'agente')+'.')}});
 
 [['d-a','a'],['d-p','p'],['d-h','h'],['d-o','o']].forEach(([id,k])=>$('#'+id).addEventListener('input',e=>{D.desc[k]=e.target.value;save()}));
-$('#bNew').onclick=()=>openM('mNew');
+$('#bNew').onclick=()=>{fromMenu=false;menuSys=null;startNew()};
 /* ---------- menu inicial ---------- */
 const HMK='op-ficha-menu';
 const homeOn=()=>true;
-let homeBack=null,fromMenu=false,menuNew=false,menuIO=false,ioCancel=false,menuSys=null;
+let homeBack=null,fromMenu=false,menuIO=false,ioCancel=false,menuSys=null;
 function homeFill(){
   const has=!!D.created,c=$('#hmCont');c.hidden=!has;$('#hmWelcome').hidden=has;
   hmInfo(has);
@@ -2596,8 +2669,7 @@ function hmInfo(has){
 /* começa uma ficha nova; sys = sistema escolhido no pôster (ou null para escolher depois) */
 function startNew(){const id=menuSys;menuSys=null;if(id)pickCamp(id);else openCamp()}
 function newFlow(sys){fromMenu=true;
-  if(D.created){$('#bNew').click();menuNew=true;fromMenu=true;menuSys=sys||null}
-  else{menuSys=sys||null;startNew()}}
+  menuSys=sys||null;startNew()}
 function openHome(){
   const el=$('#home');if(!el.hidden)return;
   homeFill();
@@ -2619,7 +2691,7 @@ $('#home').addEventListener('click',e=>{
   else if(a==='open')openCfg('abrir')
   else if(a==='edit'){sysBack='home';sysOpen()}
   else if(a==='lib'){shF.kind='sistema';shF.campaign='';shF.q='';openSl('shop')}
-  else if(a==='acct')openProfile();else if(a==='cfg')openCfg('conta');else if(a==='help')openCfg('ajuda');else if(a==='sl'||a==='sys'||a==='shop'){if(a==='shop'){shF.kind='';shF.campaign=''}openSl(a)}});
+  else if(a==='acct')openProfile();else if(a==='cfg')openCfg('conta');else if(a==='help')openCfg('ajuda');else if(a==='sl'||a==='sys'||a==='shop'){if(a==='shop'){shF.kind='personagem';shF.campaign=''}openSl(a)}});
 document.addEventListener('keydown',e=>{
   const el=$('#home');if(el.hidden)return;
   if(e.key==='Escape'&&D.created){e.preventDefault();closeHome();return}
@@ -2627,8 +2699,6 @@ document.addEventListener('keydown',e=>{
     if(!f.length)return;const a=f[0],z=f[f.length-1];
     if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
     else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}}});
-$('#nwExp').onclick=()=>$('#ioExp').click();
-$('#nwGo').onclick=()=>{if(menuSys)menuNew=false;closeM('mNew');startNew()};
 /* ---------- montar tudo ---------- */
 function renderAll(){
   [['f-jog','jog'],['f-pers','pers'],['f-ori','ori'],['f-cls','cls'],['f-nivel','nivel'],['f-nex','nex'],['f-pe','pe'],['f-desl','desl'],['c-def','def'],['c-prot','prot'],['c-res','res']].forEach(([id,k])=>$('#'+id).value=D[k]||'');
@@ -2641,7 +2711,7 @@ $('.splogo').src=GH+'Logoordemparanormal_HIGH.webp';$('.logo').src=GH+'Logoordem
    por cleanMold() e fichas ficam como cópia crua que o normalize() limpa ao abrir. */
 const SHN={op:'Ordem Paranormal',coc:'Call of Cthulhu',nova:'Sistema próprio'};
 const shKind=r=>(r.kind==='sistema'?'Sistema':'Personagem')+' · '+(SHN[r.campaign]||'?');
-let shPending=Share.takeFromUrl(),shF={kind:'',campaign:'',q:'',sort:'popular'},shPage=0,shTok=0;
+let shPending=Share.takeFromUrl(),shF={kind:'personagem',campaign:'',q:'',sort:'popular'},shPage=0,shTok=0;
 const shEl=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!=null)n.textContent=x;return n};
 const shBtn=(txt,cls,fn)=>{const b=shEl('button','btn '+(cls||''),txt);b.type='button';b.onclick=fn;return b};
 const shClose=()=>closeM('mShare');
@@ -2704,7 +2774,7 @@ const PBV=[['private','lock','Privado','Só você vê. Fica na sua conta, sem li
 function shOpenPublish(src){
   if(!src){toast('Compartilhar','Não consegui ler este item.');return}
   const had=Share.linked(src.key)||(src.legacy||[]).map(Share.linked).find(Boolean),b=$('#shBody'),a=$('#shAct'),box=$('#mShare .mbox');
-  b.textContent='';a.textContent='';box.classList.remove('sh-wide');box.classList.add('pb');$('#mShare').classList.remove('sh-page');
+  b.textContent='';a.textContent='';box.classList.remove('sh-wide','sh-peek','open');box.classList.add('pb');$('#mShare').classList.remove('sh-page');
   $('#shT').textContent=had?'Atualizar publicação':'Publicar na biblioteca';
   if(!cloudUser){
     const w=shEl('div','pb-gate');w.innerHTML='<span class="pb-bigic">'+pbIc('user')+'</span><h3>Entre para publicar</h3><p>Use a sua conta Google para publicar. Quem receber o link, ou abrir o marketplace, não precisa de conta para ver e copiar.</p>';
@@ -2819,7 +2889,8 @@ function shAuthor(row,side){
       t.append(shEl('b',null,nm));
       if(a.items)t.append(shEl('small',null,a.items+(a.items===1?' item publicado':' itens publicados')));
       if(a.bio)t.append(shEl('p','sv-aubio',String(a.bio).slice(0,200)));
-      box.append(bn,av,t)}
+      box.append(bn,av,t);
+      if(cloudUser){const fb=shBtn('Adicionar amigo','sm sv-fr',()=>{fb.disabled=true;Friends.requestByItem(row.id).then(r=>{fb.textContent=r==='accepted'||r==='friends'?'Vocês são amigos':'Pedido enviado';toast('Amigos',r==='accepted'?'Agora vocês são amigos!':r==='friends'?'Vocês já são amigos.':'Pedido enviado.');frRefresh()}).catch(e=>{fb.disabled=false;toast('Amigos',cloudError(e))})});box.append(fb)}}
     if(items.length){
       box.append(shEl('h3','sh-h',pub?'Mais desse autor':'Mais de '+(row.author_name||'este autor')));
       const ul=shEl('ul','sv-ml');
@@ -2831,7 +2902,8 @@ function shAuthor(row,side){
     if(!row.author_name)return;   /* SQL novo ainda não rodou: usa a busca pelo nome, como antes */
     return Share.listPublic({q:row.author_name,kind:'',campaign:'',sort:'popular',page:0}).then(r=>fill(null,r.rows.filter(x=>x.id!==row.id&&x.author_name===row.author_name).slice(0,4)))}).catch(()=>{})}
 async function shOpenView(code){
-  const b=$('#shBody'),a=$('#shAct');$('#mShare').classList.add('sh-page');$('#mShare .mbox').classList.remove('pb');$('#mShare .mbox').classList.add('sh-wide');
+  const b=$('#shBody'),a=$('#shAct'),box=$('#mShare .mbox');
+  $('#mShare').classList.remove('sh-page');box.classList.remove('pb','sh-wide','open');box.classList.add('sh-peek');box.scrollTop=0;
   $('#shT').textContent='Biblioteca';b.textContent='';a.textContent='';
   b.append(shEl('p','sv-load','Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
   let row=null,err='';const hit=shVC.get(code);
@@ -2839,32 +2911,46 @@ async function shOpenView(code){
   b.textContent='';const v=row&&SHVALID(row);
   if(!row||!v){b.append(shEl('p','sv-load',err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
   $('#shT').textContent=String(row.title).slice(0,80);
-  const bs=shBasics(row,v),pic=shPortrait(row,v);
-  const top=shEl('div','sv-top'),back=shEl('button','sv-back','← Biblioteca');back.type='button';back.onclick=shClose;
-  const cl=shBtn('Copiar link','sm',()=>shCopy(Share.link(row.id),cl));top.append(back,cl);
-  const head=shEl('header','sv-head'),ban=shEl('div','sv-ban'),cov=shEl('div','sv-cover'),hb=shEl('div','sv-hb'),pills=shEl('div','sv-pills');
-  ban.setAttribute('aria-hidden','true');cov.setAttribute('aria-hidden','true');
-  if(pic){ban.style.backgroundImage='url("'+pic+'")';cov.style.backgroundImage='url("'+pic+'")'}else cov.append(shEl('span','sv-ini',String(row.title).trim().charAt(0).toUpperCase()||'?'));
-  [row.kind==='sistema'?'Sistema':'Personagem',SHN[row.campaign]||'?','Versão '+row.version].forEach((t,i)=>{const p=shEl('span','sh-pill'+(i===1?' dot':''),t);if(i===1)p.dataset.c=row.campaign;pills.append(p)});
+  const bs=shBasics(row,v),pic=shPortrait(row,v),isSys=row.kind==='sistema';
+  /* ---- parte compacta ---- */
+  const card=shEl('article','sv2'),ban=shEl('div','sv2-ban'),tools=shEl('div','sv2-tools');
+  ban.setAttribute('aria-hidden','true');if(pic)ban.style.backgroundImage='url("'+pic+'")';
+  const cp=shBtn('Copiar link','sm',()=>shCopy(Share.link(row.id),cp)),x=shBtn('✕','sm sv2-x',shClose);x.setAttribute('aria-label','Fechar');
+  tools.append(cp,x);
+  const top=shEl('div','sv2-top'),cov=shEl('div','sv2-cov'),hb=shEl('div','sv2-hb'),pills=shEl('div','sv-pills');
+  cov.setAttribute('aria-hidden','true');
+  if(pic)cov.style.backgroundImage='url("'+pic+'")';else cov.append(shEl('span','sv-ini',String(row.title).trim().charAt(0).toUpperCase()||'?'));
+  [isSys?'Sistema':'Personagem',SHN[row.campaign]||'?','v'+row.version].forEach((t,i)=>{const p=shEl('span','sh-pill'+(i===1?' dot':''),t);if(i===1)p.dataset.c=row.campaign;pills.append(p)});
   let dt='';try{if(row.updated_at)dt=' · atualizado em '+new Date(row.updated_at).toLocaleDateString('pt-BR')}catch(e){}
-  hb.append(shEl('h1','sv-t',row.title));if(row.author_name)hb.append(shEl('p','sv-by','por '+row.author_name));
-  hb.append(pills,shEl('p','sv-meta',(row.copies||0)+(row.copies===1?' cópia':' cópias')+dt));
-  const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
+  hb.append(shEl('h1','sv2-t',row.title));if(row.author_name)hb.append(shEl('p','sv2-by','por '+row.author_name));
+  hb.append(pills,shEl('p','sv2-meta',(row.copies||0)+(row.copies===1?' cópia':' cópias')+dt));
+  top.append(cov,hb);card.append(ban,tools,top);
+  const body=shEl('div','sv2-body');
+  if(row.summary)body.append(shEl('p','sv2-sum',row.summary));
+  if(bs.chips.length){const g=shEl('div','sv2-sts');bs.chips.slice(0,8).forEach(([k,n])=>{const c=shEl('span','sv2-st');c.append(shEl('small',null,String(k)),shEl('b',null,String(n)));g.append(c)});body.append(g)}
+  if(bs.info.length){const g=shEl('div','sh-facts');bs.info.slice(0,4).forEach(([k,n])=>{const c=shEl('span','sh-fact');c.append(shEl('small',null,k),shEl('b',null,String(n)));g.append(c)});body.append(g)}
+  body.append(shEl('p','sh-small sv2-note',isSys?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
+  card.append(body);
+  /* ---- parte expandida (só é montada quando pedir) ---- */
+  const more=shEl('div','sv2-more');more.hidden=true;more.id='sv2More';let built=false;
+  const build=()=>{
+    const fb=shEl('div','vw-body');
+    if(v.m)shFullSys(fb,v.m);else if(row.campaign==='coc')shFullCoc(fb,v.s);else shFullOp(fb,v.s);
+    const hd=shEl('h2','sv2-mh','Ficha completa'),side=shEl('div','sv2-side');
+    more.append(hd,fb,side);shAuthor(row,side)};
+  const have=isSys&&libRead().find(x=>x.src===row.id);
   const add=shBtn(have?'Atualizar na minha biblioteca':'Adicionar à minha biblioteca','pri',()=>shAdd(row,v));
-  const full=shBtn('Ver ficha completa','',()=>shOpenFull(row,v));
+  const full=shBtn('Ver ficha completa','full',()=>{
+    const open=!box.classList.contains('open');box.classList.toggle('open',open);more.hidden=!open;
+    full.textContent=open?'Ocultar ficha completa':'Ver ficha completa';full.setAttribute('aria-expanded',String(open));
+    if(open){if(!built){built=true;build()}setTimeout(()=>{try{more.scrollIntoView({behavior:rm()?'auto':'smooth',block:'start'})}catch(e){}},80)}
+    else box.scrollTo?box.scrollTo({top:0,behavior:rm()?'auto':'smooth'}):0});
+  full.setAttribute('aria-expanded','false');full.setAttribute('aria-controls','sv2More');
   const rep=shBtn('Denunciar','rep',()=>{
     if(!cloudUser){toast('Denunciar','Entre com sua conta Google para denunciar.');return}
     if(!rep.classList.contains('arm')){rep.classList.add('arm');rep.textContent='Toque de novo para denunciar';setTimeout(()=>{if(rep.isConnected){rep.classList.remove('arm');rep.textContent='Denunciar'}},4000);return}
     rep.disabled=true;Share.report(row.id).then(()=>{rep.textContent='Denúncia enviada'}).catch(e=>{rep.disabled=false;toast('Denunciar',cloudError(e))})});
-  const acts=shEl('div','sv-acts');acts.append(add,full,rep);head.append(ban,cov,hb,acts);
-  const wrap=shEl('div','sv-wrap'),main=shEl('div','sv-main'),side=shEl('aside','sv-side');
-  const sec=(t,el)=>{const s=shEl('section','sv-sec');s.append(shEl('h3','sh-h',t),el);return s};
-  if(row.summary)main.append(sec('Resumo',shEl('p','sv-lead',row.summary)));
-  const dsc=shDescEl(row,v);if(dsc)main.append(dsc);
-  if(bs.chips.length){const g=shEl('div','sh-chips');bs.chips.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});main.append(sec('Atributos',g))}
-  if(bs.info.length){const d=shEl('dl','sh-dl');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});main.append(sec('Ficha em resumo',d))}
-  main.append(shEl('p','sh-small',row.kind==='sistema'?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
-  shAuthor(row,side);wrap.append(main,side);b.append(top,head,wrap);a.textContent=''}
+  b.append(card,more);a.textContent='';a.append(add,full,rep)}
 
 /* ---- ficha completa, somente leitura ---- */
 function shSec(body,title,node){if(!node)return;const s=shEl('section','vw-sec');s.append(shEl('h3',null,title),node);body.append(s)}
@@ -2948,13 +3034,22 @@ function shAdd(row,v){
 /* ---- tela Biblioteca (marketplace) ---- */
 function shFltRender(){
   const f=$('#shFlt');f.textContent='';
-  const seg=shEl('div','sh-seg');seg.setAttribute('role','group');seg.setAttribute('aria-label','Tipo');
-  [['','Tudo'],['sistema','Sistemas'],['personagem','Personagens']].forEach(([v,l])=>{const b=shEl('button','sh-chip',l);b.type='button';b.setAttribute('aria-pressed',String(shF.kind===v));
-    b.onclick=()=>{shF.kind=v;shFltRender();shCatRender(false)};seg.append(b)});
+  if(shF.kind!=='sistema')shF.kind='personagem';
+  const tabs=shEl('div','sh-tabs');tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Tipo de item');
+  const IC={personagem:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5v-1a5.5 5.5 0 0 1 5.5-5.5h4a5.5 5.5 0 0 1 5.5 5.5v1" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>',
+    sistema:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'};
+  [['personagem','Personagens','Fichas prontas'],['sistema','Sistemas','Regras e modelos']].forEach(([v,l,d])=>{
+    const b=shEl('button','sh-tab');b.type='button';b.id='shTab-'+v;b.setAttribute('role','tab');b.setAttribute('aria-selected',String(shF.kind===v));b.setAttribute('aria-controls','shCatList');b.tabIndex=shF.kind===v?0:-1;
+    b.innerHTML=IC[v];const t=shEl('span','sh-tt');t.append(shEl('b',null,l),shEl('small',null,d));b.append(t);
+    b.onclick=()=>{if(shF.kind===v)return;shF.kind=v;shFltRender();shCatRender(false)};
+    b.onkeydown=e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const o=v==='personagem'?'sistema':'personagem';shF.kind=o;shFltRender();shCatRender(false);const n=$('#shTab-'+o);if(n)n.focus()}};
+    tabs.append(b)});
   const cg=shEl('div','sh-camps');cg.setAttribute('role','group');cg.setAttribute('aria-label','Sistema de jogo');
+  const all=shEl('button','sh-chip','Todos');all.type='button';all.setAttribute('aria-pressed',String(!shF.campaign));all.onclick=()=>{if(!shF.campaign)return;shF.campaign='';shFltRender();shCatRender(false)};cg.append(all);
   [['op','Ordem Paranormal'],['coc','Call of Cthulhu'],['nova','Sistema próprio']].forEach(([v,l])=>{const b=shEl('button','sh-chip dot',l);b.type='button';b.dataset.c=v;b.setAttribute('aria-pressed',String(shF.campaign===v));
     b.onclick=()=>{shF.campaign=shF.campaign===v?'':v;shFltRender();shCatRender(false)};cg.append(b)});
-  f.append(seg,cg)}
+  f.append(tabs,cg);
+  const g=$('#shCatList');if(g)g.classList.toggle('is-sys',shF.kind==='sistema')}
 let shOpenKey='',shOpenAt=0,shMineAt=0;
 function shopOpen(){shFltRender();$('#shQ').value=shF.q;$('#shSort').value=shF.sort;
   const k=JSON.stringify([shF.q,shF.kind,shF.campaign,shF.sort]);
@@ -2983,11 +3078,11 @@ async function shCatRender(more){
   if(!more)ul.textContent='';
   res.rows.forEach((r,i)=>ul.append(shCard(r,i)));
   msg.classList.remove('sr-only');msg.textContent='';
-  const n=ul.children.length;cnt.textContent=n?n+(res.more?'+':'')+(n===1?' resultado':' resultados'):'';
-  if(!n){const fl=shF.q||shF.kind||shF.campaign;
-    msg.append(shEl('b',null,fl?'Nada encontrado com esses filtros.':'O marketplace ainda está vazio.'),
+  const n=ul.children.length;const sy=shF.kind==='sistema';cnt.textContent=n?n+(res.more?'+':'')+' '+(n===1?(sy?'sistema':'personagem'):(sy?'sistemas':'personagens')):'';
+  if(!n){const fl=shF.q||shF.campaign;
+    msg.append(shEl('b',null,fl?'Nada encontrado com esses filtros.':(shF.kind==='sistema'?'Nenhum sistema publicado ainda.':'Nenhum personagem publicado ainda.')),
       shEl('span',null,fl?'Tente outra busca ou limpe os filtros.':'Publique um personagem ou sistema pelo botão Compartilhar e escolha Marketplace.'),
-      shBtn(fl?'Limpar filtros':'Ir para Meus agentes','pri',()=>{if(fl){shF.q='';shF.kind='';shF.campaign='';$('#shQ').value='';shFltRender();shCatRender(false)}else setScreen('sl',true)}))}
+      shBtn(fl?'Limpar filtros':'Ir para Meus agentes','pri',()=>{if(fl){shF.q='';shF.campaign='';$('#shQ').value='';shFltRender();shCatRender(false)}else setScreen('sl',true)}))}
   mb.hidden=!res.more}
 $('#shMore').onclick=()=>{shPage++;shCatRender(true)};
 let shQT=null;
@@ -3002,6 +3097,7 @@ async function shMineRender(){
   if(!cloudUser){msg.textContent='Entre com sua conta Google para publicar e ver o que você já compartilhou.';return}
   msg.textContent='Carregando…';
   let rows=[];try{rows=await Share.listMine(cloudUser.id)}catch(e){msg.textContent=cloudError(e);return}
+  pf.nPub=rows.length;pfPaint(true);
   msg.textContent=rows.length?'':'Você ainda não compartilhou nada. Use o botão Compartilhar em um personagem (Agentes) ou em um sistema (Sistemas).';
   rows.forEach(r=>{const li=shEl('li','sh-r'),t=shEl('div','sh-t'),pub=r.visibility==='public';
     t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+' · v'+r.version+' · '+r.copies+' '+(r.copies===1?'cópia':'cópias')+' · '+(pub?'no marketplace':r.visibility==='private'?'privado':'só por link')+(r.status==='hidden'?' · oculto por denúncias':'')));
@@ -3047,18 +3143,16 @@ const catalogsReady=loadGameCatalogs();buildBars();buildFilters();renderAll();in
   try{$$('[data-img]').forEach(e=>{const u=IMGS[e.dataset.img];if(u)e.style.backgroundImage=e.matches('.k-art,.k-side')?heroBg(e.dataset.img):`url(${u})`});
     $('#kPrev').onclick=()=>$('#kRow').scrollBy({left:-380,behavior:'smooth'});$('#kNext').onclick=()=>$('#kRow').scrollBy({left:380,behavior:'smooth'})}catch(e){}
   $$('.hm-fx').forEach(f=>{let h='';for(let i=0,n=document.documentElement.classList.contains('lite')?0:30;i<n;i++){const r=Math.random;h+=`<i style="--s:${(r()*2.8+1.2).toFixed(1)}px;left:${(r()*100).toFixed(1)}%;--d:${(r()*14+10).toFixed(1)}s;--dl:${(-r()*22).toFixed(1)}s;--x:${(r()*80-40).toFixed(0)}px"></i>`}f.innerHTML=h});
-  const root=document.documentElement,watch=['#home','#mSl','#camp','#wiz'].map(q=>$(q)).filter(Boolean),mN=$('#mNew');
-  $('#bNew').addEventListener('click',()=>{menuNew=false;fromMenu=false;menuSys=null});
+  const root=document.documentElement,watch=['#home','#mSl','#camp','#wiz'].map(q=>$(q)).filter(Boolean);
   let was=false;
   function upd(){
-    if(mN.hidden&&menuNew){menuNew=false;menuSys=null;if(watch.every(e=>e.hidden))openHome()}
-    const on=watch.some(e=>!e.hidden)||(!mN.hidden&&menuNew);
+    const on=watch.some(e=>!e.hidden);
     root.classList.toggle('mm',on);
     if(was&&!on&&!$('#app').hidden&&!rm())$('#app').animate([{opacity:0},{opacity:1}],{duration:420,easing:'ease-out'});
     was=on;
     if(!$('#mSl').hidden)document.body.style.overflow='hidden';
     else if(watch.every(e=>e.hidden)&&$('#cw').hidden&&$('#sysEd').hidden)document.body.style.overflow=''}
-  const mo=new MutationObserver(upd);[...watch,mN].forEach(e=>mo.observe(e,{attributes:true,attributeFilter:['hidden']}));upd();
+  const mo=new MutationObserver(upd);watch.forEach(e=>mo.observe(e,{attributes:true,attributeFilter:['hidden']}));upd();
 })();
 
 function heroBg(k){return k==='op'?(innerWidth>=900?`url(${ASSET_BASE}OPbackgroundwide.webp)`:`url(${IMGS.op})`):`url(${IMGS[k]})`}
