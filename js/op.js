@@ -422,7 +422,7 @@ function slRender(){
   const ix=slIdx().list.slice().sort((a,b)=>b.t-a.t);let n=0,h='';
   const st=()=>` style="--i:${n++}"`;
   if(D.created){const c=slInfo(D);
-    h+=`<li class="sl-i cur"${st()}><span class="sl-tag">Em uso</span>${slAv(c)}<span class="sl-t"><b>${esc(c.n)}</b><em>${esc(c.s)}</em></span><span class="sl-act"><button class="btn pri sm" type="button" data-sl="cur">Continuar</button><button class="btn sm sl-sh" type="button" aria-label="Compartilhar por link" title="Compartilhar por link" data-sl="share" data-id="__cur"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 7.5l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button></span></li>`}
+    h+=`<li class="sl-i cur"${st()}><span class="sl-tag">Última aberta</span>${slAv(c)}<span class="sl-t"><b>${esc(c.n)}</b><em>${esc(c.s)}</em></span><span class="sl-act"><button class="btn pri sm" type="button" data-sl="cur">Continuar</button><button class="btn sm sl-sh" type="button" aria-label="Compartilhar por link" title="Compartilhar por link" data-sl="share" data-id="__cur"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 7.5l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="btn sm" type="button" data-sl="curdel">Excluir</button></span></li>`}
   ix.forEach(x=>{let j=null;try{j=JSON.parse(localStorage.getItem(SLK+x.id))}catch(e){}
     if(!j||typeof j!=='object'){h+=`<li class="sl-i"${st()}><span class="sl-t"><b>Ficha ilegível</b><em>Não dá para abrir esta cópia.</em></span><span class="sl-act"><button class="btn sm" type="button" data-sl="del" data-id="${esc(x.id)}">Excluir</button></span></li>`;return}
     const i=slInfo(j);
@@ -445,6 +445,12 @@ function slOpen(id){
   renderAll();cloudSaveLabel();writeNow();closeM('mSl');go('char',1);toast('Agente aberto',slInfo(D).n)}
 $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');if(!b)return;const id=b.dataset.id;
   if(b.dataset.sl==='cur'){closeM('mSl');return}
+  if(b.dataset.sl==='curdel'){
+    if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para excluir';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='Excluir'}},4000);return}
+    if(D.cl)Cloud.forget('op',D.cl);
+    clearTimeout(saveT);saveT=null;clearTimeout(cloudSaveT);activeCloudId=null;cloudConflict=false;
+    const cfg=D.cfg;useMold(OP);D=fresh();D.cfg=cfg;writeNow();renderAll();cloudSaveLabel();slRender();
+    $('#slMsg').textContent=cloudUser?'Ficha excluída deste aparelho e da sua conta.':'Ficha excluída deste aparelho.';return}
   if(b.dataset.sl==='new'){$('#slNew').click();return}
   if(b.dataset.sl==='share'){shOpenPublish(id==='__cur'?(D.created?shSrcOp(D,'op:live'):null):shSrcSlot(id));return}
   if(b.dataset.sl==='cocshare'){shOpenPublish(shSrcCoc(id));return}
@@ -2553,6 +2559,16 @@ function shBasics(row,v){
   return{info,chips}}
 
 /* janela de detalhe (marketplace ou link) */
+function shDescEl(row,v){
+  const s=v.s;if(!s)return null;let parts;
+  if(row.campaign==='coc'){const bk=s.bk&&typeof s.bk==='object'?s.bk:{};parts=COC_BK.map(([k,l])=>[l,shS(bk[k],4000)])}
+  else{const d=s.desc&&typeof s.desc==='object'?s.desc:{};parts=[['Aparência','a'],['Personalidade','p'],['Histórico','h'],['Objetivo','o']].map(([l,k])=>[l,shS(d[k],4000)])}
+  parts=parts.filter(p=>p[1].trim());if(!parts.length)return null;
+  const w=shEl('section','sh-about'),box=shEl('div','sh-dbox'),more=shEl('p','sh-dmore','O texto continua em “Ver tudo”.');more.hidden=true;
+  parts.forEach(([l,t])=>{const p=shEl('div','sh-dp');p.append(shEl('small',null,l),shEl('p',null,t));box.append(p)});
+  w.append(shEl('h3','sh-h','Sobre o personagem'),box,more);
+  requestAnimationFrame(()=>{if(box.scrollHeight>box.clientHeight+2){box.classList.add('cut');more.hidden=false}});
+  return w}
 async function shOpenView(code){
   const b=$('#shBody'),a=$('#shAct');$('#shT').textContent='Biblioteca';b.textContent='';a.textContent='';$('#mShare .mbox').classList.add('sh-wide');
   b.append(shEl('p',null,'Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
@@ -2561,22 +2577,25 @@ async function shOpenView(code){
   const v=row&&SHVALID(row);
   if(!row||!v){b.append(shEl('p',null,err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
   $('#shT').textContent=String(row.title).slice(0,80);
-  const head=shEl('div','sh-head');head.append(shThumbEl(row.thumb,row.title,'big'));
-  const ht=shEl('div','sh-ht');ht.append(shEl('p','sh-meta',shKind(row)+' · versão '+row.version+(row.copies?' · '+row.copies+(row.copies===1?' cópia':' cópias'):'')));
-  if(row.author_name)ht.append(shEl('p','sh-small','por '+row.author_name));head.append(ht);b.append(head);
-  if(row.summary)b.append(shEl('p','sh-sum2',row.summary));
+  const head=shEl('div','sh-head2'),ht=shEl('div','sh-ht'),pills=shEl('p','sh-pills'),pc=shEl('span','sh-pill dot',SHN[row.campaign]||'?');pc.dataset.c=row.campaign;
+  pills.append(shEl('span','sh-pill',row.kind==='sistema'?'Sistema':'Personagem'),pc);ht.append(pills);
+  if(row.author_name)ht.append(shEl('p','sh-by','por '+row.author_name));
+  ht.append(shEl('p','sh-small','Versão '+row.version+(row.copies?' · '+row.copies+(row.copies===1?' cópia':' cópias'):'')));
+  head.append(shThumbEl(row.thumb,row.title,'big'),ht);b.append(head);
+  if(row.summary)b.append(shEl('p','sh-lead',row.summary));
+  const dsc=shDescEl(row,v);if(dsc)b.append(dsc);
   const bs=shBasics(row,v);
   if(bs.chips.length){const g=shEl('div','sh-chips');bs.chips.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});b.append(g)}
-  if(bs.info.length){const d=shEl('dl','sh-dl');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});b.append(d)}
+  if(bs.info.length){const d=shEl('dl','sh-dl sh-dl2');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});b.append(d)}
   b.append(shEl('p','sh-small',row.kind==='sistema'?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
   const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
   const add=shBtn(have?'Atualizar na minha biblioteca':'Adicionar à minha biblioteca','pri',()=>shAdd(row,v));
   const full=shBtn('Ver tudo','',()=>shOpenFull(row,v));
-  const rep=shBtn('Denunciar','',()=>{
+  const rep=shBtn('Denunciar','rep',()=>{
     if(!cloudUser){toast('Denunciar','Entre com sua conta Google para denunciar.');return}
     if(!rep.classList.contains('arm')){rep.classList.add('arm');rep.textContent='Toque de novo para denunciar';setTimeout(()=>{if(rep.isConnected){rep.classList.remove('arm');rep.textContent='Denunciar'}},4000);return}
     rep.disabled=true;Share.report(row.id).then(()=>{rep.textContent='Denúncia enviada'}).catch(e=>{rep.disabled=false;toast('Denunciar',cloudError(e))})});
-  a.textContent='';a.append(add,full,rep,shBtn('Fechar','',shClose))}
+  a.textContent='';a.append(add,full,shBtn('Fechar','',shClose),rep)}
 
 /* ---- ficha completa, somente leitura ---- */
 function shSec(body,title,node){if(!node)return;const s=shEl('section','vw-sec');s.append(shEl('h3',null,title),node);body.append(s)}
@@ -2660,23 +2679,43 @@ function shAdd(row,v){
 /* ---- tela Biblioteca (marketplace) ---- */
 function shFltRender(){
   const f=$('#shFlt');f.textContent='';
-  [['kind','','Tudo'],['kind','sistema','Sistemas'],['kind','personagem','Personagens'],['campaign','op','OP'],['campaign','coc','CoC'],['campaign','nova','Próprios']].forEach(([k,val,l])=>{
-    const on=k==='kind'?shF.kind===val:shF.campaign===val,b=shEl('button','sh-chip',l);b.type='button';b.setAttribute('aria-pressed',String(!!on));
-    b.onclick=()=>{if(k==='kind')shF.kind=val;else shF.campaign=shF.campaign===val?'':val;shFltRender();shCatRender(false)};f.append(b)})}
+  const seg=shEl('div','sh-seg');seg.setAttribute('role','group');seg.setAttribute('aria-label','Tipo');
+  [['','Tudo'],['sistema','Sistemas'],['personagem','Personagens']].forEach(([v,l])=>{const b=shEl('button','sh-chip',l);b.type='button';b.setAttribute('aria-pressed',String(shF.kind===v));
+    b.onclick=()=>{shF.kind=v;shFltRender();shCatRender(false)};seg.append(b)});
+  const cg=shEl('div','sh-camps');cg.setAttribute('role','group');cg.setAttribute('aria-label','Sistema de jogo');
+  [['op','Ordem Paranormal'],['coc','Call of Cthulhu'],['nova','Sistema próprio']].forEach(([v,l])=>{const b=shEl('button','sh-chip dot',l);b.type='button';b.dataset.c=v;b.setAttribute('aria-pressed',String(shF.campaign===v));
+    b.onclick=()=>{shF.campaign=shF.campaign===v?'':v;shFltRender();shCatRender(false)};cg.append(b)});
+  f.append(seg,cg)}
 function shopOpen(){shFltRender();$('#shQ').value=shF.q;$('#shSort').value=shF.sort;shCatRender(false);shMineRender()}
-function shCard(r){
-  const li=shEl('li','sh-card'),b=shEl('button','sh-cb');b.type='button';b.setAttribute('aria-label','Abrir '+r.title);
-  const t=shEl('span','sh-ct');t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)),shEl('small',null,(r.author_name?'por '+r.author_name:'')+(r.author_name&&r.copies?' · ':'')+(r.copies?r.copies+(r.copies===1?' cópia':' cópias'):'')));
+function shCoverEl(r){
+  const c=shEl('span','sh-cv');c.setAttribute('aria-hidden','true');
+  if(Share.thumbOk(r.thumb)){const i=shEl('img');i.alt='';i.src=r.thumb;i.loading='lazy';i.decoding='async';c.append(i)}
+  else c.append(shEl('span','sh-cl',String(r.title||'?').trim().charAt(0).toUpperCase()||'?'));
+  const t=shEl('span','sh-tag',r.kind==='sistema'?'Sistema':'Personagem'),d=shEl('i');d.dataset.c=r.campaign;t.prepend(d);c.append(t);
+  if(r.copies)c.append(shEl('span','sh-cp',r.copies+(r.copies===1?' cópia':' cópias')));
+  return c}
+function shCard(r,i){
+  const li=shEl('li','sh-card'),b=shEl('button','sh-cb');b.type='button';b.setAttribute('aria-label','Abrir '+r.title);li.style.setProperty('--i',Math.min(i||0,12));
+  const t=shEl('span','sh-ct');t.append(shEl('b',null,r.title),shEl('small',null,SHN[r.campaign]||'?'));
+  if(r.author_name)t.append(shEl('small',null,'por '+r.author_name));
   if(r.summary)t.append(shEl('span','sh-cs',r.summary));
-  b.append(shThumbEl(r.thumb,r.title),t);b.onclick=()=>shOpenView(r.id);li.append(b);return li}
+  b.append(shCoverEl(r),t);b.onclick=()=>shOpenView(r.id);li.append(b);return li}
+function shSkel(ul){for(let i=0;i<6;i++){const li=shEl('li','sh-card sh-sk'),b=shEl('div','sh-cb'),t=shEl('span','sh-ct'),a=shEl('i'),z=shEl('i');
+  li.setAttribute('aria-hidden','true');a.style.width='72%';z.style.width='46%';t.append(a,z);b.append(shEl('span','sh-cv'),t);li.append(b);ul.append(li)}}
 async function shCatRender(more){
-  const ul=$('#shCatList'),msg=$('#shCatMsg'),mb=$('#shMore'),tok=++shTok;
-  if(!more){shPage=0;ul.textContent='';msg.textContent='Carregando…';mb.hidden=true}
+  const ul=$('#shCatList'),msg=$('#shCatMsg'),mb=$('#shMore'),cnt=$('#shCount'),tok=++shTok;
+  if(!more){shPage=0;ul.textContent='';shSkel(ul);msg.textContent='Carregando…';msg.classList.add('sr-only');cnt.textContent='';mb.hidden=true}
   let res;try{res=await Share.listPublic({q:shF.q,kind:shF.kind,campaign:shF.campaign,sort:shF.sort,page:shPage})}
-  catch(e){if(tok===shTok)msg.textContent='Não consegui carregar o marketplace. '+cloudError(e);return}
+  catch(e){if(tok===shTok){if(!more)ul.textContent='';msg.classList.remove('sr-only');msg.textContent='Não consegui carregar o marketplace. '+cloudError(e)}return}
   if(tok!==shTok)return;
-  res.rows.forEach(r=>ul.append(shCard(r)));
-  msg.textContent=ul.children.length?'':(shF.q||shF.kind||shF.campaign?'Nada encontrado com esses filtros.':'Ainda não há nada no marketplace. Seja o primeiro: use o botão Compartilhar em um personagem ou sistema e escolha Marketplace.');
+  if(!more)ul.textContent='';
+  res.rows.forEach((r,i)=>ul.append(shCard(r,i)));
+  msg.classList.remove('sr-only');msg.textContent='';
+  const n=ul.children.length;cnt.textContent=n?n+(res.more?'+':'')+(n===1?' resultado':' resultados'):'';
+  if(!n){const fl=shF.q||shF.kind||shF.campaign;
+    msg.append(shEl('b',null,fl?'Nada encontrado com esses filtros.':'O marketplace ainda está vazio.'),
+      shEl('span',null,fl?'Tente outra busca ou limpe os filtros.':'Publique um personagem ou sistema pelo botão Compartilhar e escolha Marketplace.'),
+      shBtn(fl?'Limpar filtros':'Ir para Meus agentes','pri',()=>{if(fl){shF.q='';shF.kind='';shF.campaign='';$('#shQ').value='';shFltRender();shCatRender(false)}else setScreen('sl',true)}))}
   mb.hidden=!res.more}
 $('#shMore').onclick=()=>{shPage++;shCatRender(true)};
 let shQT=null;
