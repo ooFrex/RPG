@@ -467,7 +467,7 @@ $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');
     const cfg=D.cfg;useMold(OP);D=fresh();D.cfg=cfg;writeNow();renderAll();cloudSaveLabel();slRender();
     $('#slMsg').textContent=cloudUser?'Ficha excluída deste aparelho e da sua conta.':'Ficha excluída deste aparelho.';return}
   if(b.dataset.sl==='new'){$('#slNew').click();return}
-  if(b.dataset.sl==='share'){shOpenPublish(id==='__cur'?(D.created?shSrcOp(D,'op:live'):null):shSrcSlot(id));return}
+  if(b.dataset.sl==='share'){shOpenPublish(id==='__cur'?shSrcLive():shSrcSlot(id));return}
   if(b.dataset.sl==='cocshare'){shOpenPublish(shSrcCoc(id));return}
   if(b.dataset.sl==='open'){slOpen(id);return}
   if(b.dataset.sl==='coc'){closeM('mSl');openCoc(id);return}
@@ -507,13 +507,13 @@ function scSysFill(){syGrid();syDet(false);syCur()}
 /* ===== catálogo de sistemas ===== */
 let syOpen=null,syDel=null;
 function syList(){const l=libRead();return[{id:'op',n:'Ordem Paranormal',tag:'Sistema base',d:CAMPS[0].d,m:OP,img:'op'},{id:'coc',n:'Call of Cthulhu',tag:'Sistema base',d:'Horror cósmico e investigação. Tem uma ficha própria e completa, em tela cheia, com criação guiada do investigador.',res:'d100 · 8 características · 55 perícias · ficha própria',m:SYSTEMS.coc,img:'coc'}]
-  .concat(l.map(en=>({id:en.id,n:en.nome,tag:'Meu sistema',d:`Sistema próprio, versão ${en.v}, salvo em ${new Date(en.t).toLocaleDateString('pt-BR')}.`,m:cleanMold(en.mold),img:'for',en})))}
+  .concat(l.map(en=>({id:en.id,n:en.nome,tag:'Meu sistema',d:`Sistema próprio, versão ${en.v}, salvo em ${new Date(en.t).toLocaleDateString('pt-BR')}.`,m:cleanMold(en.mold),img:'for',cover:coverOk(en.img)?en.img:'',en})))}
 const syHue=id=>[...id].reduce((a,c)=>a+c.charCodeAt(0)*7,0)%360;
 function syResumo(m){if(!m)return'Não foi possível ler';const t=m.teste||{};return(t.tipo==='d100'?'d100':t.tipo==='soma'?(t.dados||'soma'):'d'+(t.faces||20))+' · '+(m.atributos||[]).length+' atributos · '+(m.pericias||[]).length+' perícias'}
 function syGrid(){const L=syList();
   $('#syGrid').innerHTML=L.map(x=>{const logo=x.id==='op'?`<span class="sy-logo"><img src="${GH}Logoordemparanormal_HIGH.webp" alt="${esc(x.n)}"></span>`:x.id==='coc'?`<span class="sy-logo"><img src="${COCLOGO}" alt="${esc(x.n)}"></span>`:`<b class="sy-name">${esc(x.n)}</b>`;
-    const bg=x.img==='op'?heroBg('op'):`url(${IMGS[x.img]})`;
-    return`<li><button class="sy-c" type="button" data-sy="${esc(x.id)}" aria-pressed="${syOpen===x.id}" aria-controls="syDet"><span class="sy-art" style="background-image:${bg};--hue:${x.en?syHue(x.id):0}deg"></span><span class="sy-in">${logo}<small>${esc(x.tag)} · ${esc(x.res||syResumo(x.m))}</small></span></button></li>`}).join('')
+    const bg=x.cover?`url(${x.cover})`:x.img==='op'?heroBg('op'):`url(${IMGS[x.img]})`;
+    return`<li><button class="sy-c" type="button" data-sy="${esc(x.id)}" aria-pressed="${syOpen===x.id}" aria-controls="syDet"><span class="sy-art" style="background-image:${bg};--hue:${x.en&&!x.cover?syHue(x.id):0}deg"></span><span class="sy-in">${logo}<small>${esc(x.tag)} · ${esc(x.res||syResumo(x.m))}</small></span></button></li>`}).join('')
   +`<li><button class="sy-c" type="button" data-sy="__new" aria-pressed="${syOpen==='__new'}" aria-controls="syDet"><span class="sy-art" style="background-image:url(${IMGS.for});--hue:200deg"></span><span class="sy-in"><b class="sy-name">+ Novo sistema</b><small>Parta do OP, do CoC ou do zero</small></span></button></li>`}
 function syCount(id){let n=0;const hit=j=>{if(!j)return;if(id==='op')n+=j.sys==='op'?1:0;else n+=j.sid===id?1:0};
   if(D.created)hit(D);slIdx().list.forEach(x=>{try{hit(JSON.parse(localStorage.getItem(SLK+x.id)))}catch(e){}});return n}
@@ -544,9 +544,9 @@ $('#sc-sys').addEventListener('click',e=>{
   if(a==='new'){if(en){closeM('mSl');startFromLib(en)}}
   else if(a==='base')sysOpenLib(null,id);else if(a==='edit')sysOpenLib(id);
   else if(a==='share'){if(en)shOpenPublish(shSrcSys(en))}
-  else if(a==='exp'){if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold}));toast('Sistema exportado',en.nome)}}
+  else if(a==='exp'){if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold,img:coverOk(en.img)?en.img:undefined}));toast('Sistema exportado',en.nome)}}
   else if(a==='del'){syDel=id;syDet(false)}else if(a==='delno'){syDel=null;syDet(false)}
-  else if(a==='delok'){libWrite(libRead().filter(x=>x.id!==id));syOpen=null;syDel=null;syGrid();syDet(false);toast('Sistema excluído','Saiu da biblioteca deste aparelho.')}});
+  else if(a==='delok'){if(en&&en.cloud)Cloud.forgetSystem(en.cloud);libWrite(libRead().filter(x=>x.id!==id));syOpen=null;syDel=null;syGrid();syDet(false);toast('Sistema excluído','Saiu da biblioteca deste aparelho.')}});
 /* ===== ficha de Call of Cthulhu, dentro deste arquivo (tela cheia isolada) ===== */
 function cocSync(){const f=$('#cocFrame'),d=f.contentDocument&&f.contentDocument.documentElement;if(!d)return;const t=document.documentElement.dataset.theme;if(t)d.dataset.theme=t;else delete d.dataset.theme;
   const u=uiLoad();[['--teal',u.acc],['--brass',u.gold]].forEach(([v,c])=>{if(/^#[0-9a-f]{6}$/i.test(c))d.style.setProperty(v,c);else d.style.removeProperty(v)})}
@@ -1220,10 +1220,10 @@ $('#cfRm').onchange=e=>{D.cfg.rm=e.target.checked;save();rmApply()};
 $('#cfClear').onclick=e=>{const b=e.currentTarget;if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Toque de novo para confirmar';return}
   clearTimeout(cloudSaveT);activeCloudId=null;if(D.cl)Cloud.forget('op',D.cl);const cfg=D.cfg;D=fresh();D.cfg=cfg;save();renderAll();closeM('mSl');openCamp()};
 $('#bIO').onclick=()=>{$('#ioMsg').textContent='';soloCfg=true;openCfg('abrir')};
-$('#ioExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(Object.assign({},D,{cl:undefined}))],{type:'application/json'}));
+$('#ioExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(Object.assign({},D,{cl:undefined,pid:undefined}))],{type:'application/json'}));
   a.download='ficha-ordem-paranormal.json';document.body.appendChild(a);a.click();tSet(HMB);setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500);$('#ioMsg').textContent='Arquivo exportado.'};
 $('#ioImp').onclick=()=>$('#ioFile').click();
-$('#ioFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(f.size>2e6){$('#ioMsg').textContent='O arquivo é grande demais para ser uma ficha.';e.target.value='';return}const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j||typeof j!=='object'||!j.attr)throw 0;delete j.cl;if(!slPush())return;clearTimeout(cloudSaveT);activeCloudId=null;cloudConflict=false;cloudSaveLabel();const cfg0=D.cfg;D=normalize(j);D.cfg=D.cfg||cfg0;save();renderAll();closeM('mSl');toast('Ficha importada','Aberta neste aparelho.')}catch(x){$('#ioMsg').textContent='Esse arquivo não parece ser uma ficha válida.'}};r.readAsText(f);e.target.value=''};
+$('#ioFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(f.size>2e6){$('#ioMsg').textContent='O arquivo é grande demais para ser uma ficha.';e.target.value='';return}const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(!j||typeof j!=='object'||!j.attr)throw 0;delete j.cl;delete j.pid;if(!slPush())return;clearTimeout(cloudSaveT);activeCloudId=null;cloudConflict=false;cloudSaveLabel();const cfg0=D.cfg;D=normalize(j);D.cfg=D.cfg||cfg0;save();renderAll();closeM('mSl');toast('Ficha importada','Aberta neste aparelho.')}catch(x){$('#ioMsg').textContent='Esse arquivo não parece ser uma ficha válida.'}};r.readAsText(f);e.target.value=''};
 
 /* ---------- PASSO A PASSO DE CRIAÇÃO (montado pelo editor de blocos) ---------- */
 let CW=null;
@@ -1364,8 +1364,36 @@ let E=null,eid=1;
 const opItems=()=>ILIB.map(i=>({n:i.n,g:i.g,esp:i.esp||0,d:(i.t==='arma'?'Cat. '+icat(i)+(i.tp?' · Tipo '+i.tp:'')+(i.mun?' · Munição: '+i.mun:'')+'\n':'')+(i.d||''),arma:i.t==='arma'?1:0,dano:i.dano||'',crit:i.crit||'',al:i.al&&i.al!=='—'?i.al:'',sk:i.sk||''}));
 /* ---------- biblioteca de sistemas: guardar, exportar, importar e compartilhar ---------- */
 const LIBK='rpg-sistemas-v1';
+/* capa do sistema: JPEG pequeno em data URL (mesmo formato da miniatura do marketplace, só que mais largo) */
+const coverOk=t=>typeof t==='string'&&t.length<=60000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(t);
+const blobToUrl=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b)});
+async function coverFromFile(file){
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw new Error('Escolha uma imagem JPG, PNG ou WebP.');
+  if(file.size>8*1024*1024)throw new Error('A imagem deve ter menos de 8 MB.');
+  for(const q of [.8,.65,.5,.38,.28]){const u=await blobToUrl(await imageFileToBannerJpeg(file,480,270,q));if(coverOk(u))return u}
+  throw new Error('Não consegui deixar a imagem pequena o bastante. Tente outra.')}
 function libRead(){try{const j=JSON.parse(localStorage.getItem(LIBK)||'{}');return(Array.isArray(j.l)?j.l:[]).filter(x=>x&&typeof x.id==='string'&&x.mold&&typeof x.nome==='string'&&Number.isFinite(+x.v))}catch(e){return[]}}
-function libWrite(l){try{localStorage.setItem(LIBK,JSON.stringify({v:1,l}));return true}catch(e){return false}}
+function libWriteRaw(l){try{localStorage.setItem(LIBK,JSON.stringify({v:1,l}));return true}catch(e){return false}}
+/* gravar na biblioteca também agenda o envio para a conta (a sincronização em si grava com libWriteRaw, para não se chamar de novo) */
+let sysSyncT=0,sysRun=false,sysOff=false;
+function libWrite(l){const ok=libWriteRaw(l);if(ok)sysSyncSoon();return ok}
+function sysSyncSoon(){clearTimeout(sysSyncT);if(cloudClient&&cloudUser&&!sysOff)sysSyncT=setTimeout(()=>void sysSync(),2500)}
+const sysAd=()=>({userId:cloudUser.id,read:libRead,write:libWriteRaw,newId:libId,
+  clean:r=>{if(!r||typeof r!=='object'||!Number.isFinite(+r.v))return null;const m=cleanMold(r.mold);if(!m)return null;
+    return{nome:m.nome,v:Math.max(1,Math.round(+r.v)),t:Number.isFinite(+r.t)?+r.t:Date.now(),mold:moldObj(m),img:coverOk(r.img)?r.img:undefined,src:typeof r.src==='string'&&/^[a-z0-9]{10}$/.test(r.src)?r.src:undefined,sver:Number.isFinite(+r.sver)?+r.sver:undefined}}});
+async function sysSync(){
+  if(!cloudClient||!cloudUser||sysRun||sysOff)return null;
+  sysRun=true;
+  try{const st=await Cloud.syncSystems(sysAd());
+    if(st.down+st.created+st.removed+st.conflict&&scrMode==='sys'){syGrid();syDet(false)}
+    if(st.created)toast('Nuvem',st.created+(st.created===1?' sistema baixado':' sistemas baixados')+' da sua conta.');
+    if(st.conflict)toast('Nuvem','Um sistema mudou nos dois lugares. Guardei as duas versões.');
+    return st}
+  catch(err){
+    if(/user_systems|schema cache|PGRST20|42P01/i.test((err&&(err.message||err.code))||'')){sysOff=true;Util.warn('sistemas: tabela user_systems ausente. Rode supabase/user_systems.sql no Supabase.',err)}
+    else Util.warn('sistemas: sincronização',err);
+    return null}
+  finally{sysRun=false}}
 const libId=()=>'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const b64e=s=>btoa(unescape(encodeURIComponent(s))),b64d=s=>decodeURIComponent(escape(atob(s)));
 function libDownload(nome,text){
@@ -1377,7 +1405,7 @@ function libImportText(t){
   let obj;try{if(t.startsWith('RPG1:'))t=b64d(t.slice(5).replace(/\s/g,''));obj=JSON.parse(t)}catch(e){return'Não consegui ler isso. Confira se copiou o código inteiro.'}
   if(!obj||obj.rpgSistema!==1||!obj.mold)return'Isso não parece um sistema desta ficha.';
   const m=cleanMold(obj.mold);if(!m)return'O sistema tem dados que não consegui aproveitar.';
-  const l=libRead();l.push({id:libId(),nome:m.nome,v:1,t:Date.now(),mold:moldObj(m)});
+  const l=libRead();l.push({id:libId(),nome:m.nome,v:1,t:Date.now(),mold:moldObj(m),img:coverOk(obj.img)?obj.img:undefined});
   if(!libWrite(l))return'Não consegui salvar: o navegador não deixou usar o armazenamento.';
   if(E)E.imp=false;return'Importado: '+m.nome+' ('+m.atributos.length+' atributos, '+m.pericias.length+' perícias). Ele está na lista abaixo.'}
 function startFromLib(en){
@@ -1401,12 +1429,13 @@ const LIBA=new Set(['libSave','libExport','libCode','libImpToggle','libImpNo','l
 function libAct(a,b){
   const id=b.dataset.id,l=libRead();E.msg2='';
   if(a==='libSave'){const m=libMold();if(!m)return sedRender(true);const obj=moldObj(m),i=E.sid?l.findIndex(x=>x.id===E.sid):-1;let v=1;
-    if(i>=0){v=l[i].v+1;l[i]={id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj}}else{E.sid=libId();l.push({id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj})}
+    const img=E.lib?(coverOk(E.img)?E.img:undefined):(i>=0&&coverOk(l[i].img)?l[i].img:undefined);
+    if(i>=0){v=l[i].v+1;l[i]={id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj,img,cloud:l[i].cloud}}else{E.sid=libId();l.push({id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj,img})}
     E.msg2=libWrite(l)?'Salvo na biblioteca (versão '+v+').':'Não consegui salvar: o navegador não deixou usar o armazenamento.';if(E.lib&&/^Salvo/.test(E.msg2))E.base=snap()}
-  else if(a==='libExport'||a==='libCode'){const m=libMold();if(!m)return sedRender(true);const pack=JSON.stringify({rpgSistema:1,nome:m.nome,mold:moldObj(m)});
+  else if(a==='libExport'||a==='libCode'){const m=libMold();if(!m)return sedRender(true);const pack=JSON.stringify({rpgSistema:1,nome:m.nome,mold:moldObj(m),img:coverOk(E.img)?E.img:undefined});
     if(a==='libExport'){libDownload(m.nome,pack);E.msg2='Arquivo gerado.'}
     else{E.code='RPG1:'+b64e(pack);E.codeOk=false;try{navigator.clipboard.writeText(E.code).then(()=>{if(E){E.codeOk=true;sedRender(true)}}).catch(()=>{})}catch(x){}}}
-  else if(a==='libExp'){const en=l.find(x=>x.id===id);if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold}));E.msg2='Arquivo gerado: '+en.nome}}
+  else if(a==='libExp'){const en=l.find(x=>x.id===id);if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold,img:coverOk(en.img)?en.img:undefined}));E.msg2='Arquivo gerado: '+en.nome}}
   else if(a==='libImpToggle'){E.imp=!E.imp}
   else if(a==='libImpNo'){E.imp=false}
   else if(a==='libFileBtn'){const f=$('#libFile');if(f)f.click();return}
@@ -1415,7 +1444,7 @@ function libAct(a,b){
     if(!m)E.msg2='Esse sistema não pôde ser lido.';else{const keep={base:E.base,tipo0:E.tipo0,sec:E.sec,lib:E.lib};E=Object.assign(mkDraft(m,!E.lib),keep);E.sid=en.id;E.msg2='Carregado no editor. A ficha só muda quando você salvar.'}}
   else if(a==='libNew'){if(sedDirty())E.msg2='Salve ou descarte as alterações antes de criar um personagem.';else{const en=l.find(x=>x.id===id);if(en){sysClose();closeM('mSl');startFromLib(en);return}}}
   else if(a==='libDel'){E.ask={del:id}}else if(a==='libDelNo'){E.ask=null}
-  else if(a==='libDelOk'){libWrite(l.filter(x=>x.id!==id));if(E.sid===id)E.sid=null;E.ask=null;E.msg2='Apagado da biblioteca.'}
+  else if(a==='libDelOk'){{const gone=l.find(x=>x.id===id);if(gone&&gone.cloud)Cloud.forgetSystem(gone.cloud)}libWrite(l.filter(x=>x.id!==id));if(E.sid===id)E.sid=null;E.ask=null;E.msg2='Apagado da biblioteca.'}
   sedRender(true)}
 function libFile(t){const f=t.files&&t.files[0];if(!f||!E)return;
   if(f.size>3e6){E.msg2='Esse arquivo é grande demais.';sedRender(true);return}
@@ -1427,10 +1456,10 @@ function mkDraft(m,fromSheet){
   const at=wheelOrder(m).map(k=>m.atributos.find(a=>a.k===k)).map(a=>({id:eid++,k:a.k,n:a.n,old:hasA(a.k)?a.k:null,shown:a.k}));
   const pe=m.pericias.map(p=>{const c=curS(p.n),ak=c&&c.a?c.a:p.a;return{n:p.n,aid:(at.find(x=>x.k===ak)||at[0]).id,t:c?(c.t?1:0):(p.t?1:0),b:p.b||'0',s:p.s?1:0,old:c?p.n:null}});
   return{nome:m.nome,rc:(m.recursos||[]).map(x=>({id:eid++,k:x.k,old:x.k,n:x.n,tipo:x.tipo,ini:x.ini,max:x.max})),tipo:m.teste.tipo,dados:m.teste.dados||'1d20',regra:m.teste.regra||'mod',modF:m.teste.modF||'V',faixas:(m.teste.faixas||[]).map(x=>({min:x.min,t:x.t})),ini:m.atributo.inicial,max:m.atributo.maxFicha,at,pe,
-    it:(m.itens&&m.itens.length?m.itens:(m.id==='op'?opItems():[])).map(mkItem),qi:'',gi:'',undoI:null,fl:(m.criacao||[]).map(flWithIds),fh:[],fr:[],sid:null,imp:false,msg2:'',code:'',codeOk:false,fsel:null,fpre:'',noclick:0,
+    it:(m.itens&&m.itens.length?m.itens:(m.id==='op'?opItems():[])).map(mkItem),qi:'',gi:'',undoI:null,fl:(m.criacao||[]).map(flWithIds),fh:[],fr:[],sid:null,img:'',imp:false,msg2:'',code:'',codeOk:false,fsel:null,fpre:'',noclick:0,
     bars:m.barras.map(b=>({n:b.n,maxF:b.maxF,iniF:b.iniF||''})),cl:(m.classes||[]).join(', '),vd:(m.derivados||[]).map(x=>({id:eid++,k:x.k,n:x.n,f:x.f})),f:{dt:m.formulas.dt,carga:m.formulas.carga},rot:Object.assign({},m.rotulos),usa:{rit:!!m.usa.rit},
     sec:'geral',q:'',ask:null,undo:null,leave:false,focus:'sedDt',iss:[],base:'',tipo0:SYS.teste.tipo}}
-const snap=()=>JSON.stringify([E.nome,E.rc.map(x=>[x.n,x.tipo,x.ini,x.max]),E.tipo,E.dados,E.regra,E.modF,E.faixas,E.ini,E.max,E.at.map(a=>[a.k,a.n]),E.pe.map(p=>[p.n,E.at.findIndex(a=>a.id===p.aid),p.t,p.b,p.s]),E.it.map(x=>[x.n,x.g,x.esp,x.d,x.arma,x.dano,x.crit,x.al,x.sk]),E.fl.map(s=>[s.t,s.b.map(flStrip)]),E.bars,E.f,E.vd.map(x=>[x.k,x.n,x.f]),E.cl,E.rot,E.usa]);
+const snap=()=>JSON.stringify([E.nome,E.rc.map(x=>[x.n,x.tipo,x.ini,x.max]),E.tipo,E.dados,E.regra,E.modF,E.faixas,E.ini,E.max,E.at.map(a=>[a.k,a.n]),E.pe.map(p=>[p.n,E.at.findIndex(a=>a.id===p.aid),p.t,p.b,p.s]),E.it.map(x=>[x.n,x.g,x.esp,x.d,x.arma,x.dano,x.crit,x.al,x.sk]),E.fl.map(s=>[s.t,s.b.map(flStrip)]),E.bars,E.f,E.vd.map(x=>[x.k,x.n,x.f]),E.cl,E.rot,E.usa,E.img||'']);
 const sedDirty=()=>!!E&&snap()!==E.base;
 const kOf=id=>(E.at.find(a=>a.id===id)||E.at[0]).k.trim().toUpperCase();
 const draftMold=()=>({nome:E.nome,teste:E.tipo==='soma'?{tipo:'soma',dados:E.dados,regra:E.regra,modF:E.modF,faixas:E.faixas}:{tipo:E.tipo},atributo:{inicial:E.ini,maxFicha:E.max},atributos:E.at.map(a=>({k:a.k,n:a.n})),
@@ -1509,8 +1538,16 @@ function secGeral(){
   const tn={op:'Ordem Paranormal',coc:'Call of Cthulhu',dnd:'d20 + modificador',pbta:'2d6 + atributo',blank:'Em branco'};
   const ask=E.ask&&E.ask.tpl?`<div class="sed-ask2"><span>Carregar o modelo <b>${tn[E.ask.tpl]}</b>? Atributos, perícias, barras e contas do editor serão trocados.</span><div class="rowb"><button class="btn pri sm" type="button" data-act="tplok">Carregar</button><button class="btn sm" type="button" data-act="tplno">Cancelar</button></div></div>`:'';
   const iss=E.iss.length?`<ul class="sed-iss">${E.iss.map(x=>`<li><button type="button" class="sed-link" data-act="goto" data-v="${x.sec}">${SECN[x.sec]}</button><span>${esc(x.msg)}</span></li>`).join('')}</ul>`:'<p class="sed-ok">Tudo certo. Dá pra salvar.</p>';
+  const dflt=/^Atributo \d+$/;
+  const gd=[['geral','Nome e tipo de teste','Dê um nome ao sistema e escolha como os testes funcionam.',!!E.nome.trim()&&E.nome.trim()!=='Meu sistema'],
+    ['attr','Atributos','Os números que definem o personagem (Força, Mente…).',E.at.some(a=>!dflt.test(a.n.trim()))],
+    ['skills','Perícias','O que o personagem sabe fazer.',E.pe.length>0],
+    ['bars','Barras','Vida, sanidade, energia… (opcional).',null],
+    ['fluxo','Criação','O passo a passo da criação de ficha (opcional).',E.fl.length>0?true:null]];
+  const guide=E.lib?`<section class="sed-card sed-guide"><h3>Passo a passo para criar seu sistema</h3><ol class="sg-l">${gd.map(([sec,t,d,ok])=>`<li class="${ok?'ok':''}"><span class="sg-m" aria-hidden="true">${ok?'✓':ok===null?'○':'•'}</span><span><button type="button" class="sed-link" data-act="goto" data-v="${sec}">${t}</button> <small>${d}</small></span><em>${ok?'feito':ok===null?'opcional':'a fazer'}</em></li>`).join('')}</ol><p class="smu">Quando terminar, toque em <b>Salvar sistema</b> (canto superior). Dá pra voltar e editar quando quiser.</p></section>`:'';
+  const cover=E.lib?`<section class="sed-card"><h3>Capa do sistema</h3><p class="smu">Aparece no card do sistema e, ao compartilhar, vira a foto dele no marketplace. JPG, PNG ou WebP.</p>${E.coverMsg?`<p class="sed-msg" role="status">${esc(E.coverMsg)}</p>`:''}${coverOk(E.img)?`<div class="sed-cover" style="height:120px;border-radius:10px;background:center/cover url(${E.img});border:1px solid var(--ln2);margin-bottom:10px" role="img" aria-label="Capa atual"></div>`:''}<div class="rowb"><button class="btn sm pri" type="button" data-act="coverPick">${coverOk(E.img)?'Trocar imagem':'Escolher imagem'}</button>${coverOk(E.img)?'<button class="btn sm" type="button" data-act="coverDel">Remover</button>':''}</div><input type="file" id="sedCoverFile" accept="image/jpeg,image/png,image/webp" hidden></section>`:'';
   return head('Visão geral','Dê um nome ao sistema, escolha como os testes funcionam e, se quiser, comece de um modelo pronto.')+
-  `<section class="sed-card"><h3>Nome do sistema</h3>${inp('nome',E.nome,'maxlength="40" aria-label="Nome do sistema"')}</section>
+  `${guide}<section class="sed-card"><h3>Nome do sistema</h3>${inp('nome',E.nome,'maxlength="40" aria-label="Nome do sistema"')}</section>${cover}
   <section class="sed-card"><h3>Como o teste funciona</h3><div class="opt2">${tp('pool','Vários d20','Rola um d20 por ponto do atributo e fica com o maior. Perícias somam bônus de treino. É o jeito do Ordem Paranormal.')}${tp('d100','Um d100','Rola 1d100 e tenta tirar o valor da perícia ou menos, com sucesso difícil, extremo e dados de bônus. É o jeito do Call of Cthulhu.')}${tp('soma','Soma de dados','Rola dados e soma o modificador do atributo (d20 + mod, 2d6 + atributo) ou tenta tirar o valor ou menos (3d6). Dá pra definir faixas de resultado.')}</div>${tw}</section>${soma}
   <section class="sed-card"><h3>Começar de um modelo</h3><p class="smu">Troca tudo que está no editor pelo modelo escolhido. A ficha só muda quando você salvar.</p><div class="rowb"><button class="btn" type="button" data-act="tpl" data-v="op">Ordem Paranormal</button><button class="btn" type="button" data-act="tpl" data-v="coc">Call of Cthulhu</button><button class="btn" type="button" data-act="tpl" data-v="dnd">d20 + modificador</button><button class="btn" type="button" data-act="tpl" data-v="pbta">2d6 + atributo</button><button class="btn" type="button" data-act="tpl" data-v="blank">Em branco</button></div>${ask}</section>
   ${libCard()}
@@ -1671,9 +1708,11 @@ function sedTpl(v){
   E=Object.assign(mkDraft(m,!E.lib),keep)}
 
 /* ---------- ações ---------- */
-const FLA=new Set(['fundo','fredo','scol','bdup','ftpl','ftplno','ftplok','ftest','bup','bdn','bdel','sup','sdn','sdel','chip','oadd','odel']);
+const FLA=new Set(['fbasic','fundo','fredo','scol','bdup','ftpl','ftplno','ftplok','ftest','bup','bdn','bdel','sup','sdn','sdel','chip','oadd','odel']);
 function sedAct(b){
   const a=b.dataset.act,v=b.dataset.v,row=b.closest('[data-g]'),i=row?+row.dataset.i:-1,g=row&&row.dataset.g;
+  if(a==='coverPick'){const f=$('#sedCoverFile');if(f)f.click();return}
+  if(a==='coverDel'){E.img='';E.coverMsg='';sedRender(true);return}
   if(LIBA.has(a)){libAct(a,b);return}
   if(FLA.has(a)){if(!flAct(a,b))sedRender(true);return}
   if(a==='tipo'){if(E.tipo===v)return;
@@ -1717,10 +1756,15 @@ function sedAct(b){
   sedRender(true);
   if(a==='addP'){const l=$$('#spl [data-f=n]').pop();if(l){l.focus();l.scrollIntoView({block:'center'})}}
   if(a==='addI'){const l=$('#itl [data-f=n]');if(l)l.focus()}}
+async function sedCoverFile(t){
+  const f=t.files&&t.files[0];t.value='';if(!f||!E)return;const cur=E;
+  try{const u=await coverFromFile(f);if(E!==cur)return;E.img=u;E.coverMsg=''}catch(err){if(E!==cur)return;E.coverMsg=(err&&err.message)||'Não consegui usar essa imagem.'}
+  sedRender(true)}
 function sedEdit(e){
   if(E.rend)return;
   const t=e.target,isIn=e.type==='input';
   if(t.id==='libFile'){if(!isIn)libFile(t);return}
+  if(t.id==='sedCoverFile'){if(!isIn)sedCoverFile(t);return}
   if(t.id==='libTxt')return;
   if(t.dataset.tst!==undefined){if(!isIn)return;E.tv=E.tv||{};E.tv[t.dataset.tst]=+t.value||0;sedLive();return}
   if(t.dataset.bf!==undefined||t.dataset.of!==undefined||t.dataset.sf!==undefined){flEdit(t,isIn);return}
@@ -1776,7 +1820,7 @@ function sysOpenLib(id,base){let m=null,sid=null;
   if(id){const en=libRead().find(x=>x.id===id);m=en&&cleanMold(en.mold);sid=en&&en.id}
   else m=cleanMold(base==='op'?Object.assign({},OP,{nome:'Meu sistema',atributos:OP.atributos.slice().sort((a,b)=>a.roda-b.roda),itens:opItems()}):base==='coc'?Object.assign({},SYSTEMS.coc,{nome:'Meu sistema'}):{nome:'Meu sistema',atributos:[{k:'ATR1',n:'Atributo 1'},{k:'ATR2',n:'Atributo 2'},{k:'ATR3',n:'Atributo 3'}],pericias:[],formulas:{dt:'10 + PE',carga:'5'}});
   if(!m){toast('Sistema','Não consegui ler esse sistema.');return}
-  E=mkDraft(m,false);E.lib=true;E.sid=sid;E.tipo0=m.teste.tipo;E.base=id?snap():'';sedLabels(true);
+  E=mkDraft(m,false);E.lib=true;E.sid=sid;{const en0=id&&libRead().find(x=>x.id===id);E.img=en0&&coverOk(en0.img)?en0.img:''}E.tipo0=m.teste.tipo;E.base=id?snap():'';sedLabels(true);
   const ed=$('#sysEd');ed.hidden=false;document.body.style.overflow='hidden';$('#sedAsk').hidden=true;sedRender();
   if(!rm())ed.animate([{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
   $('#sedMain').focus({preventScroll:true})}
@@ -1784,7 +1828,8 @@ function sysSaveLib(){
   const warn=t=>{E.sec=(sysIssues()[0]||{sec:'geral'}).sec;sedRender();const m=$('#sedMain');m.insertAdjacentHTML('afterbegin','<p class="sed-warn" role="alert">'+esc(t)+'</p>');m.scrollTop=0};
   const m=libMold();if(!m)return warn(E.msg2||'Não consegui montar o sistema.');
   const l=libRead(),obj=moldObj(m),i=E.sid?l.findIndex(x=>x.id===E.sid):-1;let v=1,id=E.sid;
-  if(i>=0){v=l[i].v+1;l[i]={id,nome:m.nome,v,t:Date.now(),mold:obj}}else{id=libId();l.push({id,nome:m.nome,v,t:Date.now(),mold:obj})}
+  const img=coverOk(E.img)?E.img:undefined;
+  if(i>=0){v=l[i].v+1;l[i]={id,nome:m.nome,v,t:Date.now(),mold:obj,img,cloud:l[i].cloud}}else{id=libId();l.push({id,nome:m.nome,v,t:Date.now(),mold:obj,img})}
   if(!libWrite(l))return warn('Não consegui salvar: o navegador não deixou usar o armazenamento.');
   syOpen=id;sysClose();toast('Sistema salvo',m.nome+', versão '+v+'.');if($('#mSl').hidden)openSl('sys')}
 function sysSave(){
@@ -1831,7 +1876,9 @@ $('#nvOp').onclick=()=>{closeM('mNova');sysOpenLib(null,'op')};$('#nvCoc').oncli
 /* cores com contraste mínimo de 4,5:1 com o texto branco */
 const FCAT={estrutura:'#B15E00',atributos:'#2B66CF',pericias:'#2A7A33',escolhas:'#7243CF',ficha:'#CC2F4C',logica:'#0F7C75'};
 const FK={etapa:['estrutura','Etapa'],texto:['ficha','Mostrar um texto'],campo:['ficha','Perguntar um campo'],attr_pontos:['atributos','Distribuir pontos'],attr_rolar:['atributos','Rolar dados'],pericias_treinar:['pericias','Escolher perícias'],pericias_pontos:['pericias','Pontos nas perícias'],lista:['escolhas','Escolher da lista'],se:['logica','Se … então'],definir:['logica','Definir atributo'],dar:['logica','Dar perícia']};
-const PAL=[['Estrutura','estrutura',['etapa']],['Atributos','atributos',['attr_pontos','attr_rolar']],['Perícias','pericias',['pericias_treinar','pericias_pontos']],['Escolhas','escolhas',['lista']],['Ficha','ficha',['texto','campo']],['Lógica','logica',['se','definir','dar']]];
+const PAL=[['1 · Etapas','estrutura',['etapa']],['2 · Atributos','atributos',['attr_pontos','attr_rolar']],['3 · Perícias','pericias',['pericias_treinar','pericias_pontos']],['4 · Escolhas','escolhas',['lista']],['5 · Textos e campos','ficha',['texto','campo']],['6 · Condições e ajustes (avançado)','logica',['se','definir','dar']]];
+/* frase simples do que cada bloco faz, mostrada na paleta */
+const FD={etapa:'Uma tela do passo a passo. Os blocos ficam dentro dela.',texto:'Mostra uma mensagem ou instrução para o jogador.',campo:'Pergunta algo (ex.: o nome) e guarda na ficha.',attr_pontos:'O jogador reparte uma quantidade de pontos entre os atributos.',attr_rolar:'Rola dados e já define os atributos sozinho.',pericias_treinar:'O jogador escolhe algumas perícias para treinar.',pericias_pontos:'O jogador reparte pontos entre as perícias.',lista:'O jogador escolhe uma opção (ex.: classe) e ganha perícias com ela.',se:'Só faz o que está dentro se a condição for verdadeira.',definir:'Muda o valor de um atributo usando uma conta.',dar:'Dá treino ou bônus numa perícia, sem o jogador escolher.'};
 const withIds=b=>{const r=JSON.parse(JSON.stringify(b));r.id=eid++;if(r.b)r.b=r.b.map(withIds);return r};
 const flWithIds=s=>({id:eid++,t:s.t,b:s.b.map(withIds)});
 const flStrip=b=>{const r=Object.assign({},b);delete r.id;if(r.b)r.b=r.b.map(flStrip);return r};
@@ -1895,12 +1942,18 @@ function bkHTML(b){
 function stHTML(s,i){
   const n=s.b.reduce((a,x)=>a+1+(x.b?x.b.length:0),0);
   return`<section class="bks${E.fsel===s.id?' sel':''}${s.c?' col':''}" data-sid="${s.id}" style="--c:${FCAT.estrutura}"><div class="bks-h"><span class="bk-grip" title="Arraste para mover a etapa">⠿</span><button type="button" class="bks-tg" data-act="scol" aria-label="${s.c?'Expandir':'Recolher'} etapa" aria-expanded="${!s.c}">${s.c?'▸':'▾'}</button><span class="bks-n">Etapa ${i+1}</span><input class="bk-in bks-t" data-sf="t" value="${esc(s.t)}" maxlength="40" aria-label="Título da etapa ${i+1}">${s.c?`<span class="bks-cn">${n} ${n===1?'bloco':'blocos'}</span>`:''}<span class="bk-ctl"><button type="button" data-act="sup" aria-label="Subir etapa"${i?'':' disabled'}>↑</button><button type="button" data-act="sdn" aria-label="Descer etapa"${i<E.fl.length-1?'':' disabled'}>↓</button><button type="button" data-act="sdel" aria-label="Remover etapa">✕</button></span></div><div class="bks-arm"></div><div class="bks-body" data-sid="${s.id}">${s.b.map(bkHTML).join('')}${s.b.length?'':'<div class="bks-empty">Arraste blocos para cá</div>'}</div><div class="bks-f"></div></section>`}
-const palHTML=()=>PAL.map(([n,c,ks])=>`<div class="pal-c" style="--c:${FCAT[c]}"><h4>${n}</h4>${ks.map(k=>`<div class="bk pal" data-new="${k}" style="--c:${FCAT[c]}" tabindex="0" role="button" aria-label="Adicionar bloco: ${FK[k][1]}"><span class="bk-grip">⠿</span>${FK[k][1]}</div>`).join('')}</div>`).join('');
-const wsHTML=()=>E.fl.length?E.fl.map(stHTML).join(''):'<div class="bks-none">Nenhuma etapa ainda. Arraste <b>Etapa</b> da paleta, ou escolha um modelo de fluxo.</div>';
+const palHTML=()=>PAL.map(([n,c,ks])=>`<div class="pal-c" style="--c:${FCAT[c]}"><h4>${n}</h4>${ks.map(k=>`<div class="bk pal" data-new="${k}" style="--c:${FCAT[c]}" tabindex="0" role="button" aria-label="Adicionar bloco: ${FK[k][1]}. ${FD[k]}" title="${esc(FD[k])}"><span class="bk-grip">⠿</span><span class="pal-t"><b>${FK[k][1]}</b><small>${esc(FD[k])}</small></span></div>`).join('')}</div>`).join('');
+const wsHTML=()=>E.fl.length?E.fl.map(stHTML).join(''):'<div class="bks-none fl-empty"><h3>Como montar o passo a passo</h3><ol class="fl-how"><li><b>Etapa</b> é uma tela. Exemplo: “Atributos”.</li><li><b>Blocos</b> dizem o que acontece nessa tela. Arraste da paleta, ou toque no bloco para adicionar.</li><li>Use <b>Testar o passo a passo</b> para ver como o jogador vai enxergar.</li></ol><p class="smu">Não quer montar nada? Sem etapas, a ficha abre em branco, e tudo bem.</p><div class="rowb"><button class="btn pri" type="button" data-act="fbasic">Criar um passo a passo básico para eu editar</button></div></div>';
+/* passo a passo inicial: nome → atributos → perícias, já no jeito do tipo de teste escolhido */
+function flBasicRaw(){
+  const keys=flKeys(),t=E.tipo;
+  const attr=t==='pool'?{k:'attr_pontos',pontos:4,min:0,max:3,tudo:1}:{k:'attr_rolar',dados:'3d6',mais:0,mult:t==='d100'?5:1,attrs:keys};
+  const sk=t==='d100'?{k:'pericias_pontos',f:'200',max:75,tudo:1}:{k:'pericias_treinar',n:3,bonus:2};
+  return[{t:'Quem é o personagem',b:[{k:'campo',campo:'pers',rot:'Nome do personagem'}]},{t:'Atributos',b:[attr]},{t:'Perícias',b:[sk]}]}
 function secFluxo(){
   const tn={op:'Ordem Paranormal',coc:'Call of Cthulhu',blank:'Vazio'};
   const ask=E.ask&&E.ask.fl?`<div class="sed-ask2"><span>Trocar o fluxo atual pelo modelo <b>${tn[E.ask.fl]}</b>? Dá pra desfazer logo depois.</span><div class="rowb"><button class="btn pri sm" type="button" data-act="ftplok">Trocar</button><button class="btn sm" type="button" data-act="ftplno">Cancelar</button></div></div>`:'';
-  return head('Criação','Monte o passo a passo da criação de personagem com blocos. Arraste da paleta para dentro de uma etapa, ou toque no bloco pra adicionar na etapa marcada. Blocos de Lógica deixam o fluxo mudar conforme as escolhas.')+
+  return head('Criação (opcional)','O passo a passo que o jogador segue ao criar a ficha, montado com blocos de encaixar. Arraste da paleta para dentro de uma etapa, ou toque no bloco para adicioná-lo na etapa marcada. Sem etapas, a ficha abre em branco.')+
   `<div class="sed-tools fl-tools"><div class="rowb"><button class="btn sm" type="button" data-act="fundo"${E.fh.length?'':' disabled'}>Desfazer</button><button class="btn sm" type="button" data-act="fredo"${E.fr.length?'':' disabled'}>Refazer</button><button class="btn sm pri" type="button" data-act="ftest"${E.fl.length?'':' disabled'}>Testar o passo a passo</button></div><div class="rowb"><span class="smu">Modelo de fluxo:</span><button class="btn sm" type="button" data-act="ftpl" data-v="op">OP</button><button class="btn sm" type="button" data-act="ftpl" data-v="coc">CoC</button><button class="btn sm" type="button" data-act="ftpl" data-v="blank">Vazio</button></div></div>${ask}
   <div class="blk-wrap"><aside class="blk-pal" id="bpal" aria-label="Paleta de blocos">${palHTML()}</aside><div class="blk-ws" id="bws">${wsHTML()}</div></div>`}
 function flIssues(add,vars0){
@@ -2022,6 +2075,7 @@ function flAct(a,b){
   if(a==='scol'){const s=flStep(sid);if(s)s.c=!s.c;return false}
   if(a==='ftpl'){E.ask={fl:b.dataset.v};return false}
   if(a==='ftplno'){E.ask=null;return false}
+  if(a==='fbasic'){flSave();E.fl=cleanFlow(flBasicRaw(),new Set(flKeys()),new Set(E.pe.map(p=>p.n.trim())),evars()).map(flWithIds);E.fsel=null;return false}
   if(a==='ftplok'){const v=E.ask&&E.ask.fl;E.ask=null;if(!v)return false;flSave();
     const keys=new Set(flKeys()),sn=new Set(E.pe.map(p=>p.n.trim())),vars=evars();
     E.fl=v==='blank'?[]:cleanFlow(SYSTEMS[v].criacao,keys,sn,vars).map(flWithIds);E.fsel=null;return false}
@@ -2102,6 +2156,7 @@ async function autoSync(force){
     for(const ad of [opAd(),Cloud.cocAdapter({userId:cloudUser.id,live:null})]){
       const st=await Cloud.syncAll(ad);if(st.aborted){aborted=true;break}
       ch+=st.down+st.created+st.removed+st.conflict;created+=st.created;conf+=st.conflict}
+    if(!aborted)await sysSync();
     autoT=Date.now();if(!aborted)cloudConflict=false;
     if(aborted)Cloud.ui.fail(new Error('sincronização cancelada'));else Cloud.ui.ok();
     if(ch){slRender();cloudSaveLabel();void loadCloudList()}
@@ -2193,6 +2248,15 @@ async function pfUpsert(row){
 function pfSwInit(){const sw=$('#pfSw');if(sw.children.length)return;
   ['',...PF_ACC].forEach(c=>{const b=document.createElement('button');b.type='button';b.setAttribute('role','radio');b.dataset.c=c;b.className=c?'':'none';if(c)b.style.setProperty('--c',c);
     b.setAttribute('aria-label',c?'Cor '+c:'Cor padrão do tema');b.onclick=()=>{pf.accent=c;pfPaint()};sw.append(b)})}
+/* conta cada personagem uma vez: a ficha aberta + as guardadas legíveis (mesma linha da nuvem = mesmo personagem) + investigadores */
+function agentCount(){
+  try{slDedupe()}catch(e){Util.warn('op: limpar duplicadas',e)}
+  const seen=new Set();let n=0;
+  if(D.created){n++;if(D.cl&&D.cl.id)seen.add(D.cl.id)}
+  slIdx().list.forEach(x=>{let j=null;try{j=JSON.parse(localStorage.getItem(SLK+x.id))}catch(e){}
+    if(!j||typeof j!=='object'||!j.attr)return;
+    const l=j.cl&&j.cl.id;if(l){if(seen.has(l))return;seen.add(l)}n++});
+  return n+cocIdx().list.length}
 function pfPaint(full){
   const c=$('#pfCard');if(!c)return;const col=pf.accent||'var(--kr)';c.style.setProperty('--pf',col);$('#sc-cfg').style.setProperty('--pf',col);
   const nm=$('#cloudDisplayName').value.trim();$('#pfName').textContent=cloudUser?(nm||'Seu nome'):'Visitante';
@@ -2205,7 +2269,7 @@ function pfPaint(full){
   $$('#pfSw button').forEach(x=>x.setAttribute('aria-checked',String((x.dataset.c||'')===(pf.accent||''))));
   if(!full)return;
   const st=$('#pfStats');st.textContent='';
-  [[slIdx().list.length+(D.created?1:0)+cocIdx().list.length,'Personagens'],[libRead().length,'Sistemas próprios']].forEach(([n,l])=>{const s=document.createElement('span'),q=document.createElement('b');q.textContent=n;s.append(q,' '+l);st.append(s)});
+  [[agentCount(),'Personagens'],[libRead().length,'Sistemas próprios']].forEach(([n,l])=>{const s=document.createElement('span'),q=document.createElement('b');q.textContent=n;s.append(q,' '+l);st.append(s)});
   const ch=$('#pfChips');ch.textContent='';const tags=[];
   if((D.created&&(D.camp||'op')==='op')||slIdx().list.length)tags.push('Ordem Paranormal');if(cocIdx().list.length)tags.push('Call of Cthulhu');libRead().slice(0,4).forEach(x=>tags.push(x.nome));
   tags.forEach(t=>{const s=document.createElement('span');s.className='pf-chip';s.textContent=t;ch.append(s)});ch.hidden=!tags.length;}
@@ -2563,14 +2627,19 @@ async function shMakeThumb(av){
   return null}
 
 /* ---- o que dá para publicar ---- */
-function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),av=typeof j.av==='string'?j.av:'',s=noProto(j);delete s.cl;s.av='';
-  return{key:(j.cl&&j.cl.id)?'cl:'+j.cl.id:key,legacy:[key],av,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
-function shSrcSlot(id){let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(e){}return shSrcOp(j,'op:'+id)}
+const newPid=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),av=typeof j.av==='string'?j.av:'',pid=typeof j.pid==='string'&&/^p[a-z0-9]{6,20}$/.test(j.pid)?j.pid:'',s=noProto(j);delete s.cl;delete s.pid;s.av='';
+  /* cada personagem tem a sua chave: nuvem (cl:) > id próprio (pid:) > ficha guardada (op:id). 'op:live' valia para QUALQUER ficha aberta e fazia a 2ª publicação sobrescrever a 1ª */
+  return{key:(j.cl&&j.cl.id)?'cl:'+j.cl.id:pid?'pid:'+pid:key,legacy:key==='op:live'?[]:[key],av,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
+function shSrcSlot(id){let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(e){}
+  if(j&&typeof j==='object'&&j.attr&&!j.pid){j.pid=newPid();try{localStorage.setItem(SLK+id,JSON.stringify(j))}catch(e){}}
+  return shSrcOp(j,'op:'+id)}
+function shSrcLive(){if(!D.created)return null;if(!D.pid){D.pid=newPid();try{writeNow()}catch(e){}}return shSrcOp(D,'op:live')}
 function shSrcCoc(id){let j=null;try{j=JSON.parse(localStorage.getItem('coc-slot-v1:'+id))}catch(e){}
   if(!j||typeof j!=='object'||j.app!=='coc')return null;const s=noProto(j),av=typeof(j.who&&j.who.av)==='string'?j.who.av:'';s.who=Object.assign({},s.who,{av:''});
   return{key:(()=>{try{const l=JSON.parse(localStorage.getItem('coc-cloud-v1')||'{}')[id];return l&&l.id?'cc:'+l.id:'coc:'+id}catch(e){return'coc:'+id}})(),legacy:['coc:'+id],av,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
 function shSrcSys(en){const m=en&&cleanMold(en.mold);if(!m)return null;
-  return{key:'sys:'+en.id,av:'',kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:{rpgSistema:1,nome:m.nome,mold:moldObj(m)}}}
+  return{key:'sys:'+en.id,av:coverOk(en.img)?en.img:'',kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:{rpgSistema:1,nome:m.nome,mold:moldObj(m)}}}
 
 /* ---- janela: publicar ---- */
 const AUTHK='rpg-share-author';
@@ -2780,11 +2849,11 @@ function shAdd(row,v){
   try{
     if(row.kind==='sistema'){
       const l=libRead(),i=l.findIndex(x=>x.src===row.id),old=i>=0?l[i]:null,m=v.m;
-      const e={id:old?old.id:libId(),nome:m.nome,v:old?old.v+1:1,t:Date.now(),mold:moldObj(m),src:row.id,sver:row.version};
+      const e={id:old?old.id:libId(),nome:m.nome,v:old?old.v+1:1,t:Date.now(),mold:moldObj(m),src:row.id,sver:row.version,img:Share.thumbOk(row.thumb)?row.thumb:(old&&coverOk(old.img)?old.img:undefined),cloud:old?old.cloud:undefined};
       if(old)l[i]=e;else l.push(e);
       if(!libWrite(l))throw new Error('Sem espaço no navegador para guardar o sistema.');
       Share.registerCopy(row.id);shClose();toast(old?'Sistema atualizado':'Sistema adicionado',m.nome);if(scrMode==='sys')scSysFill();else setScreen('sys',true);return}
-    const s=noProto(row.payload.sheet);delete s.cl;const photo=Share.thumbOk(row.thumb)?row.thumb:'';
+    const s=noProto(row.payload.sheet);delete s.cl;delete s.pid;const photo=Share.thumbOk(row.thumb)?row.thumb:'';
     if(row.campaign==='coc'){
       s.who=Object.assign({},s.who,{av:photo});
       const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),x=cocIdx();
@@ -2896,7 +2965,7 @@ const catalogsReady=loadGameCatalogs();buildBars();buildFilters();renderAll();in
 
 /* ---------- fundo vivo, partículas e “ficha só ao entrar” ---------- */
 (function(){
-  try{const u=(innerWidth>=900?`url(${ASSET_BASE}OPbackgroundwide.webp),`:'')+`url(${IMGS.op})`;$$('.hm-bg').forEach(e=>e.style.backgroundImage=u)}catch(e){}
+  try{const u=innerWidth>=900?`url(${ASSET_BASE}OPbackgroundwide.webp)`:`url(${IMGS.op})`;$$('.hm-bg').forEach(e=>e.style.backgroundImage=u)}catch(e){}
   try{$$('[data-img]').forEach(e=>{const u=IMGS[e.dataset.img];if(u)e.style.backgroundImage=e.matches('.k-art,.k-side')?heroBg(e.dataset.img):`url(${u})`});
     $('#kPrev').onclick=()=>$('#kRow').scrollBy({left:-380,behavior:'smooth'});$('#kNext').onclick=()=>$('#kRow').scrollBy({left:380,behavior:'smooth'})}catch(e){}
   $$('.hm-fx').forEach(f=>{let h='';for(let i=0,n=document.documentElement.classList.contains('lite')?0:30;i<n;i++){const r=Math.random;h+=`<i style="--s:${(r()*2.8+1.2).toFixed(1)}px;left:${(r()*100).toFixed(1)}%;--d:${(r()*14+10).toFixed(1)}s;--dl:${(-r()*22).toFixed(1)}s;--x:${(r()*80-40).toFixed(0)}px"></i>`}f.innerHTML=h});
@@ -2914,7 +2983,7 @@ const catalogsReady=loadGameCatalogs();buildBars();buildFilters();renderAll();in
   const mo=new MutationObserver(upd);[...watch,mN].forEach(e=>mo.observe(e,{attributes:true,attributeFilter:['hidden']}));upd();
 })();
 
-function heroBg(k){return k==='op'?`url(${ASSET_BASE}OPbackgroundwide.webp),url(${IMGS.op})`:`url(${IMGS[k]})`}
+function heroBg(k){return k==='op'?(innerWidth>=900?`url(${ASSET_BASE}OPbackgroundwide.webp)`:`url(${IMGS.op})`):`url(${IMGS[k]})`}
 function kIn(el){el.classList.remove('in');void el.offsetWidth;if(!rm())el.classList.add('in')}
 /* ---------- destaque que troca de imagem, inclinação, vibração leve ---------- */
 (function(){
@@ -2954,8 +3023,9 @@ function kIn(el){el.classList.remove('in');void el.offsetWidth;if(!rm())el.class
   let x0=null;
   hero.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
   hero.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>40)show(idx+(dx<0?1:-1),true)},{passive:true});
-  hero.addEventListener('mousemove',e=>{if(!matchMedia('(hover:hover)').matches)return;const r=hero.getBoundingClientRect();hero.style.setProperty('--px',((e.clientX-r.left)/r.width-.5).toFixed(3));hero.style.setProperty('--py',((e.clientY-r.top)/r.height-.5).toFixed(3))});
-  hero.addEventListener('mouseleave',()=>{hero.style.setProperty('--px',0);hero.style.setProperty('--py',0)});
+  let mvR=0,mvE=null;
+  hero.addEventListener('mousemove',e=>{mvE=e;if(mvR)return;mvR=requestAnimationFrame(()=>{mvR=0;const e=mvE;if(!e||!matchMedia('(hover:hover)').matches)return;const r=hero.getBoundingClientRect();hero.style.setProperty('--px',((e.clientX-r.left)/r.width-.5).toFixed(3));hero.style.setProperty('--py',((e.clientY-r.top)/r.height-.5).toFixed(3))})},{passive:true});
+  hero.addEventListener('mouseleave',()=>{mvE=null;hero.style.setProperty('--px',0);hero.style.setProperty('--py',0)});
   restart();
   [home,sl].forEach(r=>r.addEventListener('click',e=>{if(navigator.vibrate&&vibOn()&&e.target.closest('.k-ri,.hm-c,.k-p,.k-cta,.k-back,.sl-i .btn,.sl-nb')){try{navigator.vibrate(8)}catch(_){}}}));
 })();

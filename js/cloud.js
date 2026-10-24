@@ -291,6 +291,112 @@ window.Cloud = (function () {
     } catch (e) { warn('cocRelink: regravar vínculos', e); }
   }
 
+
+  /* =====================================================================
+     SINCRONIZAÇÃO DOS SISTEMAS PRÓPRIOS (biblioteca) COM A CONTA — tabela user_systems (supabase/user_systems.sql)
+     Cada sistema local guarda um vínculo em entry.cloud = {id, rev, h, uid} (mesma ideia dos personagens):
+       id = linha em user_systems · rev = updated_at da nuvem na última sincronização · h = hash do conteúdo naquela hora.
+     Mudou só aqui -> envia · mudou só lá -> baixa · mudou nos dois -> guarda as duas versões · sumiu da conta sem mudar aqui -> remove.
+     ===================================================================== */
+  const SYSQ = 'rpg-cloud-del-sys-v1', STBL = 'user_systems';
+  function sysHash(en) { return hashOf({ nome: en.nome, v: en.v, mold: en.mold, img: en.img || null, src: en.src || null, sver: en.sver == null ? null : en.sver }); }
+  function sysPack(en) {
+    const entry = { nome: en.nome, v: en.v, t: en.t, mold: en.mold };
+    if (en.img) entry.img = en.img; if (en.src) entry.src = en.src; if (en.sver != null) entry.sver = en.sver;
+    return { name: String(en.nome || 'Sistema').slice(0, 80) || 'Sistema', entry };
+  }
+  function readSysQ() { try { const q = JSON.parse(localStorage.getItem(SYSQ)); return Array.isArray(q) ? q : []; } catch (e) { return []; } }
+  function writeSysQ(q) { try { localStorage.setItem(SYSQ, JSON.stringify(q)); } catch (e) { warn('fila de exclusões de sistemas: não gravou', e); } }
+  async function flushSysDeletes(userId) {
+    if (!client || !userId) return;
+    for (const it of readSysQ().filter(x => x.uid === userId)) {
+      const r = await client.from(STBL).delete().eq('id', it.id).eq('user_id', userId);
+      if (!r.error) writeSysQ(readSysQ().filter(x => x.id !== it.id));
+    }
+  }
+  /* o usuário excluiu um sistema aqui: apaga também da conta (fica na fila se estiver offline) */
+  function forgetSystem(link) {
+    if (!link || !link.id || !link.uid) return;
+    const q = readSysQ(); if (!q.some(x => x.id === link.id)) { q.push({ id: link.id, uid: link.uid }); writeSysQ(q); }
+    if (!client) return;
+    client.auth.getSession().then(r => { const u = r && r.data && r.data.session && r.data.session.user; if (u && u.id === link.uid) return flushSysDeletes(u.id); }).catch(() => {});
+  }
+  async function pushSys(ad, en, lk) {
+    const p = sysPack(en), h = sysHash(en);
+    if (JSON.stringify(p.entry).length > 390000) { const e = new Error('Sistema grande demais para a nuvem: ' + p.name); e.skip = true; throw e; }
+    if (lk && lk.id) {
+      const r = await client.from(STBL).update(p).eq('id', lk.id).eq('user_id', ad.userId).eq('updated_at', lk.rev).select('id,updated_at');
+      if (r.error) throw r.error;
+      if (!r.data || !r.data.length) { const e = new Error('conflict'); e.conflict = true; throw e; }
+      return { id: r.data[0].id, rev: r.data[0].updated_at, h, uid: ad.userId };
+    }
+    const r = await client.from(STBL).insert(Object.assign({}, p, { user_id: ad.userId })).select('id,updated_at').single();
+    if (r.error) throw r.error;
+    return { id: r.data.id, rev: r.data.updated_at, h, uid: ad.userId };
+  }
+  async function fetchSys(ad, id) {
+    const r = await client.from(STBL).select('id,entry,updated_at').eq('id', id).eq('user_id', ad.userId).single();
+    if (r.error) throw r.error;
+    const c = ad.clean(r.data.entry); return c ? { entry: c, rev: r.data.updated_at } : null;
+  }
+  /* ad: { userId, read(), write(list), newId(), clean(entryDaNuvem) -> entrada limpa | null } */
+  function syncSystems(ad) {
+    return withLock('sistemas', async () => {
+      const st = { up: 0, down: 0, removed: 0, created: 0, conflict: 0, aborted: false };
+      await flushSysDeletes(ad.userId);
+      const mut = fn => { const l = ad.read(); fn(l); ad.write(l); };
+      const upd = (id, fn) => mut(l => { const x = l.find(y => y.id === id); if (x) fn(x); });
+      let ents = ad.read();
+      const foreign = ents.filter(e => e.cloud && e.cloud.uid && e.cloud.uid !== ad.userId);
+      if (foreign.length) {
+        let ok = false; try { ok = sessionStorage.getItem('rpg-foreign-sys-ok:' + ad.userId) === '1'; } catch (x) {}
+        if (!ok) {
+          if (typeof confirm === 'function' && !confirm('Este aparelho tem sistemas ligados a outra conta. Enviar uma cópia deles para a conta atual? (Cancelar não envia nada.)')) { st.aborted = true; return st; }
+          try { sessionStorage.setItem('rpg-foreign-sys-ok:' + ad.userId, '1'); } catch (x) {}
+        }
+        mut(l => l.forEach(x => { if (x.cloud && x.cloud.uid !== ad.userId) delete x.cloud; }));
+        ents = ad.read();
+      }
+      const lr = await client.from(STBL).select('id,updated_at').eq('user_id', ad.userId);
+      if (lr.error) throw lr.error;
+      const rows = new Map(lr.data.map(r => [r.id, r])), seen = new Set();
+      ents.forEach(e => { if (e.cloud && e.cloud.id) seen.add(e.cloud.id); });
+      for (const e of ents) {
+        try {
+          const lk = e.cloud, h = sysHash(e), row = lk && rows.get(lk.id);
+          if (!lk) { const l = await pushSys(ad, e, null); upd(e.id, x => { x.cloud = l; }); st.up++; }
+          else if (!row) {
+            if (h === lk.h) { mut(l => { const i = l.findIndex(y => y.id === e.id); if (i >= 0) l.splice(i, 1); }); st.removed++; continue; }
+            const l = await pushSys(ad, e, null); upd(e.id, x => { x.cloud = l; }); st.up++;
+          } else if (row.updated_at === lk.rev) {
+            if (h !== lk.h) { const l = await pushSys(ad, e, lk); upd(e.id, x => { x.cloud = l; }); st.up++; }
+          } else if (h === lk.h) {
+            const d = await fetchSys(ad, row.id);
+            if (d) { upd(e.id, x => { Object.assign(x, d.entry); x.cloud = { id: row.id, rev: d.rev, h: sysHash(d.entry), uid: ad.userId }; }); st.down++; }
+          } else {
+            const d = await fetchSys(ad, row.id);
+            if (d) {
+              const copy = Object.assign({ id: ad.newId() }, d.entry, { nome: (d.entry.nome + ' (da nuvem)').slice(0, 40) });
+              copy.cloud = { id: row.id, rev: d.rev, h: sysHash(copy), uid: ad.userId };
+              mut(l => { l.push(copy); });
+              const l = await pushSys(ad, e, null); upd(e.id, x => { x.cloud = l; }); st.conflict++; st.up++;
+            }
+          }
+        } catch (err) {
+          if (err && err.conflict) st.conflict++;
+          else if (err && err.skip) warn('sistema não enviado', err);
+          else throw err;
+        }
+      }
+      for (const r of lr.data) {
+        if (seen.has(r.id)) continue;
+        const d = await fetchSys(ad, r.id);
+        if (d) { const en = Object.assign({ id: ad.newId() }, d.entry); en.cloud = { id: r.id, rev: d.rev, h: sysHash(d.entry), uid: ad.userId }; mut(l => { l.push(en); }); st.created++; }
+      }
+      return st;
+    });
+  }
+
   /* indicador fixo: ● âmbar sincronizando · ● verde salvo · ● vermelho falhou · conflito */
   const ui = (function () {
     let el = null, state = '', fails = 0, t = null;
@@ -319,5 +425,5 @@ window.Cloud = (function () {
       }
     };
   })();
-  return { client, saveSheet, signInGoogle, accountInfo, takeAuthError, takeReturnTarget, hash: hashOf, syncAll, pushLive, forget, cocAdapter, cocForget, cocRelink, ui };
+  return { client, saveSheet, signInGoogle, accountInfo, takeAuthError, takeReturnTarget, hash: hashOf, syncAll, syncSystems, forgetSystem, pushLive, forget, cocAdapter, cocForget, cocRelink, ui };
 })();

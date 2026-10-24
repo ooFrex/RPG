@@ -20,6 +20,7 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
     supabase/announcements.sql  tabela dos avisos (aplicar uma vez)
     supabase/catalog_coc_items.sql  biblioteca de itens/armas do CoC (aplicar uma vez; 449 itens)
     supabase/updated_at_trigger.sql  trigger que carimba updated_at no servidor (aplicar ANTES de publicar esta versão)
+    supabase/user_systems.sql  sistemas próprios sincronizados com a conta (aplicar uma vez; precisa do updated_at_trigger.sql)
     js/util.js        utilitários comuns ($, $$, wait, rnd, clamp, esc, fmt, cloudError, warn)
     js/op.js          lógica da OP
     js/coc.js         lógica do CoC
