@@ -464,9 +464,10 @@ $('#slList').addEventListener('click',e=>{const b=e.target.closest('[data-sl]');
   slRender();$('#slMsg').textContent=cloudUser?'Ficha excluída deste aparelho e da sua conta.':'Ficha excluída deste aparelho.'});
 $('#slNew').onclick=()=>{closeM('mSl');newFlow(null)};
 $('#mSl .k-rail').addEventListener('click',e=>{const b=e.target.closest('[data-rail]');if(!b)return;const a=b.dataset.rail;
-  if(a==='acct'){if(scrMode!=='cfg')setScreen('cfg',true);const t=$('#cft-conta');if(t)t.click();return}
+  if(a==='acct'){if(scrMode!=='cfg')setScreen('cfg',true);cfgView(false);return}
   if(a==='shop'){shF.kind='';shF.campaign=''}
-  if(a==='sl'||a==='sys'||a==='help'||a==='shop'||a==='cfg'){if(a!==scrMode||a==='shop')setScreen(a,true);return}
+  if(a==='help'){if(scrMode!=='cfg')setScreen('cfg',true);cfgView(true);const t=$('#cft-ajuda');if(t)t.click();return}
+  if(a==='sl'||a==='sys'||a==='shop'||a==='cfg'){if(a!==scrMode||a==='shop')setScreen(a,true);return}
   if(a==='new'){closeM('mSl');newFlow(null);return}
   closeM('mSl');
   openHome()});
@@ -485,7 +486,7 @@ const SCR={sl:['ARQUIVO','Meus Personagens','Fichas guardadas neste aparelho. A 
   sys:['REGRAS','Sistemas','Os sistemas que você tem. Toque em um para ver como ele funciona e criar uma ficha com ele.'],
   help:['GUIA RÁPIDO','Ajuda','Como a ficha funciona, em poucas linhas.'],
   shop:['MARKETPLACE','Biblioteca','Fichas e sistemas publicados pela comunidade. Veja os detalhes, visualize a ficha inteira e adicione à sua biblioteca.'],
-  cfg:['AJUSTES','Configurações','Conta, aparência, backup e novidades desta versão.']};
+  cfg:['PERFIL','Perfil','Seu perfil, conta, aparência, backup, ajuda e novidades.']};
 let scrMode='sl';
 function scSysFill(){syGrid();syDet(false);syCur()}
 /* ===== catálogo de sistemas ===== */
@@ -557,10 +558,10 @@ function closeCoc(){const v=$('#cocView');if(v.hidden)return;cocFlush();v.hidden
 window.addEventListener('message',e=>{if(e.origin===location.origin&&e.source===$('#cocFrame').contentWindow&&e.data&&e.data.coc==='back')closeCoc()});
 function setScreen(m,anim){if(!SCR[m])m='sl';scrMode=m;const c=SCR[m];
   $('#scK').textContent=c[0];$('#slT').textContent=c[1];$('#scSub').textContent=c[2];
-  ['sl','sys','help','shop','cfg'].forEach(k=>{$('#sc-'+k).hidden=k!==m});$('#slNew').hidden=m!=='sl';
-  $$('#mSl .k-ri').forEach(b=>{const on=b.dataset.rail===m;b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  ['sl','sys','shop','cfg'].forEach(k=>{$('#sc-'+k).hidden=k!==m});$('#slNew').hidden=m!=='sl';
+  $$('#mSl .k-ri').forEach(b=>{const on=b.dataset.rail===m||(m==='cfg'&&b.dataset.rail==='acct');b.classList.toggle('on',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   $('#slMsg').textContent='';
-  if(m==='sl')slRender();else if(m==='sys')scSysFill();else if(m==='shop')shopOpen();else if(m==='cfg')cfgOpen();
+  if(m==='sl')slRender();else if(m==='sys')scSysFill();else if(m==='shop')shopOpen();else if(m==='cfg'){cfgOpen();pfPaint(true);if(Date.now()-shMineAt>3e4){shMineAt=Date.now();shMineRender()}}
   $('#mSl').scrollTop=0;
   if(anim&&!rm())$('#sc-'+m).animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'})}
 var soloCfg=false;
@@ -2106,17 +2107,19 @@ function paintCloudSession(user){
   cloudUser=user||null;paintRailAcct();
   $('#cloudSignedOut').hidden=!!cloudUser;$('#cloudSignedIn').hidden=!cloudUser;$('#cloudProfile').hidden=!cloudUser;$('#cloudPanel').hidden=!cloudUser;
   if(cloudUser){$('#cloudAccount').textContent='Conectado como '+(cloudUser.email||'usuário Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');$('#cloudProfileEmail').textContent=cloudUser.email||'';void loadCloudProfile(cloudUser.id);void loadCloudList();void autoSync(false)}
-  else{profileRequestUser=null;$('#cloudAuthMsg').textContent=cloudClient?'Entre com sua conta Google para guardar e sincronizar suas fichas.':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;cloudSaveLabel()}
+  else{profileRequestUser=null;$('#cloudAuthMsg').textContent=cloudClient?'Entre com sua conta Google para guardar e sincronizar suas fichas.':'Não foi possível carregar o cliente Supabase. Confira sua conexão.';$('#cloudList').innerHTML='';$('#cloudMsg').textContent='';$('#cloudProfileMsg').textContent='';$('#cloudAvatarPreview').hidden=true;$('#cloudAvatarFallback').hidden=false;$('#cloudDisplayName').value='';cloudProfileAvatarPath=null;pfLoad({});cloudSaveLabel()}
 }
 let cloudProfileAvatarPath=null,profileRequestUser=null;
 async function loadCloudProfile(userId){
   if(!cloudClient||!userId)return;
   profileRequestUser=userId;$('#cloudProfileMsg').textContent='Carregando perfil…';
   try{
-    const {data,error}=await cloudClient.from('user_profiles').select('display_name,avatar_path').eq('user_id',userId).maybeSingle();
+    let {data,error}=await cloudClient.from('user_profiles').select('display_name,avatar_path,bio,banner_path,accent,public_profile').eq('user_id',userId).maybeSingle();
+    if(error){({data,error}=await cloudClient.from('user_profiles').select('display_name,avatar_path,bio,banner_path,accent').eq('user_id',userId).maybeSingle())}
+    if(error){({data,error}=await cloudClient.from('user_profiles').select('display_name,avatar_path').eq('user_id',userId).maybeSingle())}
     if(error)throw error;
     if(profileRequestUser!==userId||cloudUser?.id!==userId)return;
-    cloudProfileAvatarPath=data?.avatar_path||null;
+    cloudProfileAvatarPath=data?.avatar_path||null;pfLoad(data||{});
     const gi=Cloud.accountInfo(cloudUser);
     $('#cloudDisplayName').value=data?.display_name||gi.name||cloudUser.email?.split('@')[0]||'';
     $('#cloudAccount').textContent='Conectado como '+($('#cloudDisplayName').value||cloudUser.email||'usuário Supabase')+(gi.google?' · via Google':'');
@@ -2136,10 +2139,10 @@ async function saveCloudProfile(){
   if(!displayName){$('#cloudProfileMsg').textContent='Digite um nome para o perfil.';return}
   button.disabled=true;$('#cloudProfileMsg').textContent='Salvando perfil…';
   try{
-    const {error}=await cloudClient.from('user_profiles').upsert({user_id:userId,display_name:displayName,avatar_path:cloudProfileAvatarPath},{onConflict:'user_id'});
+    const {error,partial}=await pfUpsert({user_id:userId,display_name:displayName,avatar_path:cloudProfileAvatarPath});
     if(error)throw error;
     $('#cloudAccount').textContent=displayName+' · '+(cloudUser.email||'conta Supabase')+(Cloud.accountInfo(cloudUser).google?' · via Google':'');
-    $('#cloudProfileMsg').textContent='Perfil salvo na sua conta.';
+    $('#cloudProfileMsg').textContent=partial==='pub'?'Perfil salvo. Para o modo público, rode supabase/public_profile.sql no Supabase.':partial?'Nome e foto salvos. Para bio, banner e cor, rode supabase/user_profiles_extra.sql no Supabase.':'Perfil salvo na sua conta.';pfPaint();
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível salvar o perfil: '+cloudError(error);console.error('Falha ao salvar perfil:',error)}
   finally{button.disabled=false}
 }
@@ -2161,12 +2164,73 @@ async function setAccountAvatar(file){
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível enviar a foto: '+cloudError(error);console.error('Falha no avatar da conta:',error)}
   finally{button.disabled=false}
 }
+/* ---------- perfil: banner, bio e cor ---------- */
+const PF_ACC=['#c0392b','#d6336c','#9b59d0','#4f7cff','#1fa5a5','#2f9e5b','#d9a21b','#e8731a'];
+let pf={bio:'',banner:null,accent:'',pub:false};
+async function pfUpsert(row){
+  const ex={bio:pf.bio||null,banner_path:pf.banner,accent:pf.accent||null},t=r=>cloudClient.from('user_profiles').upsert(r,{onConflict:'user_id'});
+  let r=await t(Object.assign({},row,ex,{public_profile:!!pf.pub}));if(!r.error)return r;
+  r=await t(Object.assign({},row,ex));if(!r.error)return{error:null,partial:'pub'};
+  r=await t(row);return r.error?r:{error:null,partial:true}}
+function pfSwInit(){const sw=$('#pfSw');if(sw.children.length)return;
+  ['',...PF_ACC].forEach(c=>{const b=document.createElement('button');b.type='button';b.setAttribute('role','radio');b.dataset.c=c;b.className=c?'':'none';if(c)b.style.setProperty('--c',c);
+    b.setAttribute('aria-label',c?'Cor '+c:'Cor padrão do tema');b.onclick=()=>{pf.accent=c;pfPaint()};sw.append(b)})}
+function pfPaint(full){
+  const c=$('#pfCard');if(!c)return;const col=pf.accent||'var(--kr)';c.style.setProperty('--pf',col);$('#sc-cfg').style.setProperty('--pf',col);
+  const nm=$('#cloudDisplayName').value.trim();$('#pfName').textContent=cloudUser?(nm||'Seu nome'):'Visitante';
+  const hd=cloudUser&&nm?'@'+nm.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9_]+/g,'').slice(0,24):'';
+  $('#pfHandle').textContent=hd;$('#pfHandle').hidden=!hd;
+  const bo=$('#pfBio');bo.textContent=cloudUser?pf.bio:'';bo.hidden=!(cloudUser&&pf.bio);
+  const bn=$('#pfBanner'),bk=(cloudUser&&pf.banner)||'';
+  if(bn.dataset.p!==bk){bn.dataset.p=bk;bn.style.backgroundImage='';if(bk&&cloudClient){avUrl(bk).then(u=>{if(bn.dataset.p===bk)bn.style.backgroundImage='url("'+u+'")'}).catch(()=>{})}}
+  $('#pfBannerDel').hidden=!pf.banner;$('#pfEdit').textContent=cloudUser?'Editar perfil':'Entrar na conta';
+  $$('#pfSw button').forEach(x=>x.setAttribute('aria-checked',String((x.dataset.c||'')===(pf.accent||''))));
+  if(!full)return;
+  const st=$('#pfStats');st.textContent='';
+  [[slIdx().list.length+(D.created?1:0)+cocIdx().list.length,'Personagens'],[libRead().length,'Sistemas próprios']].forEach(([n,l])=>{const s=document.createElement('span'),q=document.createElement('b');q.textContent=n;s.append(q,' '+l);st.append(s)});
+  const ch=$('#pfChips');ch.textContent='';const tags=[];
+  if((D.created&&(D.camp||'op')==='op')||slIdx().list.length)tags.push('Ordem Paranormal');if(cocIdx().list.length)tags.push('Call of Cthulhu');libRead().slice(0,4).forEach(x=>tags.push(x.nome));
+  tags.forEach(t=>{const s=document.createElement('span');s.className='pf-chip';s.textContent=t;ch.append(s)});ch.hidden=!tags.length;}
+$('#pfEdit').onclick=()=>{cfgView(true);if(window.cfgTab)window.cfgTab('conta');const t=cloudUser?$('#cloudProfile'):$('#cloudSignedOut');
+  if(t){t.scrollIntoView({behavior:rm()?'auto':'smooth',block:'start'});if(cloudUser)setTimeout(()=>$('#cloudDisplayName').focus({preventScroll:true}),300)}};
+function pfLoad(d){pf={bio:String(d.bio||'').slice(0,200),banner:typeof d.banner_path==='string'?d.banner_path:null,accent:/^#[0-9a-fA-F]{6}$/.test(d.accent||'')?d.accent:'',pub:!!d.public_profile};
+  pfSwInit();$('#pfPublic').checked=pf.pub;$('#pfBioIn').value=pf.bio;$('#pfCount').textContent=pf.bio.length+'/200';pfPaint(true)}
+function imageFileToBannerJpeg(file,w,h,q){return new Promise((res,rej)=>{
+  const url=URL.createObjectURL(file),img=new Image();
+  img.onload=()=>{try{const r=Math.max(w/img.naturalWidth,h/img.naturalHeight),sw=w/r,sh=h/r,c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,(img.naturalWidth-sw)/2,(img.naturalHeight-sh)/2,sw,sh,0,0,w,h);
+    c.toBlob(bl=>{URL.revokeObjectURL(url);bl?res(bl):rej(new Error('Não foi possível processar a imagem.'))},'image/jpeg',q)}catch(e){URL.revokeObjectURL(url);rej(e)}};
+  img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('Imagem inválida.'))};img.src=url})}
+async function pfSetBanner(file){
+  if(!cloudClient||!cloudUser||!file)return;const m=$('#cloudProfileMsg');
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type)){m.textContent='Escolha uma imagem JPG, PNG ou WebP.';return}
+  if(file.size>8*1024*1024){m.textContent='A imagem deve ter menos de 8 MB.';return}
+  m.textContent='Preparando banner…';
+  try{const blob=await imageFileToBannerJpeg(file,1200,400,.8),path=cloudUser.id+'/banner-'+Date.now().toString(36)+'.jpg';
+    const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});if(error)throw error;
+    const old=pf.banner;pf.banner=path;if(old&&old.startsWith(cloudUser.id+'/'))cloudClient.storage.from('account-avatars').remove([old]).catch(()=>{});
+    pfPaint();await saveCloudProfile()}
+  catch(e){m.textContent='Não foi possível enviar o banner: '+cloudError(e)}}
+$('#pfBannerPick').onclick=()=>$('#pfBannerFile').click();
+$('#pfBannerFile').onchange=e=>{const f=e.target.files&&e.target.files[0];e.target.value='';pfSetBanner(f)};
+$('#pfBannerDel').onclick=async()=>{const old=pf.banner;pf.banner=null;pfPaint();if(old&&cloudUser&&old.startsWith(cloudUser.id+'/'))cloudClient.storage.from('account-avatars').remove([old]).catch(()=>{});await saveCloudProfile()};
+$('#pfBioIn').addEventListener('input',e=>{pf.bio=e.target.value.slice(0,200);$('#pfCount').textContent=pf.bio.length+'/200';pfPaint()});
+$('#cloudDisplayName').addEventListener('input',pfPaint);
+$('#pfPublic').addEventListener('change',e=>{pf.pub=e.target.checked;$('#cloudProfileMsg').textContent=pf.pub?'Toque em Salvar perfil para mostrar sua foto, banner e bio nos seus itens.':'Toque em Salvar perfil para esconder seu perfil dos seus itens.'});
+/* perfil x configurações: o perfil é a tela principal; a engrenagem abre as configurações */
+const cfgView=on=>{$('#sc-cfg').classList.toggle('cf-on',!!on);$('#mSl').scrollTop=0};
+{const o=window.openCfg;window.openCfg=k=>{o(k);cfgView(true)}}
+function openProfile(){openSl('cfg');cfgView(false)}
+$('#pfGear').onclick=()=>{cfgView(true);if(window.cfgTab)window.cfgTab('conta')};
+$('#cfBack').onclick=()=>cfgView(false);
+$('#cloudGoogle').addEventListener('click',()=>{try{sessionStorage.setItem('op-pf-return','1')}catch(e){}});
 async function initCloud(){
   if(!cloudClient){$('#cloudGoogle').disabled=true;$('#cloudAuthMsg').textContent='O serviço Supabase não carregou. Verifique a conexão com a internet.';return}
   const authErr=Cloud.takeAuthError(),back=Cloud.takeReturnTarget();
   const {data,error}=await cloudClient.auth.getSession();
   if(error)$('#cloudAuthMsg').textContent='Erro ao verificar a sessão: '+cloudError(error);
   paintCloudSession(data&&data.session?data.session.user:null);paintAv();
+  try{if(data&&data.session&&sessionStorage.getItem('op-pf-return')){sessionStorage.removeItem('op-pf-return');setTimeout(openProfile,0)}}catch(e){}
   if(authErr){$('#cloudAuthMsg').textContent=authErr;toast('Login com Google',authErr)}
   else if(back==='coc'&&data&&data.session)setTimeout(()=>openCoc(),0);
   cloudClient.auth.onAuthStateChange((event,session)=>{
@@ -2432,7 +2496,7 @@ $('#home').addEventListener('click',e=>{
   else if(a==='open')openCfg('abrir')
   else if(a==='edit'){sysBack='home';sysOpen()}
   else if(a==='lib'){shF.kind='sistema';shF.campaign='';shF.q='';openSl('shop')}
-  else if(a==='cfg'||a==='acct')openCfg('conta');else if(a==='sl'||a==='sys'||a==='help'||a==='shop'){if(a==='shop'){shF.kind='';shF.campaign=''}openSl(a)}});
+  else if(a==='acct')openProfile();else if(a==='cfg')openCfg('conta');else if(a==='help')openCfg('ajuda');else if(a==='sl'||a==='sys'||a==='shop'){if(a==='shop'){shF.kind='';shF.campaign=''}openSl(a)}});
 document.addEventListener('keydown',e=>{
   const el=$('#home');if(el.hidden)return;
   if(e.key==='Escape'&&D.created){e.preventDefault();closeHome();return}
@@ -2480,11 +2544,11 @@ async function shMakeThumb(av){
 
 /* ---- o que dá para publicar ---- */
 function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),av=typeof j.av==='string'?j.av:'',s=noProto(j);delete s.cl;s.av='';
-  return{key,av,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
+  return{key:(j.cl&&j.cl.id)?'cl:'+j.cl.id:key,legacy:[key],av,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
 function shSrcSlot(id){let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(e){}return shSrcOp(j,'op:'+id)}
 function shSrcCoc(id){let j=null;try{j=JSON.parse(localStorage.getItem('coc-slot-v1:'+id))}catch(e){}
   if(!j||typeof j!=='object'||j.app!=='coc')return null;const s=noProto(j),av=typeof(j.who&&j.who.av)==='string'?j.who.av:'';s.who=Object.assign({},s.who,{av:''});
-  return{key:'coc:'+id,av,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
+  return{key:(()=>{try{const l=JSON.parse(localStorage.getItem('coc-cloud-v1')||'{}')[id];return l&&l.id?'cc:'+l.id:'coc:'+id}catch(e){return'coc:'+id}})(),legacy:['coc:'+id],av,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
 function shSrcSys(en){const m=en&&cleanMold(en.mold);if(!m)return null;
   return{key:'sys:'+en.id,av:'',kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:{rpgSistema:1,nome:m.nome,mold:moldObj(m)}}}
 
@@ -2492,8 +2556,8 @@ function shSrcSys(en){const m=en&&cleanMold(en.mold);if(!m)return null;
 const AUTHK='rpg-share-author';
 function shOpenPublish(src){
   if(!src){toast('Compartilhar','Não consegui ler este item.');return}
-  const had=Share.linked(src.key),b=$('#shBody'),a=$('#shAct');
-  $('#shT').textContent=had?'Atualizar publicação':'Compartilhar';b.textContent='';a.textContent='';$('#mShare .mbox').classList.remove('sh-wide');
+  const had=Share.linked(src.key)||(src.legacy||[]).map(Share.linked).find(Boolean),b=$('#shBody'),a=$('#shAct');
+  $('#shT').textContent=had?'Atualizar publicação':'Compartilhar';b.textContent='';a.textContent='';$('#mShare .mbox').classList.remove('sh-wide');$('#mShare').classList.remove('sh-page');
   if(!cloudUser){
     b.append(shEl('p',null,'Para compartilhar, entre com a sua conta Google. Quem receber o link, ou abrir o marketplace, não precisa de conta para ver e copiar.'));
     a.append(shBtn('Entrar','pri',()=>{shClose();closeM('mSl');openCfg('conta')}),shBtn('Cancelar','',shClose));openM('mShare');return}
@@ -2516,7 +2580,7 @@ function shOpenPublish(src){
     try{const au2=$('#shAu').value.trim();try{localStorage.setItem(AUTHK,au2)}catch(e){}
       const vis=($('#mShare input[name=shVis]:checked')||{}).value==='public'?'public':'unlisted';
       const thumb=(!$('#shPhotoRow').hidden&&$('#shPhoto').checked)?await shMakeThumb(src.av):null;
-      const r=await Share.publish({key:src.key,kind:src.kind,campaign:src.campaign,title:$('#shTi').value,summary:$('#shSu').value,author:au2,visibility:vis,thumb,payload:src.payload});
+      const r=await Share.publish({key:src.key,legacy:src.legacy,kind:src.kind,campaign:src.campaign,title:$('#shTi').value,summary:$('#shSu').value,author:au2,visibility:vis,thumb,payload:src.payload});
       shDone(r,$('#shTi').value.trim());shMineRender();if(vis==='public')shCatRender(false)}
     catch(e){err.textContent=cloudError(e);go.disabled=false;go.textContent=had?'Atualizar':'Publicar'}});
   a.append(go,shBtn('Cancelar','',shClose));openM('mShare');setTimeout(()=>{try{$('#shTi').focus()}catch(e){}},60)}
@@ -2569,25 +2633,65 @@ function shDescEl(row,v){
   w.append(shEl('h3','sh-h','Sobre o personagem'),box,more);
   requestAnimationFrame(()=>{if(box.scrollHeight>box.clientHeight+2){box.classList.add('cut');more.hidden=false}});
   return w}
+const shVC=new Map();
+function shPortrait(row,v){const a=v&&v.s&&typeof v.s.av==='string'?v.s.av:'';
+  if(a.length<400000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(a))return a;
+  return Share.thumbOk(row.thumb)?row.thumb:''}
+const PFPATH=/^[0-9a-f-]{36}\/[\w.-]{1,80}$/i,PFACC=/^#[0-9a-fA-F]{6}$/;
+function shAuthor(row,side){
+  const box=shEl('section','sv-card sv-au');box.hidden=true;side.append(box);
+  const fill=(a,items)=>{
+    const pub=!!(a&&a.public_profile);
+    if(pub){
+      if(PFACC.test(a.accent||''))box.style.setProperty('--pf',a.accent);
+      const bn=shEl('div','sv-aub'),av=shEl('span','sv-auav'),nm=String(a.display_name||'').trim()||row.author_name||'Autor',t=shEl('div','sv-aut');
+      av.textContent=nm.charAt(0).toUpperCase();
+      if(PFPATH.test(a.banner_path||''))avUrl(a.banner_path).then(u=>{bn.style.backgroundImage='url("'+u+'")'}).catch(()=>{});
+      if(PFPATH.test(a.avatar_path||''))avUrl(a.avatar_path).then(u=>{const i=shEl('img');i.alt='';i.src=u;av.textContent='';av.append(i)}).catch(()=>{});
+      t.append(shEl('b',null,nm));
+      if(a.items)t.append(shEl('small',null,a.items+(a.items===1?' item publicado':' itens publicados')));
+      if(a.bio)t.append(shEl('p','sv-aubio',String(a.bio).slice(0,200)));
+      box.append(bn,av,t)}
+    if(items.length){
+      box.append(shEl('h3','sh-h',pub?'Mais desse autor':'Mais de '+(row.author_name||'este autor')));
+      const ul=shEl('ul','sv-ml');
+      items.forEach(x=>{const li=shEl('li'),bt=shEl('button','sv-mi');bt.type='button';bt.append(shThumbEl(x.thumb,x.title),shEl('span',null,x.title));bt.onclick=()=>shOpenView(x.id);li.append(bt);ul.append(li)});
+      box.append(ul)}
+    box.hidden=!box.children.length};
+  Promise.all([Share.author(row.id),Share.authorItems(row.id)]).then(([a,items])=>{
+    if(items)return fill(a,items);
+    if(!row.author_name)return;   /* SQL novo ainda não rodou: usa a busca pelo nome, como antes */
+    return Share.listPublic({q:row.author_name,kind:'',campaign:'',sort:'popular',page:0}).then(r=>fill(null,r.rows.filter(x=>x.id!==row.id&&x.author_name===row.author_name).slice(0,4)))}).catch(()=>{})}
 async function shOpenView(code){
-  const b=$('#shBody'),a=$('#shAct');$('#shT').textContent='Biblioteca';b.textContent='';a.textContent='';$('#mShare .mbox').classList.add('sh-wide');
-  b.append(shEl('p',null,'Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
-  let row=null,err='';try{row=await Share.get(code)}catch(e){err=cloudError(e)}
-  b.textContent='';
-  const v=row&&SHVALID(row);
-  if(!row||!v){b.append(shEl('p',null,err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
+  const b=$('#shBody'),a=$('#shAct');$('#mShare').classList.add('sh-page');$('#mShare .mbox').classList.add('sh-wide');
+  $('#shT').textContent='Biblioteca';b.textContent='';a.textContent='';
+  b.append(shEl('p','sv-load','Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
+  let row=null,err='';const hit=shVC.get(code);
+  if(hit&&Date.now()-hit.t<12e4)row=hit.row;else try{row=await Share.get(code);if(row)shVC.set(code,{row,t:Date.now()})}catch(e){err=cloudError(e)}
+  b.textContent='';const v=row&&SHVALID(row);
+  if(!row||!v){b.append(shEl('p','sv-load',err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
   $('#shT').textContent=String(row.title).slice(0,80);
-  const head=shEl('div','sh-head2'),ht=shEl('div','sh-ht'),pills=shEl('p','sh-pills'),pc=shEl('span','sh-pill dot',SHN[row.campaign]||'?');pc.dataset.c=row.campaign;
-  pills.append(shEl('span','sh-pill',row.kind==='sistema'?'Sistema':'Personagem'),pc);ht.append(pills);
-  if(row.author_name)ht.append(shEl('p','sh-by','por '+row.author_name));
-  ht.append(shEl('p','sh-small','Versão '+row.version+(row.copies?' · '+row.copies+(row.copies===1?' cópia':' cópias'):'')));
-  head.append(shThumbEl(row.thumb,row.title,'big'),ht);b.append(head);
-  if(row.summary)b.append(shEl('p','sh-lead',row.summary));
-  const dsc=shDescEl(row,v);if(dsc)b.append(dsc);
-  const bs=shBasics(row,v);
-  if(bs.chips.length){const g=shEl('div','sh-chips');bs.chips.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});b.append(g)}
-  if(bs.info.length){const d=shEl('dl','sh-dl sh-dl2');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});b.append(d)}
-  b.append(shEl('p','sh-small',row.kind==='sistema'?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
+  const bs=shBasics(row,v),pic=shPortrait(row,v),bgi=el=>{if(pic)el.style.backgroundImage='url("'+pic+'")'};
+  const hero=shEl('header','sv-hero'),bg=shEl('div','sv-bg'),back=shEl('button','sv-back','← Voltar para a biblioteca'),hc=shEl('div','sv-hc'),pills=shEl('div','sv-pills');
+  bg.setAttribute('aria-hidden','true');if(pic)bgi(bg);else bg.append(shEl('span','sv-ini',String(row.title).trim().charAt(0).toUpperCase()||'?'));
+  back.type='button';back.onclick=shClose;
+  bs.info.slice(0,2).forEach(([k,x])=>{const p=shEl('span','sh-pill',String(x));p.title=k;pills.append(p)});
+  hc.append(shEl('h1','sv-t',row.title),shEl('p','sv-meta',(row.kind==='sistema'?'Sistema':'Personagem')+' · '+(SHN[row.campaign]||'?')+' · Versão '+row.version));
+  if(row.author_name)hc.append(shEl('p','sv-by','por '+row.author_name));
+  if(pills.children.length)hc.append(pills);
+  hero.append(bg,back,hc);
+  if(row.summary){const q=shEl('blockquote','sv-q');q.append(shEl('p',null,row.summary));hero.append(q)}
+  const wrap=shEl('div','sv-wrap'),main=shEl('div','sv-main'),side=shEl('aside','sv-side');
+  const sec=(t,el)=>{const s=shEl('section','sv-sec');s.append(shEl('h3','sh-h',t),el);return s};
+  if(bs.chips.length){const g=shEl('div','sh-chips');bs.chips.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});main.append(sec('Atributos',g))}
+  if(bs.info.length){const d=shEl('dl','sh-dl');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});main.append(sec('Detalhes',d))}
+  const dsc=shDescEl(row,v);if(dsc)main.append(dsc);
+  main.append(shEl('p','sh-small',row.kind==='sistema'?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
+  const card=shEl('div','sv-card');
+  if(pic){const im=shEl('div','sv-pic');im.setAttribute('aria-hidden','true');bgi(im);card.append(im)}
+  const st=shEl('div','sh-facts');[['Tipo',row.kind==='sistema'?'Sistema':'Personagem'],['Sistema',SHN[row.campaign]||'?'],['Versão',String(row.version)],['Cópias',String(row.copies||0)]].forEach(([k,x])=>{const t=shEl('span','sh-fact');t.append(shEl('small',null,k),shEl('b',null,x));st.append(t)});card.append(shEl('h3','sh-h','Resumo'),st);side.append(card);
+  shAuthor(row,side);
+  wrap.append(main,side);b.append(hero,wrap);
   const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
   const add=shBtn(have?'Atualizar na minha biblioteca':'Adicionar à minha biblioteca','pri',()=>shAdd(row,v));
   const full=shBtn('Ver tudo','',()=>shOpenFull(row,v));
@@ -2595,7 +2699,7 @@ async function shOpenView(code){
     if(!cloudUser){toast('Denunciar','Entre com sua conta Google para denunciar.');return}
     if(!rep.classList.contains('arm')){rep.classList.add('arm');rep.textContent='Toque de novo para denunciar';setTimeout(()=>{if(rep.isConnected){rep.classList.remove('arm');rep.textContent='Denunciar'}},4000);return}
     rep.disabled=true;Share.report(row.id).then(()=>{rep.textContent='Denúncia enviada'}).catch(e=>{rep.disabled=false;toast('Denunciar',cloudError(e))})});
-  a.textContent='';a.append(add,full,shBtn('Fechar','',shClose),rep)}
+  a.textContent='';a.append(add,full,rep,shBtn('Fechar','',shClose))}
 
 /* ---- ficha completa, somente leitura ---- */
 function shSec(body,title,node){if(!node)return;const s=shEl('section','vw-sec');s.append(shEl('h3',null,title),node);body.append(s)}
@@ -2686,7 +2790,10 @@ function shFltRender(){
   [['op','Ordem Paranormal'],['coc','Call of Cthulhu'],['nova','Sistema próprio']].forEach(([v,l])=>{const b=shEl('button','sh-chip dot',l);b.type='button';b.dataset.c=v;b.setAttribute('aria-pressed',String(shF.campaign===v));
     b.onclick=()=>{shF.campaign=shF.campaign===v?'':v;shFltRender();shCatRender(false)};cg.append(b)});
   f.append(seg,cg)}
-function shopOpen(){shFltRender();$('#shQ').value=shF.q;$('#shSort').value=shF.sort;shCatRender(false);shMineRender()}
+let shOpenKey='',shOpenAt=0,shMineAt=0;
+function shopOpen(){shFltRender();$('#shQ').value=shF.q;$('#shSort').value=shF.sort;
+  const k=JSON.stringify([shF.q,shF.kind,shF.campaign,shF.sort]);
+  if(!($('#shCatList').children.length&&!$('#shCatList .sh-sk')&&k===shOpenKey&&Date.now()-shOpenAt<9e4))shCatRender(false)}
 function shCoverEl(r){
   const c=shEl('span','sh-cv');c.setAttribute('aria-hidden','true');
   if(Share.thumbOk(r.thumb)){const i=shEl('img');i.alt='';i.src=r.thumb;i.loading='lazy';i.decoding='async';c.append(i)}
@@ -2704,7 +2811,7 @@ function shSkel(ul){for(let i=0;i<6;i++){const li=shEl('li','sh-card sh-sk'),b=s
   li.setAttribute('aria-hidden','true');a.style.width='72%';z.style.width='46%';t.append(a,z);b.append(shEl('span','sh-cv'),t);li.append(b);ul.append(li)}}
 async function shCatRender(more){
   const ul=$('#shCatList'),msg=$('#shCatMsg'),mb=$('#shMore'),cnt=$('#shCount'),tok=++shTok;
-  if(!more){shPage=0;ul.textContent='';shSkel(ul);msg.textContent='Carregando…';msg.classList.add('sr-only');cnt.textContent='';mb.hidden=true}
+  if(!more){shOpenKey=JSON.stringify([shF.q,shF.kind,shF.campaign,shF.sort]);shOpenAt=Date.now();shPage=0;ul.textContent='';shSkel(ul);msg.textContent='Carregando…';msg.classList.add('sr-only');cnt.textContent='';mb.hidden=true}
   let res;try{res=await Share.listPublic({q:shF.q,kind:shF.kind,campaign:shF.campaign,sort:shF.sort,page:shPage})}
   catch(e){if(tok===shTok){if(!more)ul.textContent='';msg.classList.remove('sr-only');msg.textContent='Não consegui carregar o marketplace. '+cloudError(e)}return}
   if(tok!==shTok)return;
@@ -2773,7 +2880,7 @@ const catalogsReady=loadGameCatalogs();buildBars();buildFilters();renderAll();in
   try{const u=(innerWidth>=900?`url(${ASSET_BASE}OPbackgroundwide.webp),`:'')+`url(${IMGS.op})`;$$('.hm-bg').forEach(e=>e.style.backgroundImage=u)}catch(e){}
   try{$$('[data-img]').forEach(e=>{const u=IMGS[e.dataset.img];if(u)e.style.backgroundImage=e.matches('.k-art,.k-side')?heroBg(e.dataset.img):`url(${u})`});
     $('#kPrev').onclick=()=>$('#kRow').scrollBy({left:-380,behavior:'smooth'});$('#kNext').onclick=()=>$('#kRow').scrollBy({left:380,behavior:'smooth'})}catch(e){}
-  $$('.hm-fx').forEach(f=>{let h='';for(let i=0;i<30;i++){const r=Math.random;h+=`<i style="--s:${(r()*2.8+1.2).toFixed(1)}px;left:${(r()*100).toFixed(1)}%;--d:${(r()*14+10).toFixed(1)}s;--dl:${(-r()*22).toFixed(1)}s;--x:${(r()*80-40).toFixed(0)}px"></i>`}f.innerHTML=h});
+  $$('.hm-fx').forEach(f=>{let h='';for(let i=0,n=document.documentElement.classList.contains('lite')?0:30;i<n;i++){const r=Math.random;h+=`<i style="--s:${(r()*2.8+1.2).toFixed(1)}px;left:${(r()*100).toFixed(1)}%;--d:${(r()*14+10).toFixed(1)}s;--dl:${(-r()*22).toFixed(1)}s;--x:${(r()*80-40).toFixed(0)}px"></i>`}f.innerHTML=h});
   const root=document.documentElement,watch=['#home','#mSl','#camp','#wiz'].map(q=>$(q)).filter(Boolean),mN=$('#mNew');
   $('#bNew').addEventListener('click',()=>{menuNew=false;fromMenu=false;menuSys=null});
   let was=false;
@@ -2849,7 +2956,7 @@ function kIn(el){el.classList.remove('in');void el.offsetWidth;if(!rm())el.class
 /* foto (ou inicial) da conta no fim da barra do menu */
 function paintRailAcct(){const pv=$('#cloudAvatarPreview');
   const name=(($('#cloudDisplayName')||{}).value||(cloudUser&&cloudUser.email)||'').trim(),photo=!!(cloudUser&&pv&&!pv.hidden&&pv.getAttribute('src'));
-  const letter=!!(cloudUser&&name&&!photo),t=cloudUser?'Conta: '+(name||'conectado'):'Entrar na conta';
+  const letter=!!(cloudUser&&name&&!photo),t=cloudUser?'Meu perfil: '+(name||'conectado'):'Entrar na conta';
   $$('.acct-b').forEach(b=>{const img=$('.acct-i',b),ltr=$('.acct-l',b),svg=b.querySelector('svg');
     if(photo){img.onerror=()=>{img.hidden=true;paintRailAcct()};if(img.getAttribute('src')!==pv.getAttribute('src'))img.src=pv.getAttribute('src');img.hidden=false}else{img.hidden=true;img.removeAttribute('src')}
     ltr.textContent=letter?name[0].toUpperCase():'';ltr.hidden=!letter;svg.style.display=(photo||letter)?'none':'';

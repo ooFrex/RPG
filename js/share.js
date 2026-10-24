@@ -63,17 +63,42 @@ window.Share = (function () {
       payload: a.payload
     };
     if (!row.title) throw new Error('Dê um nome ao item.');
-    const prev = a.key && linked(a.key);
+    const ok = a.key ? String(a.key).slice(0, 80) : null;
+    let prev = a.key && linked(a.key);
+    if (!prev && a.legacy) prev = a.legacy.map(linked).find(Boolean) || null;   // vínculo antigo (só neste aparelho)
+    if (!prev) prev = await byOrigin(c, ok);                                     // vínculo na conta: vale em qualquer aparelho
     if (prev) {
-      const r = await c.from('shared_items').update(row).eq('id', prev).select('id,version,visibility');
+      let r = await c.from('shared_items').update(Object.assign({ origin_key: ok }, row)).eq('id', prev).select('id,version,visibility');
+      if (r.error && /origin_key|duplicate|unique/i.test(r.error.message || '')) r = await c.from('shared_items').update(row).eq('id', prev).select('id,version,visibility');
       if (r.error) throw fail(r.error);
-      if (r.data && r.data.length) return { code: prev, version: r.data[0].version, visibility: r.data[0].visibility, updated: true };
+      if (r.data && r.data.length) { if (a.key) setLinked(a.key, prev); return { code: prev, version: r.data[0].version, visibility: r.data[0].visibility, updated: true }; }
       setLinked(a.key, null); // foi despublicado em outro lugar: publica de novo
     }
-    const r = await c.from('shared_items').insert(Object.assign({ kind: a.kind, campaign: a.campaign }, row)).select('id,version,visibility').single();
+    const base = Object.assign({ kind: a.kind, campaign: a.campaign }, row);
+    let r = await c.from('shared_items').insert(Object.assign({ origin_key: ok }, base)).select('id,version,visibility').single();
+    if (r.error && /origin_key/i.test(r.error.message || '')) r = await c.from('shared_items').insert(base).select('id,version,visibility').single();
     if (r.error) throw fail(r.error);
     if (a.key) setLinked(a.key, r.data.id);
     return { code: r.data.id, version: r.data.version, visibility: r.data.visibility, updated: false };
+  }
+
+  /* procura, na minha conta, o item já publicado a partir desta mesma ficha */
+  async function byOrigin(c, key) {
+    if (!key) return null;
+    try {
+      const u = await c.auth.getSession(), id = u.data && u.data.session && u.data.session.user.id; if (!id) return null;
+      const r = await c.from('shared_items').select('id').eq('owner_id', id).eq('origin_key', key).maybeSingle();
+      return r.error || !r.data ? null : r.data.id;
+    } catch (e) { return null; }
+  }
+  /* perfil do autor (só vem preenchido se ele ligou "perfil público") e outros itens dele; null = SQL ainda não rodou */
+  async function author(code) {
+    if (!CODE.test(code || '')) return null;
+    try { const r = await need().rpc('get_author', { p_id: code }); return r.error || !r.data || !r.data[0] ? null : r.data[0]; } catch (e) { return null; }
+  }
+  async function authorItems(code) {
+    if (!CODE.test(code || '')) return null;
+    try { const r = await need().rpc('author_items', { p_id: code }); return r.error ? null : (r.data || []); } catch (e) { return null; }
   }
 
   async function get(code) {
@@ -125,5 +150,5 @@ window.Share = (function () {
   async function registerCopy(code) { try { await need().rpc('register_copy', { p_id: code }); } catch (e) { /* contagem é cosmética */ } }
   async function report(code, reason) { const r = await need().rpc('report_shared', { p_id: code, p_reason: reason || null }); if (r.error) throw fail(r.error); }
 
-  return { link, parse, takeFromUrl, linked, thumbOk, publish, get, listPublic, listMine, mine, setVisibility, remove, registerCopy, report, MAX_BYTES, PAGE };
+  return { link, parse, takeFromUrl, linked, thumbOk, publish, author, authorItems, get, listPublic, listMine, mine, setVisibility, remove, registerCopy, report, MAX_BYTES, PAGE };
 })();
