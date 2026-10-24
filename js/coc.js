@@ -822,17 +822,11 @@ async function setCocAvatar(blob){
   D.who.av=await blobToDataUrl(blob);paintAvatar();save();
 }
 $('#avatar').onclick=()=>$('#avFile').click();
-$('#avFile').onchange=e=>{
+$('#avFile').onchange=async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
-  const img=new Image(),url=URL.createObjectURL(f);
-  img.onload=()=>{
-    const W=240,H=300,c=document.createElement('canvas');c.width=W;c.height=H;
-    const x=c.getContext('2d'),sc=Math.max(W/img.width,H/img.height),w=img.width*sc,h=img.height*sc;
-    x.drawImage(img,(W-w)/2,(H-h)/2,w,h);URL.revokeObjectURL(url);
-    c.toBlob(b=>{if(!b){toast('Imagem inválida','Não consegui processar essa imagem.');return}setCocAvatar(b).catch(()=>toast('Retrato não atualizado','Tente de novo.'))},'image/jpeg',.82);
-  };
-  img.onerror=()=>{URL.revokeObjectURL(url);toast('Imagem inválida','Escolha um arquivo JPG, PNG ou WebP.')};
-  img.src=url;
+  try{const cvs=await ImgCrop.pick(f,{w:240,h:300,title:'Enquadrar retrato'});if(!cvs)return;
+    const b=await ImgCrop.toBlob(cvs,'image/jpeg',.82);await setCocAvatar(b)}
+  catch(err){toast('Retrato não atualizado',(err&&err.message)||'Tente de novo.')}
 };
 
 /* =====================================================================
@@ -1300,8 +1294,10 @@ async function saveCocCloudProfile(){
 async function saveCocCloudAvatar(file){
   if(!cloudUser||!file)return;if(!/^image\/(jpeg|png|webp)$/.test(file.type)){ $('#cloudProfileMsg').textContent='Escolha uma imagem JPG, PNG ou WebP.';return }
   if(file.size>8*1024*1024){$('#cloudProfileMsg').textContent='A imagem deve ter menos de 8 MB.';return}
-  const button=$('#cloudAvatarPick');button.disabled=true;$('#cloudProfileMsg').textContent='Enviando foto…';
-  try{const blob=await imageFileToSquareJpeg(file,512,.82),path=cloudUser.id+'/profile/avatar.jpg';const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});if(error)throw error;
+  const button=$('#cloudAvatarPick');
+  try{const cvs=await ImgCrop.pick(file,{w:512,h:512,round:true,title:'Enquadrar foto do perfil'});if(!cvs)return;
+    button.disabled=true;$('#cloudProfileMsg').textContent='Enviando foto…';
+    const blob=await ImgCrop.toBlob(cvs,'image/jpeg',.82),path=cloudUser.id+'/profile/avatar.jpg';const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});if(error)throw error;
     accountAvatarPath=path;const {data:signed,error:signedError}=await cloudClient.storage.from('account-avatars').createSignedUrl(path,3600);if(signedError)throw signedError;$('#cloudAvatarPreview').src=signed.signedUrl;$('#cloudAvatarPreview').hidden=false;$('#cloudAvatarFallback').hidden=true;await saveCocCloudProfile();
   }catch(error){$('#cloudProfileMsg').textContent='Não foi possível enviar a foto: '+cloudError(error)}finally{button.disabled=false}
 }

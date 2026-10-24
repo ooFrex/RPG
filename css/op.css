@@ -1637,3 +1637,17 @@ html.lite :is(.sh-cb,.sh-cv img){transition:none}
   .mbox.pb #shAct .btn{flex:1}
 }
 @media(prefers-reduced-motion:reduce){.pb-bigic.ok{animation:none}.pb-v,.pb-m{transition:none}}
+
+/* ===== imagens do sistema: foto, banner e logo ===== */
+.im-g{display:grid;gap:10px}
+.im-s{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px;border:1px solid var(--ln);border-radius:12px;background:rgba(0,0,0,.2)}
+.im-pv{flex:none;width:84px;height:84px;border-radius:12px;border:1px solid var(--ln2);background:#0b0912 center/cover no-repeat}
+.im-img .im-pv{width:132px;height:74px}
+.im-logo .im-pv{width:132px;height:54px;background-size:contain;background-origin:content-box;padding:6px;background-color:#16121f}
+.im-pic .im-pv{border-radius:50%}
+.im-t{display:grid;gap:2px;min-width:0}.im-t b{font-size:1rem}.im-t small{color:var(--mu);font-size:.8rem}
+@media(max-width:520px){.im-s{grid-template-columns:auto 1fr}.im-s .btn{grid-column:1/-1}}
+/* card do sistema próprio: foto no canto + logo e nome */
+.sy-pic{position:absolute;top:10px;left:10px;z-index:2;width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.85);background:#0b0912 center/cover no-repeat;box-shadow:0 4px 14px rgba(0,0,0,.55)}
+.sy-logo.sy-own{display:block;max-width:150px}.sy-logo.sy-own img{display:block;max-height:38px;width:auto;max-width:100%;object-fit:contain}
+.sy-in .sy-name{display:block;margin-top:4px}

@@ -299,10 +299,10 @@ window.Cloud = (function () {
      Mudou só aqui -> envia · mudou só lá -> baixa · mudou nos dois -> guarda as duas versões · sumiu da conta sem mudar aqui -> remove.
      ===================================================================== */
   const SYSQ = 'rpg-cloud-del-sys-v1', STBL = 'user_systems';
-  function sysHash(en) { return hashOf({ nome: en.nome, v: en.v, mold: en.mold, img: en.img || null, src: en.src || null, sver: en.sver == null ? null : en.sver }); }
+  function sysHash(en) { return hashOf({ nome: en.nome, v: en.v, mold: en.mold, img: en.img || null, pic: en.pic || null, logo: en.logo || null, src: en.src || null, sver: en.sver == null ? null : en.sver }); }
   function sysPack(en) {
     const entry = { nome: en.nome, v: en.v, t: en.t, mold: en.mold };
-    if (en.img) entry.img = en.img; if (en.src) entry.src = en.src; if (en.sver != null) entry.sver = en.sver;
+    if (en.img) entry.img = en.img; if (en.pic) entry.pic = en.pic; if (en.logo) entry.logo = en.logo; if (en.src) entry.src = en.src; if (en.sver != null) entry.sver = en.sver;
     return { name: String(en.nome || 'Sistema').slice(0, 80) || 'Sistema', entry };
   }
   function readSysQ() { try { const q = JSON.parse(localStorage.getItem(SYSQ)); return Array.isArray(q) ? q : []; } catch (e) { return []; } }

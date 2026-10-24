@@ -511,9 +511,10 @@ function syList(){const l=libRead();return[{id:'op',n:'Ordem Paranormal',tag:'Si
 const syHue=id=>[...id].reduce((a,c)=>a+c.charCodeAt(0)*7,0)%360;
 function syResumo(m){if(!m)return'Não foi possível ler';const t=m.teste||{};return(t.tipo==='d100'?'d100':t.tipo==='soma'?(t.dados||'soma'):'d'+(t.faces||20))+' · '+(m.atributos||[]).length+' atributos · '+(m.pericias||[]).length+' perícias'}
 function syGrid(){const L=syList();
-  $('#syGrid').innerHTML=L.map(x=>{const logo=x.id==='op'?`<span class="sy-logo"><img src="${GH}Logoordemparanormal_HIGH.webp" alt="${esc(x.n)}"></span>`:x.id==='coc'?`<span class="sy-logo"><img src="${COCLOGO}" alt="${esc(x.n)}"></span>`:`<b class="sy-name">${esc(x.n)}</b>`;
-    const bg=x.cover?`url(${x.cover})`:x.img==='op'?heroBg('op'):`url(${IMGS[x.img]})`;
-    return`<li><button class="sy-c" type="button" data-sy="${esc(x.id)}" aria-pressed="${syOpen===x.id}" aria-controls="syDet"><span class="sy-art" style="background-image:${bg};--hue:${x.en&&!x.cover?syHue(x.id):0}deg"></span><span class="sy-in">${logo}<small>${esc(x.tag)} · ${esc(x.res||syResumo(x.m))}</small></span></button></li>`}).join('')
+  $('#syGrid').innerHTML=L.map(x=>{const logo=x.id==='op'?`<span class="sy-logo"><img src="${GH}Logoordemparanormal_HIGH.webp" alt="${esc(x.n)}"></span>`:x.id==='coc'?`<span class="sy-logo"><img src="${COCLOGO}" alt="${esc(x.n)}"></span>`:`<span class="sy-logo sy-own"><img src="${esc(imSrc('logo',x.en&&x.en.logo))}" alt=""></span><b class="sy-name">${esc(x.n)}</b>`;
+    const pic=x.en?`<span class="sy-pic" style="background-image:url(${esc(imSrc('pic',x.en.pic))})" aria-hidden="true"></span>`:'';
+    const bg=x.en?`url(${esc(imSrc('img',x.en.img))})`:x.img==='op'?heroBg('op'):`url(${IMGS[x.img]})`;
+    return`<li><button class="sy-c" type="button" data-sy="${esc(x.id)}" aria-pressed="${syOpen===x.id}" aria-controls="syDet">${pic}<span class="sy-art" style="background-image:${bg};--hue:${x.en&&!(x.en.img&&coverOk(x.en.img))?syHue(x.id):0}deg"></span><span class="sy-in">${logo}<small>${esc(x.tag)} · ${esc(x.res||syResumo(x.m))}</small></span></button></li>`}).join('')
   +`<li><button class="sy-c" type="button" data-sy="__new" aria-pressed="${syOpen==='__new'}" aria-controls="syDet"><span class="sy-art" style="background-image:url(${IMGS.for});--hue:200deg"></span><span class="sy-in"><b class="sy-name">+ Novo sistema</b><small>Parta do OP, do CoC ou do zero</small></span></button></li>`}
 function syCount(id){let n=0;const hit=j=>{if(!j)return;if(id==='op')n+=j.sys==='op'?1:0;else n+=j.sid===id?1:0};
   if(D.created)hit(D);slIdx().list.forEach(x=>{try{hit(JSON.parse(localStorage.getItem(SLK+x.id)))}catch(e){}});return n}
@@ -535,7 +536,7 @@ function syDet(anim){const el=$('#syDet'),hint=$('#syHint'),x=syOpen&&syList().f
   const act=own?(syDel===x.id?`<p class="smu">Excluir da biblioteca? As fichas já criadas continuam com a cópia delas.</p><button class="btn dng" type="button" data-sya="delok" data-id="${id}">Confirmar exclusão</button><button class="btn" type="button" data-sya="delno">Cancelar</button>`
       :`<button class="btn pri" type="button" data-sya="new" data-id="${id}">Criar ficha</button><button class="btn" type="button" data-sya="edit" data-id="${id}">Editar</button><button class="btn" type="button" data-sya="exp" data-id="${id}">Exportar</button><button class="btn" type="button" data-sya="share" data-id="${id}">Compartilhar</button><button class="btn" type="button" data-sya="del" data-id="${id}">Excluir</button>`)
     :`<button class="btn pri" type="button" data-sc="new" data-sys="${id}">Criar ficha</button><button class="btn" type="button" data-sya="base" data-id="${id}">${x.id==='coc'?'Criar sistema próprio (parte de uma versão simplificada)':'Criar sistema próprio a partir deste'}</button>`;
-  const cv=own?`<div class="sy-cov${x.cover?'':' empty'}"${x.cover?` style="background-image:url(${x.cover})" role="img" aria-label="Capa do sistema"`:''}>${x.cover?'':'<span>Sem capa</span>'}<div class="sy-cova"><button class="btn sm${x.cover?'':' pri'}" type="button" data-sya="cover" data-id="${id}">${x.cover?'Trocar imagem':'Colocar imagem'}</button>${x.cover?`<button class="btn sm" type="button" data-sya="coverdel" data-id="${id}">Remover</button>`:''}</div></div>${syCoverMsg?`<p class="sed-warn" role="alert">${esc(syCoverMsg)}</p>`:''}<input type="file" id="syCoverFile" accept="image/jpeg,image/png,image/webp" hidden data-id="${id}">`:'';
+  const cv=own?imSlots(x.en,syCoverMsg,`data-sya="impick" data-id="${id}"`):'';
   el.innerHTML=`${cv}<small class="sc-lb">${esc(x.tag.toUpperCase())}</small><h3 id="syDT">${esc(x.n)}</h3><p class="hm-note">${esc(x.d)}</p><dl class="sy-dl">${syFacts(x).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl><div class="rowb">${act}</div>`;
   const was=el.hidden;el.hidden=false;if(anim)try{el.scrollIntoView({behavior:rm()?'auto':'smooth',block:'nearest'})}catch(e){}if(anim&&was&&!rm())el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'})}
 $('#sc-sys').addEventListener('click',e=>{
@@ -544,17 +545,17 @@ $('#sc-sys').addEventListener('click',e=>{
   if(a==='new'){if(en){closeM('mSl');startFromLib(en)}}
   else if(a==='base')sysOpenLib(null,id);else if(a==='edit')sysOpenLib(id);
   else if(a==='share'){if(en)shOpenPublish(shSrcSys(en))}
-  else if(a==='exp'){if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold,img:coverOk(en.img)?en.img:undefined}));toast('Sistema exportado',en.nome)}}
-  else if(a==='cover'){const f=$('#syCoverFile');if(f)f.click()}
-  else if(a==='coverdel'){const l=libRead(),i=l.findIndex(x=>x.id===id);if(i>=0){delete l[i].img;l[i].t=Date.now();libWrite(l);syCoverMsg='';syGrid();syDet(false)}}
+  else if(a==='exp'){if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold,...imPack(en)}));toast('Sistema exportado',en.nome)}}
+  else if(a==='impick')syImPick(id,b.dataset.imk);
   else if(a==='del'){syDel=id;syDet(false)}else if(a==='delno'){syDel=null;syDet(false)}
   else if(a==='delok'){if(en&&en.cloud)Cloud.forgetSystem(en.cloud);libWrite(libRead().filter(x=>x.id!==id));syOpen=null;syDel=null;syGrid();syDet(false);toast('Sistema excluído','Saiu da biblioteca deste aparelho.')}});
-$('#sc-sys').addEventListener('change',async e=>{const t=e.target;if(t.id!=='syCoverFile')return;
-  const f=t.files&&t.files[0],id=t.dataset.id;t.value='';if(!f)return;
-  try{const u=await coverFromFile(f),l=libRead(),i=l.findIndex(x=>x.id===id);if(i<0)return;l[i].img=u;l[i].t=Date.now();
-    if(!libWrite(l))throw new Error('Não consegui salvar: o navegador não deixou usar o armazenamento.');syCoverMsg=''}
+async function syImPick(id,k){
+  if(!IMD[k])return;const l=libRead(),i=l.findIndex(x=>x.id===id);if(i<0)return;
+  try{const v=await imPick(k,l[i][k]);if(v===null)return;const l2=libRead(),j=l2.findIndex(x=>x.id===id);if(j<0)return;
+    if(v)l2[j][k]=v;else delete l2[j][k];l2[j].t=Date.now();
+    if(!libWrite(l2))throw new Error('Não consegui salvar: o navegador não deixou usar o armazenamento.');syCoverMsg=''}
   catch(err){syCoverMsg=(err&&err.message)||'Não consegui usar essa imagem.'}
-  syGrid();syDet(false)});
+  syGrid();syDet(false)}
 /* ===== ficha de Call of Cthulhu, dentro deste arquivo (tela cheia isolada) ===== */
 function cocSync(){const f=$('#cocFrame'),d=f.contentDocument&&f.contentDocument.documentElement;if(!d)return;const t=document.documentElement.dataset.theme;if(t)d.dataset.theme=t;else delete d.dataset.theme;
   const u=uiLoad();[['--teal',u.acc],['--brass',u.gold]].forEach(([v,c])=>{if(/^#[0-9a-f]{6}$/i.test(c))d.style.setProperty(v,c);else d.style.removeProperty(v)})}
@@ -1373,13 +1374,40 @@ const opItems=()=>ILIB.map(i=>({n:i.n,g:i.g,esp:i.esp||0,d:(i.t==='arma'?'Cat. '
 /* ---------- biblioteca de sistemas: guardar, exportar, importar e compartilhar ---------- */
 const LIBK='rpg-sistemas-v1';
 /* capa do sistema: JPEG pequeno em data URL (mesmo formato da miniatura do marketplace, só que mais largo) */
-const coverOk=t=>typeof t==='string'&&t.length<=60000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(t);
+const IMK=['pic','img','logo'];
+const SITEIDS={img:['for','op','opw','bg','coc'],pic:['for','op','opw','bg','coc'],logo:['op','coc']};
+const SITEN={for:'Padrão',op:'Ordem Paranormal',opw:'Ordem (claro)',bg:'Fundo',coc:'Call of Cthulhu'};
+const siteTok=(k,t)=>typeof t==='string'&&/^site:[a-z]+$/.test(t)&&SITEIDS[k].includes(t.slice(5));
+const coverOk=t=>siteTok('img',t)||(typeof t==='string'&&t.length<=60000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(t));
+const picOk=t=>siteTok('pic',t)||(typeof t==='string'&&t.length<=40000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(t));
+const logoOk=t=>siteTok('logo',t)||(typeof t==='string'&&t.length<=60000&&/^data:image\/(png|webp);base64,[A-Za-z0-9+/=]+$/.test(t));
+const IMOK={img:coverOk,pic:picOk,logo:logoOk};
+const imPack=o=>{const r={};IMK.forEach(k=>{if(o&&IMOK[k](o[k]))r[k]=o[k]});return r};
+/* padrões do site: banners/fotos vêm das imagens do site; logos, dos logos do site */
+const siteUrl=(k,id)=>k==='logo'?(id==='coc'?COCLOGO:GH+'Logoordemparanormal_HIGH.webp'):(IMGS[id]||IMGS.for);
+const imSrc=(k,v)=>IMOK[k](v)?(v.indexOf('site:')===0?siteUrl(k,v.slice(5)):v):siteUrl(k,k==='logo'?'op':'for');
+const IMD={pic:{n:'Foto',d:'Quadrada. Aparece no card e vira a foto do sistema no marketplace.',w:256,h:256,round:true},
+  img:{n:'Banner',d:'Fundo largo do card do sistema.',w:480,h:270},
+  logo:{n:'Logo',d:'Aparece sobre o banner, no card do sistema.',w:360,h:120,contain:true}};
 const blobToUrl=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b)});
-async function coverFromFile(file){
-  if(!/^image\/(jpeg|png|webp)$/.test(file.type))throw new Error('Escolha uma imagem JPG, PNG ou WebP.');
-  if(file.size>8*1024*1024)throw new Error('A imagem deve ter menos de 8 MB.');
-  for(const q of [.8,.65,.5,.38,.28]){const u=await blobToUrl(await imageFileToBannerJpeg(file,480,270,q));if(coverOk(u))return u}
+/* escolhe (envio ou padrão do site), enquadra e devolve o valor a guardar: 'site:id', data URL, '' (voltar ao padrão) ou null (cancelou) */
+async function imPick(k,cur){
+  const d=IMD[k],ch=await ImgCrop.chooser({title:d.n+' do sistema',logo:k==='logo',canReset:IMOK[k](cur),resetLabel:'Voltar ao padrão do site',
+    presets:SITEIDS[k].map(id=>({id,url:siteUrl(k,id),label:SITEN[id]}))});
+  if(!ch)return null;if(ch.reset)return'';if(ch.preset)return'site:'+ch.preset;
+  const cv=await ImgCrop.pick(ch.file,{w:d.w,h:d.h,round:d.round,contain:d.contain,title:'Enquadrar '+d.n.toLowerCase()});
+  if(!cv)return null;
+  let c=cv;
+  for(let tries=0;tries<4;tries++){
+    if(k==='logo'){for(const[t,q]of[['image/png'],['image/webp',.9],['image/webp',.75]]){const u=c.toDataURL(t,q);if(logoOk(u))return u}}
+    else for(const q of[.8,.65,.5,.38,.28]){const u=c.toDataURL('image/jpeg',q);if(IMOK[k](u))return u}
+    const n=document.createElement('canvas');n.width=Math.round(c.width*.75);n.height=Math.round(c.height*.75);n.getContext('2d').drawImage(c,0,0,n.width,n.height);c=n}
   throw new Error('Não consegui deixar a imagem pequena o bastante. Tente outra.')}
+/* três imagens do sistema: foto, banner e logo (mesmo bloco no detalhe e no editor) */
+function imSlots(vals,msg,att){
+  return(msg?`<p class="sed-warn" role="alert">${esc(msg)}</p>`:'')+`<div class="im-g">${IMK.map(k=>{const v=vals&&vals[k],c=IMOK[k](v),d=IMD[k];
+    const st=c?(String(v).indexOf('site:')===0?'Padrão do site · '+SITEN[v.slice(5)]:'Personalizada'):'Padrão do site';
+    return`<div class="im-s im-${k}"><div class="im-pv" style="background-image:url(${esc(imSrc(k,v))})" role="img" aria-label="${d.n}: ${st}"></div><div class="im-t"><b>${d.n}</b><small>${st}</small></div><button class="btn sm${c?'':' pri'}" type="button" ${att} data-imk="${k}">${c?'Trocar':'Escolher'}</button></div>`}).join('')}</div>`}
 function libRead(){try{const j=JSON.parse(localStorage.getItem(LIBK)||'{}');return(Array.isArray(j.l)?j.l:[]).filter(x=>x&&typeof x.id==='string'&&x.mold&&typeof x.nome==='string'&&Number.isFinite(+x.v))}catch(e){return[]}}
 function libWriteRaw(l){try{localStorage.setItem(LIBK,JSON.stringify({v:1,l}));return true}catch(e){return false}}
 /* gravar na biblioteca também agenda o envio para a conta (a sincronização em si grava com libWriteRaw, para não se chamar de novo) */
@@ -1388,7 +1416,7 @@ function libWrite(l){const ok=libWriteRaw(l);if(ok)sysSyncSoon();return ok}
 function sysSyncSoon(){clearTimeout(sysSyncT);if(cloudClient&&cloudUser&&!sysOff)sysSyncT=setTimeout(()=>void sysSync(),2500)}
 const sysAd=()=>({userId:cloudUser.id,read:libRead,write:libWriteRaw,newId:libId,
   clean:r=>{if(!r||typeof r!=='object'||!Number.isFinite(+r.v))return null;const m=cleanMold(r.mold);if(!m)return null;
-    return{nome:m.nome,v:Math.max(1,Math.round(+r.v)),t:Number.isFinite(+r.t)?+r.t:Date.now(),mold:moldObj(m),img:coverOk(r.img)?r.img:undefined,src:typeof r.src==='string'&&/^[a-z0-9]{10}$/.test(r.src)?r.src:undefined,sver:Number.isFinite(+r.sver)?+r.sver:undefined}}});
+    return{nome:m.nome,v:Math.max(1,Math.round(+r.v)),t:Number.isFinite(+r.t)?+r.t:Date.now(),mold:moldObj(m),...imPack(r),src:typeof r.src==='string'&&/^[a-z0-9]{10}$/.test(r.src)?r.src:undefined,sver:Number.isFinite(+r.sver)?+r.sver:undefined}}});
 async function sysSync(){
   if(!cloudClient||!cloudUser||sysRun||sysOff)return null;
   sysRun=true;
@@ -1413,7 +1441,7 @@ function libImportText(t){
   let obj;try{if(t.startsWith('RPG1:'))t=b64d(t.slice(5).replace(/\s/g,''));obj=JSON.parse(t)}catch(e){return'Não consegui ler isso. Confira se copiou o código inteiro.'}
   if(!obj||obj.rpgSistema!==1||!obj.mold)return'Isso não parece um sistema desta ficha.';
   const m=cleanMold(obj.mold);if(!m)return'O sistema tem dados que não consegui aproveitar.';
-  const l=libRead();l.push({id:libId(),nome:m.nome,v:1,t:Date.now(),mold:moldObj(m),img:coverOk(obj.img)?obj.img:undefined});
+  const l=libRead();l.push(Object.assign({id:libId(),nome:m.nome,v:1,t:Date.now(),mold:moldObj(m)},imPack(obj)));
   if(!libWrite(l))return'Não consegui salvar: o navegador não deixou usar o armazenamento.';
   if(E)E.imp=false;return'Importado: '+m.nome+' ('+m.atributos.length+' atributos, '+m.pericias.length+' perícias). Ele está na lista abaixo.'}
 function startFromLib(en){
@@ -1437,13 +1465,13 @@ const LIBA=new Set(['libSave','libExport','libCode','libImpToggle','libImpNo','l
 function libAct(a,b){
   const id=b.dataset.id,l=libRead();E.msg2='';
   if(a==='libSave'){const m=libMold();if(!m)return sedRender(true);const obj=moldObj(m),i=E.sid?l.findIndex(x=>x.id===E.sid):-1;let v=1;
-    const img=E.lib?(coverOk(E.img)?E.img:undefined):(i>=0&&coverOk(l[i].img)?l[i].img:undefined);
-    if(i>=0){v=l[i].v+1;l[i]={id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj,img,cloud:l[i].cloud}}else{E.sid=libId();l.push({id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj,img})}
+    const ims=imPack(E.ims);
+    if(i>=0){v=l[i].v+1;l[i]=Object.assign({id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj},ims,{cloud:l[i].cloud})}else{E.sid=libId();l.push(Object.assign({id:E.sid,nome:m.nome,v,t:Date.now(),mold:obj},ims))}
     E.msg2=libWrite(l)?'Salvo na biblioteca (versão '+v+').':'Não consegui salvar: o navegador não deixou usar o armazenamento.';if(E.lib&&/^Salvo/.test(E.msg2))E.base=snap()}
-  else if(a==='libExport'||a==='libCode'){const m=libMold();if(!m)return sedRender(true);const pack=JSON.stringify({rpgSistema:1,nome:m.nome,mold:moldObj(m),img:coverOk(E.img)?E.img:undefined});
+  else if(a==='libExport'||a==='libCode'){const m=libMold();if(!m)return sedRender(true);const pack=JSON.stringify({rpgSistema:1,nome:m.nome,mold:moldObj(m),...imPack(E.ims)});
     if(a==='libExport'){libDownload(m.nome,pack);E.msg2='Arquivo gerado.'}
     else{E.code='RPG1:'+b64e(pack);E.codeOk=false;try{navigator.clipboard.writeText(E.code).then(()=>{if(E){E.codeOk=true;sedRender(true)}}).catch(()=>{})}catch(x){}}}
-  else if(a==='libExp'){const en=l.find(x=>x.id===id);if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold,img:coverOk(en.img)?en.img:undefined}));E.msg2='Arquivo gerado: '+en.nome}}
+  else if(a==='libExp'){const en=l.find(x=>x.id===id);if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold,...imPack(en)}));E.msg2='Arquivo gerado: '+en.nome}}
   else if(a==='libImpToggle'){E.imp=!E.imp}
   else if(a==='libImpNo'){E.imp=false}
   else if(a==='libFileBtn'){const f=$('#libFile');if(f)f.click();return}
@@ -1464,10 +1492,10 @@ function mkDraft(m,fromSheet){
   const at=wheelOrder(m).map(k=>m.atributos.find(a=>a.k===k)).map(a=>({id:eid++,k:a.k,n:a.n,old:hasA(a.k)?a.k:null,shown:a.k}));
   const pe=m.pericias.map(p=>{const c=curS(p.n),ak=c&&c.a?c.a:p.a;return{n:p.n,aid:(at.find(x=>x.k===ak)||at[0]).id,t:c?(c.t?1:0):(p.t?1:0),b:p.b||'0',s:p.s?1:0,old:c?p.n:null}});
   return{nome:m.nome,rc:(m.recursos||[]).map(x=>({id:eid++,k:x.k,old:x.k,n:x.n,tipo:x.tipo,ini:x.ini,max:x.max})),tipo:m.teste.tipo,dados:m.teste.dados||'1d20',regra:m.teste.regra||'mod',modF:m.teste.modF||'V',faixas:(m.teste.faixas||[]).map(x=>({min:x.min,t:x.t})),ini:m.atributo.inicial,max:m.atributo.maxFicha,at,pe,
-    it:(m.itens&&m.itens.length?m.itens:(m.id==='op'?opItems():[])).map(mkItem),qi:'',gi:'',undoI:null,fl:(m.criacao||[]).map(flWithIds),fh:[],fr:[],sid:null,img:'',imp:false,msg2:'',code:'',codeOk:false,fsel:null,fpre:'',noclick:0,
+    it:(m.itens&&m.itens.length?m.itens:(m.id==='op'?opItems():[])).map(mkItem),qi:'',gi:'',undoI:null,fl:(m.criacao||[]).map(flWithIds),fh:[],fr:[],sid:null,img:'',imp:false,msg2:'',code:'',codeOk:false,fsel:null,fpre:'',noclick:0,ims:{},
     bars:m.barras.map(b=>({n:b.n,maxF:b.maxF,iniF:b.iniF||''})),cl:(m.classes||[]).join(', '),vd:(m.derivados||[]).map(x=>({id:eid++,k:x.k,n:x.n,f:x.f})),f:{dt:m.formulas.dt,carga:m.formulas.carga},rot:Object.assign({},m.rotulos),usa:{rit:!!m.usa.rit},
     sec:'geral',q:'',ask:null,undo:null,leave:false,focus:'sedDt',iss:[],base:'',tipo0:SYS.teste.tipo}}
-const snap=()=>JSON.stringify([E.nome,E.rc.map(x=>[x.n,x.tipo,x.ini,x.max]),E.tipo,E.dados,E.regra,E.modF,E.faixas,E.ini,E.max,E.at.map(a=>[a.k,a.n]),E.pe.map(p=>[p.n,E.at.findIndex(a=>a.id===p.aid),p.t,p.b,p.s]),E.it.map(x=>[x.n,x.g,x.esp,x.d,x.arma,x.dano,x.crit,x.al,x.sk]),E.fl.map(s=>[s.t,s.b.map(flStrip)]),E.bars,E.f,E.vd.map(x=>[x.k,x.n,x.f]),E.cl,E.rot,E.usa,E.img||'']);
+const snap=()=>JSON.stringify([E.nome,E.rc.map(x=>[x.n,x.tipo,x.ini,x.max]),E.tipo,E.dados,E.regra,E.modF,E.faixas,E.ini,E.max,E.at.map(a=>[a.k,a.n]),E.pe.map(p=>[p.n,E.at.findIndex(a=>a.id===p.aid),p.t,p.b,p.s]),E.it.map(x=>[x.n,x.g,x.esp,x.d,x.arma,x.dano,x.crit,x.al,x.sk]),E.fl.map(s=>[s.t,s.b.map(flStrip)]),E.bars,E.f,E.vd.map(x=>[x.k,x.n,x.f]),E.cl,E.rot,E.usa,E.ims||{}]);
 const sedDirty=()=>!!E&&snap()!==E.base;
 const kOf=id=>(E.at.find(a=>a.id===id)||E.at[0]).k.trim().toUpperCase();
 const draftMold=()=>({nome:E.nome,teste:E.tipo==='soma'?{tipo:'soma',dados:E.dados,regra:E.regra,modF:E.modF,faixas:E.faixas}:{tipo:E.tipo},atributo:{inicial:E.ini,maxFicha:E.max},atributos:E.at.map(a=>({k:a.k,n:a.n})),
@@ -1553,7 +1581,7 @@ function secGeral(){
     ['bars','Barras','Vida, sanidade, energia… (opcional).',null],
     ['fluxo','Criação','O passo a passo da criação de ficha (opcional).',E.fl.length>0?true:null]];
   const guide=E.lib?`<section class="sed-card sed-guide"><h3>Passo a passo para criar seu sistema</h3><ol class="sg-l">${gd.map(([sec,t,d,ok])=>`<li class="${ok?'ok':''}"><span class="sg-m" aria-hidden="true">${ok?'✓':ok===null?'○':'•'}</span><span><button type="button" class="sed-link" data-act="goto" data-v="${sec}">${t}</button> <small>${d}</small></span><em>${ok?'feito':ok===null?'opcional':'a fazer'}</em></li>`).join('')}</ol><p class="smu">Quando terminar, toque em <b>Salvar sistema</b> (canto superior). Dá pra voltar e editar quando quiser.</p></section>`:'';
-  const cover=(E.lib||E.sid)?`<section class="sed-card"><h3>Capa do sistema</h3><p class="smu">Aparece no card do sistema e, ao compartilhar, vira a foto dele no marketplace. JPG, PNG ou WebP.</p>${E.coverMsg?`<p class="sed-msg" role="status">${esc(E.coverMsg)}</p>`:''}${coverOk(E.img)?`<div class="sed-cover" style="height:120px;border-radius:10px;background:center/cover url(${E.img});border:1px solid var(--ln2);margin-bottom:10px" role="img" aria-label="Capa atual"></div>`:''}<div class="rowb"><button class="btn sm pri" type="button" data-act="coverPick">${coverOk(E.img)?'Trocar imagem':'Escolher imagem'}</button>${coverOk(E.img)?'<button class="btn sm" type="button" data-act="coverDel">Remover</button>':''}</div><input type="file" id="sedCoverFile" accept="image/jpeg,image/png,image/webp" hidden></section>`:'';
+  const cover=(E.lib||E.sid)?`<section class="sed-card"><h3>Imagens do sistema</h3><p class="smu">Foto, banner e logo aparecem no card do sistema. Se você não escolher, vale o padrão do site. Ao compartilhar, a foto vira a imagem dele no marketplace.</p>${imSlots(E.ims,E.coverMsg,'data-act="imPick"')}</section>`:'';
   return head('Visão geral','Dê um nome ao sistema, escolha como os testes funcionam e, se quiser, comece de um modelo pronto.')+
   `${guide}<section class="sed-card"><h3>Nome do sistema</h3>${inp('nome',E.nome,'maxlength="40" aria-label="Nome do sistema"')}</section>${cover}
   <section class="sed-card"><h3>Como o teste funciona</h3><div class="opt2">${tp('pool','Vários d20','Rola um d20 por ponto do atributo e fica com o maior. Perícias somam bônus de treino. É o jeito do Ordem Paranormal.')}${tp('d100','Um d100','Rola 1d100 e tenta tirar o valor da perícia ou menos, com sucesso difícil, extremo e dados de bônus. É o jeito do Call of Cthulhu.')}${tp('soma','Soma de dados','Rola dados e soma o modificador do atributo (d20 + mod, 2d6 + atributo) ou tenta tirar o valor ou menos (3d6). Dá pra definir faixas de resultado.')}</div>${tw}</section>${soma}
@@ -1719,8 +1747,7 @@ function sedTpl(v){
 const FLA=new Set(['fbasic','fundo','fredo','scol','bdup','ftpl','ftplno','ftplok','ftest','bup','bdn','bdel','sup','sdn','sdel','chip','oadd','odel']);
 function sedAct(b){
   const a=b.dataset.act,v=b.dataset.v,row=b.closest('[data-g]'),i=row?+row.dataset.i:-1,g=row&&row.dataset.g;
-  if(a==='coverPick'){const f=$('#sedCoverFile');if(f)f.click();return}
-  if(a==='coverDel'){E.img='';E.coverMsg='';sedRender(true);return}
+  if(a==='imPick'){edImPick(b.dataset.imk);return}
   if(LIBA.has(a)){libAct(a,b);return}
   if(FLA.has(a)){if(!flAct(a,b))sedRender(true);return}
   if(a==='tipo'){if(E.tipo===v)return;
@@ -1764,15 +1791,15 @@ function sedAct(b){
   sedRender(true);
   if(a==='addP'){const l=$$('#spl [data-f=n]').pop();if(l){l.focus();l.scrollIntoView({block:'center'})}}
   if(a==='addI'){const l=$('#itl [data-f=n]');if(l)l.focus()}}
-async function sedCoverFile(t){
-  const f=t.files&&t.files[0];t.value='';if(!f||!E)return;const cur=E;
-  try{const u=await coverFromFile(f);if(E!==cur)return;E.img=u;E.coverMsg=''}catch(err){if(E!==cur)return;E.coverMsg=(err&&err.message)||'Não consegui usar essa imagem.'}
+async function edImPick(k){
+  if(!E||!IMD[k])return;const cur=E;
+  try{const v=await imPick(k,E.ims&&E.ims[k]);if(v===null||E!==cur)return;E.ims=E.ims||{};if(v)E.ims[k]=v;else delete E.ims[k];E.coverMsg=''}
+  catch(err){if(E!==cur)return;E.coverMsg=(err&&err.message)||'Não consegui usar essa imagem.'}
   sedRender(true)}
 function sedEdit(e){
   if(E.rend)return;
   const t=e.target,isIn=e.type==='input';
   if(t.id==='libFile'){if(!isIn)libFile(t);return}
-  if(t.id==='sedCoverFile'){if(!isIn)sedCoverFile(t);return}
   if(t.id==='libTxt')return;
   if(t.dataset.tst!==undefined){if(!isIn)return;E.tv=E.tv||{};E.tv[t.dataset.tst]=+t.value||0;sedLive();return}
   if(t.dataset.bf!==undefined||t.dataset.of!==undefined||t.dataset.sf!==undefined){flEdit(t,isIn);return}
@@ -1814,7 +1841,7 @@ function sedEdit(e){
 
 /* ---------- abrir, fechar e salvar ---------- */
 function sysOpen(sec){
-  E=mkDraft(SYS,true);if(SYS===OP)E.nome='Meu sistema';E.sid=D.sid||null;{const en0=E.sid&&libRead().find(x=>x.id===E.sid);E.img=en0&&coverOk(en0.img)?en0.img:''}E.base=snap();if(sec)E.sec=sec;sedLabels(false);
+  E=mkDraft(SYS,true);if(SYS===OP)E.nome='Meu sistema';E.sid=D.sid||null;{const en0=E.sid&&libRead().find(x=>x.id===E.sid);E.ims=imPack(en0)}E.base=snap();if(sec)E.sec=sec;sedLabels(false);
   const ed=$('#sysEd');ed.hidden=false;document.body.style.overflow='hidden';$('#sedAsk').hidden=true;sedRender();
   if(!rm())ed.animate([{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
   $('#sedMain').focus({preventScroll:true})}
@@ -1828,7 +1855,7 @@ function sysOpenLib(id,base){let m=null,sid=null;
   if(id){const en=libRead().find(x=>x.id===id);m=en&&cleanMold(en.mold);sid=en&&en.id}
   else m=cleanMold(base==='op'?Object.assign({},OP,{nome:'Meu sistema',atributos:OP.atributos.slice().sort((a,b)=>a.roda-b.roda),itens:opItems()}):base==='coc'?Object.assign({},SYSTEMS.coc,{nome:'Meu sistema'}):{nome:'Meu sistema',atributos:[{k:'ATR1',n:'Atributo 1'},{k:'ATR2',n:'Atributo 2'},{k:'ATR3',n:'Atributo 3'}],pericias:[],formulas:{dt:'10 + PE',carga:'5'}});
   if(!m){toast('Sistema','Não consegui ler esse sistema.');return}
-  E=mkDraft(m,false);E.lib=true;E.sid=sid;{const en0=id&&libRead().find(x=>x.id===id);E.img=en0&&coverOk(en0.img)?en0.img:''}E.tipo0=m.teste.tipo;E.base=id?snap():'';sedLabels(true);
+  E=mkDraft(m,false);E.lib=true;E.sid=sid;{const en0=id&&libRead().find(x=>x.id===id);E.ims=imPack(en0)}E.tipo0=m.teste.tipo;E.base=id?snap():'';sedLabels(true);
   const ed=$('#sysEd');ed.hidden=false;document.body.style.overflow='hidden';$('#sedAsk').hidden=true;sedRender();
   if(!rm())ed.animate([{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
   $('#sedMain').focus({preventScroll:true})}
@@ -1836,8 +1863,8 @@ function sysSaveLib(){
   const warn=t=>{E.sec=(sysIssues()[0]||{sec:'geral'}).sec;sedRender();const m=$('#sedMain');m.insertAdjacentHTML('afterbegin','<p class="sed-warn" role="alert">'+esc(t)+'</p>');m.scrollTop=0};
   const m=libMold();if(!m)return warn(E.msg2||'Não consegui montar o sistema.');
   const l=libRead(),obj=moldObj(m),i=E.sid?l.findIndex(x=>x.id===E.sid):-1;let v=1,id=E.sid;
-  const img=coverOk(E.img)?E.img:undefined;
-  if(i>=0){v=l[i].v+1;l[i]={id,nome:m.nome,v,t:Date.now(),mold:obj,img,cloud:l[i].cloud}}else{id=libId();l.push({id,nome:m.nome,v,t:Date.now(),mold:obj,img})}
+  const ims=imPack(E.ims);
+  if(i>=0){v=l[i].v+1;l[i]=Object.assign({id,nome:m.nome,v,t:Date.now(),mold:obj},ims,{cloud:l[i].cloud})}else{id=libId();l.push(Object.assign({id,nome:m.nome,v,t:Date.now(),mold:obj},ims))}
   if(!libWrite(l))return warn('Não consegui salvar: o navegador não deixou usar o armazenamento.');
   syOpen=id;sysClose();toast('Sistema salvo',m.nome+', versão '+v+'.');if($('#mSl').hidden)openSl('sys')}
 function sysSave(){
@@ -1857,7 +1884,7 @@ function sysSave(){
   useMold(m);D.mold=moldData();D.sys='custom';if(E.sid){D.sid=E.sid;const le=libRead().find(x=>x.id===E.sid);if(le)D.sv=le.v}else{delete D.sid;delete D.sv}D.attr=newAttr;D.sk=newSk;
   if(m.recursos.length){const nr={};m.recursos.forEach((r,i)=>{const o=E.rc[i].old;nr[r.k]=o!=null&&oldRec[o]!=null?clamp(Math.round(+oldRec[o])||0,0,r.max):r.ini});D.rec=nr}else delete D.rec;
   D.bars=barsIni();if(!tipoMudou)BARS.forEach(([k])=>{if(oldBars[k])D.bars[k]=oldBars[k].slice()});
-  if(E.sid){const l=libRead(),i=l.findIndex(x=>x.id===E.sid),img=coverOk(E.img)?E.img:undefined;if(i>=0&&(l[i].img||undefined)!==img){if(img)l[i].img=img;else delete l[i].img;l[i].t=Date.now();libWrite(l)}}
+  if(E.sid){const l=libRead(),i=l.findIndex(x=>x.id===E.sid),ims=imPack(E.ims);if(i>=0&&IMK.some(k=>(l[i][k]||undefined)!==ims[k])){IMK.forEach(k=>{if(ims[k])l[i][k]=ims[k];else delete l[i][k]});l[i].t=Date.now();libWrite(l)}}
   sysClose();save();renderAll();syncBars();
   toast('Sistema salvo','Atributos, perícias e contas atualizados nesta ficha.')}
 $('#sedBack').onclick=sedBack;$('#sedSave').onclick=sysSave;
@@ -2232,9 +2259,11 @@ async function setAccountAvatar(file){
   if(!cloudClient||!cloudUser||!file)return;
   if(!/^image\/(jpeg|png|webp)$/.test(file.type)){ $('#cloudProfileMsg').textContent='Escolha uma imagem JPG, PNG ou WebP.';return }
   if(file.size>8*1024*1024){$('#cloudProfileMsg').textContent='A imagem deve ter menos de 8 MB.';return}
-  const button=$('#cloudAvatarPick');button.disabled=true;$('#cloudProfileMsg').textContent='Preparando foto…';
+  const button=$('#cloudAvatarPick');
   try{
-    const blob=await imageFileToSquareJpeg(file,512,.82);
+    const cvs=await ImgCrop.pick(file,{w:512,h:512,round:true,title:'Enquadrar foto do perfil'});if(!cvs)return;
+    button.disabled=true;$('#cloudProfileMsg').textContent='Preparando foto…';
+    const blob=await ImgCrop.toBlob(cvs,'image/jpeg',.82);
     const path=cloudUser.id+'/profile/avatar.jpg';
     const {error:uploadError}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});
     if(uploadError)throw uploadError;
@@ -2296,8 +2325,8 @@ async function pfSetBanner(file){
   if(!cloudClient||!cloudUser||!file)return;const m=$('#cloudProfileMsg');
   if(!/^image\/(jpeg|png|webp)$/.test(file.type)){m.textContent='Escolha uma imagem JPG, PNG ou WebP.';return}
   if(file.size>8*1024*1024){m.textContent='A imagem deve ter menos de 8 MB.';return}
-  m.textContent='Preparando banner…';
-  try{const blob=await imageFileToBannerJpeg(file,1200,400,.8),path=cloudUser.id+'/profile/banner-'+Date.now().toString(36)+'.jpg';
+  try{const cvs=await ImgCrop.pick(file,{w:1200,h:400,title:'Enquadrar banner do perfil'});if(!cvs)return;m.textContent='Preparando banner…';
+    const blob=await ImgCrop.toBlob(cvs,'image/jpeg',.8),path=cloudUser.id+'/profile/banner-'+Date.now().toString(36)+'.jpg';
     const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});if(error)throw error;
     const old=pf.banner;pf.banner=path;if(old&&old.startsWith(cloudUser.id+'/'))cloudClient.storage.from('account-avatars').remove([old]).catch(()=>{});
     pfPaint();await saveCloudProfile()}
@@ -2385,8 +2414,9 @@ function imageFileToSquareJpeg(file,size,quality){return new Promise((resolve,re
 })}
 function blobToDataUrl(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)})}
 $('#avatar').onclick=()=>$('#avFile').click();
-$('#avFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{
-  const blob=await imageFileToSquareJpeg(f,256,.82),prev=D.av;
+$('#avFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{
+  const cvs=await ImgCrop.pick(f,{w:256,h:256,round:true,title:'Enquadrar retrato'});if(!cvs)return;
+  const blob=await ImgCrop.toBlob(cvs,'image/jpeg',.82),prev=D.av;
   if(cloudClient&&cloudUser){
     const path=cloudUser.id+'/char-'+Date.now()+'.jpg';
     const {error}=await cloudClient.storage.from('account-avatars').upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});
@@ -2627,6 +2657,7 @@ function shThumbEl(thumb,name,cls){
 async function shAvatarBlob(av){
   if(typeof av!=='string'||!av)return null;
   try{if(av.indexOf('data:image/')===0)return await (await fetch(av)).blob();
+    if(av.indexOf('site:')===0)return await (await fetch(siteUrl('pic',av.slice(5)))).blob();
     if(av.indexOf('sb:')===0&&cloudClient&&cloudUser)return await (await fetch(await avUrl(av.slice(3)))).blob()}catch(e){}return null}
 async function shMakeThumb(av){
   const blob=await shAvatarBlob(av);if(!blob)return null;
@@ -2657,7 +2688,7 @@ function shSrcCoc(id){let j=null;try{j=JSON.parse(localStorage.getItem('coc-slot
   if(!j||typeof j!=='object'||j.app!=='coc')return null;const s=noProto(j),av=typeof(j.who&&j.who.av)==='string'?j.who.av:'';s.who=Object.assign({},s.who,{av:''});
   return{key:(()=>{try{const l=JSON.parse(localStorage.getItem('coc-cloud-v1')||'{}')[id];return l&&l.id?'cc:'+l.id:'coc:'+id}catch(e){return'coc:'+id}})(),legacy:['coc:'+id],av,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
 function shSrcSys(en){const m=en&&cleanMold(en.mold);if(!m)return null;
-  return{key:'sys:'+en.id,av:coverOk(en.img)?en.img:'',kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:{rpgSistema:1,nome:m.nome,mold:moldObj(m)}}}
+  return{key:'sys:'+en.id,av:en.pic&&picOk(en.pic)?en.pic:(coverOk(en.img)?en.img:''),kind:'sistema',campaign:'nova',title:m.nome,summary:m.atributos.length+' atributos · '+m.pericias.length+' perícias',payload:Object.assign({rpgSistema:1,nome:m.nome,mold:moldObj(m)},imPack(en))}}
 
 /* ---- janela: publicar ---- */
 const AUTHK='rpg-share-author';
@@ -2678,7 +2709,7 @@ function shOpenPublish(src){
   if(!cloudUser){
     const w=shEl('div','pb-gate');w.innerHTML='<span class="pb-bigic">'+pbIc('user')+'</span><h3>Entre para publicar</h3><p>Use a sua conta Google para publicar. Quem receber o link, ou abrir o marketplace, não precisa de conta para ver e copiar.</p>';
     b.append(w);a.append(shBtn('Cancelar','',shClose),shBtn('Entrar com Google','pri',()=>{shClose();closeM('mSl');openCfg('conta')}));openM('mShare');return}
-  const isSys=src.kind==='sistema',hasPhoto=!!(src.av&&(src.av.indexOf('data:image/')===0||src.av.indexOf('sb:')===0));
+  const isSys=src.kind==='sistema',hasPhoto=!!(src.av&&(src.av.indexOf('data:image/')===0||src.av.indexOf('sb:')===0||src.av.indexOf('site:')===0));
   b.innerHTML='<div class="pb-hero"><span class="pb-th" id="pbTh" aria-hidden="true"></span><div class="pb-ht"><small class="sc-lb" id="pbKind"></small><b id="pbName"></b><span id="pbSub"></span></div></div>'
     +(had?'<fieldset class="pb-mode"><legend class="sr">Atualizar ou publicar como novo</legend>'
       +'<label class="pb-m on"><input type="radio" name="pbMode" value="upd" checked><span><b>Atualizar a publicação existente</b><small>Mantém o mesmo link e troca o conteúdo.</small></span></label>'
@@ -2896,7 +2927,7 @@ function shAdd(row,v){
   try{
     if(row.kind==='sistema'){
       const l=libRead(),i=l.findIndex(x=>x.src===row.id),old=i>=0?l[i]:null,m=v.m;
-      const e={id:old?old.id:libId(),nome:m.nome,v:old?old.v+1:1,t:Date.now(),mold:moldObj(m),src:row.id,sver:row.version,img:Share.thumbOk(row.thumb)?row.thumb:(old&&coverOk(old.img)?old.img:undefined),cloud:old?old.cloud:undefined};
+      const pl=row.payload||{},pk=imPack(pl),e=Object.assign({id:old?old.id:libId(),nome:m.nome,v:old?old.v+1:1,t:Date.now(),mold:moldObj(m),src:row.id,sver:row.version},imPack(old),pk,pk.pic||!Share.thumbOk(row.thumb)?{}:{pic:row.thumb},{cloud:old?old.cloud:undefined});
       if(old)l[i]=e;else l.push(e);
       if(!libWrite(l))throw new Error('Sem espaço no navegador para guardar o sistema.');
       Share.registerCopy(row.id);shClose();toast(old?'Sistema atualizado':'Sistema adicionado',m.nome);if(scrMode==='sys')scSysFill();else setScreen('sys',true);return}

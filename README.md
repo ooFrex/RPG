@@ -89,3 +89,7 @@ Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar**
 - A janela de publicar tem "Atualizar a publicação existente" ou "Publicar como novo item" (`asNew` em `Share.publish`).
 - Sistemas próprios aceitam imagem de capa: botão direto no detalhe do sistema (Sistemas) e no editor. A capa vira a foto do sistema ao compartilhar.
 - O card "Ficha aberta" da tela Sistemas foi removido.
+
+## Imagens: enquadrar antes de confirmar (v19)
+- `js/imgcrop.js` (usado por `index.html` e `coc.html`): janela para arrastar, ampliar (roda, pinça ou controle) e confirmar. Vale para o retrato da ficha (OP e CoC), a foto e o banner do perfil e as imagens do sistema.
+- Sistemas próprios têm três imagens: foto (quadrada), banner e logo (campos `pic`, `img`, `logo` na biblioteca). Cada uma aceita envio ou um padrão do site (`site:id`); sem escolha vale o padrão do site (banner `img/for.jpg`, logo do site). Sincronizam com a conta e vão junto ao compartilhar.
