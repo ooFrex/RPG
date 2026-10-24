@@ -2564,9 +2564,10 @@ function shOpenPublish(src){
   b.innerHTML='<label class="fl"><span>Nome</span><input id="shTi" maxlength="80"></label>'
     +'<label class="fl"><span>Descrição (opcional)</span><textarea id="shSu" maxlength="300" rows="3"></textarea></label>'
     +'<label class="fl"><span>Assinar como (opcional)</span><input id="shAu" maxlength="40"></label>'
-    +'<fieldset class="sh-vis"><legend>Onde publicar</legend>'
-    +'<label class="sh-opt"><input type="radio" name="shVis" value="unlisted" checked><span><b>Só por link</b><small>Só quem receber o link consegue abrir.</small></span></label>'
-    +'<label class="sh-opt"><input type="radio" name="shVis" value="public"><span><b>Marketplace</b><small>Aparece na aba Biblioteca para qualquer pessoa ver, adicionar e visualizar a ficha inteira.</small></span></label></fieldset>'
+    +'<fieldset class="sh-vis"><legend>Quem pode ver</legend>'
+    +'<label class="sh-opt"><input type="radio" name="shVis" value="private"><span><b>Privado</b><small>Só você. Fica guardado na sua conta, sem link e fora do marketplace.</small></span></label>'
+    +'<label class="sh-opt"><input type="radio" name="shVis" value="unlisted" checked><span><b>Compartilhar por link</b><small>Só quem receber o link abre. Não aparece no marketplace.</small></span></label>'
+    +'<label class="sh-opt"><input type="radio" name="shVis" value="public"><span><b>Público no marketplace</b><small>Qualquer pessoa encontra, vê e adiciona. Também ganha link para enviar.</small></span></label></fieldset>'
     +'<label class="sh-opt sh-photo" id="shPhotoRow" hidden><input type="checkbox" id="shPhoto" checked><span><b>Incluir a foto</b><small>Vai uma miniatura quadrada, visível para quem abrir.</small></span></label>'
     +'<p id="shNote"></p><p id="shErr" role="alert" class="sh-err"></p>';
   $('#shTi').value=src.title;$('#shSu').value=src.summary||'';
@@ -2574,24 +2575,24 @@ function shOpenPublish(src){
   if(!au){try{au=Cloud.accountInfo(cloudUser).name||''}catch(e){}}$('#shAu').value=au.slice(0,40);
   if(src.av&&(src.av.indexOf('data:image/')===0||src.av.indexOf('sb:')===0))$('#shPhotoRow').hidden=false;
   $('#shNote').textContent=(src.kind==='sistema'?'O sistema completo ficará acessível.':'A ficha inteira (atributos, inventário, anotações) ficará acessível. Você pode tirar do marketplace ou despublicar quando quiser.')+(had?' Você já publicou este item: publicar de novo atualiza o mesmo link.':'');
-  if(had)Share.mine(had).then(r=>{if(r){const rd=$('#mShare input[name=shVis][value='+(r.visibility==='public'?'public':'unlisted')+']');if(rd)rd.checked=true}}).catch(()=>{});
+  if(had)Share.mine(had).then(r=>{if(r){const rd=$('#mShare input[name=shVis][value='+(['private','public'].includes(r.visibility)?r.visibility:'unlisted')+']');if(rd)rd.checked=true}}).catch(()=>{});
   const go=shBtn(had?'Atualizar':'Publicar','pri',async()=>{
     const err=$('#shErr');err.textContent='';go.disabled=true;go.textContent='Publicando…';
     try{const au2=$('#shAu').value.trim();try{localStorage.setItem(AUTHK,au2)}catch(e){}
-      const vis=($('#mShare input[name=shVis]:checked')||{}).value==='public'?'public':'unlisted';
+      const vis=(($('#mShare input[name=shVis]:checked')||{}).value)||'unlisted';
       const thumb=(!$('#shPhotoRow').hidden&&$('#shPhoto').checked)?await shMakeThumb(src.av):null;
       const r=await Share.publish({key:src.key,legacy:src.legacy,kind:src.kind,campaign:src.campaign,title:$('#shTi').value,summary:$('#shSu').value,author:au2,visibility:vis,thumb,payload:src.payload});
       shDone(r,$('#shTi').value.trim());shMineRender();if(vis==='public')shCatRender(false)}
     catch(e){err.textContent=cloudError(e);go.disabled=false;go.textContent=had?'Atualizar':'Publicar'}});
   a.append(go,shBtn('Cancelar','',shClose));openM('mShare');setTimeout(()=>{try{$('#shTi').focus()}catch(e){}},60)}
 function shDone(r,title){
-  const url=Share.link(r.code),b=$('#shBody'),a=$('#shAct'),pub=r.visibility==='public';
-  $('#shT').textContent=r.updated?'Publicação atualizada':'Publicado!';b.textContent='';a.textContent='';
-  b.append(shEl('p',null,pub?'Já está no marketplace, na aba Biblioteca. Se quiser, mande também o link:':'Mande este link. Quem abrir vê uma prévia e escolhe se quer adicionar à própria biblioteca.'));
-  const inp=shEl('input','in sh-link');inp.readOnly=true;inp.value=url;inp.setAttribute('aria-label','Link para compartilhar');inp.onfocus=()=>inp.select();b.append(inp);
-  b.append(shEl('p','sh-small','Versão '+r.version+'. Para tirar do ar, vá em Biblioteca → Meus compartilhamentos.'));
-  const c=shBtn('Copiar link','pri',()=>shCopy(url,c));a.append(c);
-  if(navigator.share)a.append(shBtn('Enviar…','',()=>{navigator.share({title:title||'Ficha',url}).catch(()=>{})}));
+  const url=Share.link(r.code),b=$('#shBody'),a=$('#shAct'),pub=r.visibility==='public',pv=r.visibility==='private';
+  $('#shT').textContent=r.updated?'Publicação atualizada':(pv?'Salvo como privado':'Publicado!');b.textContent='';a.textContent='';
+  b.append(shEl('p',null,pv?'Só você vê este item. Para compartilhar, mude para "Compartilhar por link" ou "Público no marketplace" em Meus compartilhamentos (no seu perfil).':pub?'Já está no marketplace, na aba Biblioteca. Se quiser, mande também o link:':'Mande este link. Quem abrir vê uma prévia e escolhe se quer adicionar à própria biblioteca.'));
+  if(!pv){const inp=shEl('input','in sh-link');inp.readOnly=true;inp.value=url;inp.setAttribute('aria-label','Link para compartilhar');inp.onfocus=()=>inp.select();b.append(inp);
+    const c=shBtn('Copiar link','pri',()=>shCopy(url,c));a.append(c);
+    if(navigator.share)a.append(shBtn('Enviar…','',()=>{navigator.share({title:title||'Ficha',url}).catch(()=>{})}))}
+  b.append(shEl('p','sh-small','Versão '+r.version+'. Para mudar quem vê ou tirar do ar, abra Meus compartilhamentos no seu perfil.'));
   a.append(shBtn('Fechar','',shClose))}
 
 /* ---- resumo e ficha completa: só valores limpos ---- */
@@ -2671,35 +2672,32 @@ async function shOpenView(code){
   b.textContent='';const v=row&&SHVALID(row);
   if(!row||!v){b.append(shEl('p','sv-load',err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
   $('#shT').textContent=String(row.title).slice(0,80);
-  const bs=shBasics(row,v),pic=shPortrait(row,v),bgi=el=>{if(pic)el.style.backgroundImage='url("'+pic+'")'};
-  const hero=shEl('header','sv-hero'),bg=shEl('div','sv-bg'),back=shEl('button','sv-back','← Voltar para a biblioteca'),hc=shEl('div','sv-hc'),pills=shEl('div','sv-pills');
-  bg.setAttribute('aria-hidden','true');if(pic)bgi(bg);else bg.append(shEl('span','sv-ini',String(row.title).trim().charAt(0).toUpperCase()||'?'));
-  back.type='button';back.onclick=shClose;
-  bs.info.slice(0,2).forEach(([k,x])=>{const p=shEl('span','sh-pill',String(x));p.title=k;pills.append(p)});
-  hc.append(shEl('h1','sv-t',row.title),shEl('p','sv-meta',(row.kind==='sistema'?'Sistema':'Personagem')+' · '+(SHN[row.campaign]||'?')+' · Versão '+row.version));
-  if(row.author_name)hc.append(shEl('p','sv-by','por '+row.author_name));
-  if(pills.children.length)hc.append(pills);
-  hero.append(bg,back,hc);
-  if(row.summary){const q=shEl('blockquote','sv-q');q.append(shEl('p',null,row.summary));hero.append(q)}
-  const wrap=shEl('div','sv-wrap'),main=shEl('div','sv-main'),side=shEl('aside','sv-side');
-  const sec=(t,el)=>{const s=shEl('section','sv-sec');s.append(shEl('h3','sh-h',t),el);return s};
-  if(bs.chips.length){const g=shEl('div','sh-chips');bs.chips.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});main.append(sec('Atributos',g))}
-  if(bs.info.length){const d=shEl('dl','sh-dl');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});main.append(sec('Detalhes',d))}
-  const dsc=shDescEl(row,v);if(dsc)main.append(dsc);
-  main.append(shEl('p','sh-small',row.kind==='sistema'?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
-  const card=shEl('div','sv-card');
-  if(pic){const im=shEl('div','sv-pic');im.setAttribute('aria-hidden','true');bgi(im);card.append(im)}
-  const st=shEl('div','sh-facts');[['Tipo',row.kind==='sistema'?'Sistema':'Personagem'],['Sistema',SHN[row.campaign]||'?'],['Versão',String(row.version)],['Cópias',String(row.copies||0)]].forEach(([k,x])=>{const t=shEl('span','sh-fact');t.append(shEl('small',null,k),shEl('b',null,x));st.append(t)});card.append(shEl('h3','sh-h','Resumo'),st);side.append(card);
-  shAuthor(row,side);
-  wrap.append(main,side);b.append(hero,wrap);
+  const bs=shBasics(row,v),pic=shPortrait(row,v);
+  const top=shEl('div','sv-top'),back=shEl('button','sv-back','← Biblioteca');back.type='button';back.onclick=shClose;
+  const cl=shBtn('Copiar link','sm',()=>shCopy(Share.link(row.id),cl));top.append(back,cl);
+  const head=shEl('header','sv-head'),ban=shEl('div','sv-ban'),cov=shEl('div','sv-cover'),hb=shEl('div','sv-hb'),pills=shEl('div','sv-pills');
+  ban.setAttribute('aria-hidden','true');cov.setAttribute('aria-hidden','true');
+  if(pic){ban.style.backgroundImage='url("'+pic+'")';cov.style.backgroundImage='url("'+pic+'")'}else cov.append(shEl('span','sv-ini',String(row.title).trim().charAt(0).toUpperCase()||'?'));
+  [row.kind==='sistema'?'Sistema':'Personagem',SHN[row.campaign]||'?','Versão '+row.version].forEach((t,i)=>{const p=shEl('span','sh-pill'+(i===1?' dot':''),t);if(i===1)p.dataset.c=row.campaign;pills.append(p)});
+  let dt='';try{if(row.updated_at)dt=' · atualizado em '+new Date(row.updated_at).toLocaleDateString('pt-BR')}catch(e){}
+  hb.append(shEl('h1','sv-t',row.title));if(row.author_name)hb.append(shEl('p','sv-by','por '+row.author_name));
+  hb.append(pills,shEl('p','sv-meta',(row.copies||0)+(row.copies===1?' cópia':' cópias')+dt));
   const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
   const add=shBtn(have?'Atualizar na minha biblioteca':'Adicionar à minha biblioteca','pri',()=>shAdd(row,v));
-  const full=shBtn('Ver tudo','',()=>shOpenFull(row,v));
+  const full=shBtn('Ver ficha completa','',()=>shOpenFull(row,v));
   const rep=shBtn('Denunciar','rep',()=>{
     if(!cloudUser){toast('Denunciar','Entre com sua conta Google para denunciar.');return}
     if(!rep.classList.contains('arm')){rep.classList.add('arm');rep.textContent='Toque de novo para denunciar';setTimeout(()=>{if(rep.isConnected){rep.classList.remove('arm');rep.textContent='Denunciar'}},4000);return}
     rep.disabled=true;Share.report(row.id).then(()=>{rep.textContent='Denúncia enviada'}).catch(e=>{rep.disabled=false;toast('Denunciar',cloudError(e))})});
-  a.textContent='';a.append(add,full,rep,shBtn('Fechar','',shClose))}
+  const acts=shEl('div','sv-acts');acts.append(add,full,rep);head.append(ban,cov,hb,acts);
+  const wrap=shEl('div','sv-wrap'),main=shEl('div','sv-main'),side=shEl('aside','sv-side');
+  const sec=(t,el)=>{const s=shEl('section','sv-sec');s.append(shEl('h3','sh-h',t),el);return s};
+  if(row.summary)main.append(sec('Resumo',shEl('p','sv-lead',row.summary)));
+  const dsc=shDescEl(row,v);if(dsc)main.append(dsc);
+  if(bs.chips.length){const g=shEl('div','sh-chips');bs.chips.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});main.append(sec('Atributos',g))}
+  if(bs.info.length){const d=shEl('dl','sh-dl');bs.info.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,x));d.append(r)});main.append(sec('Ficha em resumo',d))}
+  main.append(shEl('p','sh-small',row.kind==='sistema'?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
+  shAuthor(row,side);wrap.append(main,side);b.append(top,head,wrap);a.textContent=''}
 
 /* ---- ficha completa, somente leitura ---- */
 function shSec(body,title,node){if(!node)return;const s=shEl('section','vw-sec');s.append(shEl('h3',null,title),node);body.append(s)}
@@ -2839,15 +2837,16 @@ async function shMineRender(){
   let rows=[];try{rows=await Share.listMine(cloudUser.id)}catch(e){msg.textContent=cloudError(e);return}
   msg.textContent=rows.length?'':'Você ainda não compartilhou nada. Use o botão Compartilhar em um personagem (Agentes) ou em um sistema (Sistemas).';
   rows.forEach(r=>{const li=shEl('li','sh-r'),t=shEl('div','sh-t'),pub=r.visibility==='public';
-    t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+' · v'+r.version+' · '+r.copies+' '+(r.copies===1?'cópia':'cópias')+' · '+(pub?'no marketplace':'só por link')+(r.status==='hidden'?' · oculto por denúncias':'')));
+    t.append(shEl('b',null,r.title),shEl('small',null,shKind(r)+' · v'+r.version+' · '+r.copies+' '+(r.copies===1?'cópia':'cópias')+' · '+(pub?'no marketplace':r.visibility==='private'?'privado':'só por link')+(r.status==='hidden'?' · oculto por denúncias':'')));
     const row=shEl('div','sh-rr');row.append(shThumbEl(r.thumb,r.title),t);
     const act=shEl('div','rowb');
     const cp=shBtn('Copiar link','sm',()=>shCopy(Share.link(r.id),cp)),vw=shBtn('Ver','sm',()=>shOpenView(r.id));
-    const tg=shBtn(pub?'Tirar do marketplace':'Colocar no marketplace','sm',()=>{tg.disabled=true;Share.setVisibility(r.id,pub?'unlisted':'public').then(()=>{toast(pub?'Fora do marketplace':'No marketplace',r.title);shMineRender();shCatRender(false)}).catch(e=>{tg.disabled=false;toast('Marketplace',cloudError(e))})});
+    const tg=shEl('select','in sh-vsel');tg.setAttribute('aria-label','Quem pode ver');[['private','Privado'],['unlisted','Por link'],['public','Marketplace']].forEach(([v,l])=>{const o=shEl('option',null,l);o.value=v;tg.append(o)});tg.value=r.visibility||'unlisted';
+    tg.onchange=()=>{tg.disabled=true;Share.setVisibility(r.id,tg.value).then(()=>{toast('Visibilidade atualizada',r.title);shMineRender();shCatRender(false)}).catch(e=>{tg.disabled=false;tg.value=r.visibility;toast('Visibilidade',cloudError(e))})};
     const del=shBtn('Despublicar','sm',()=>{
       if(!del.classList.contains('arm')){del.classList.add('arm');del.textContent='Toque de novo';setTimeout(()=>{if(del.isConnected){del.classList.remove('arm');del.textContent='Despublicar'}},4000);return}
       del.disabled=true;Share.remove(r.id).then(()=>{toast('Despublicado','O link deixou de funcionar.');shMineRender();shCatRender(false)}).catch(e=>{del.disabled=false;toast('Despublicar',cloudError(e))})});
-    act.append(cp,vw,tg,del);li.append(row,act);ul.append(li)})}
+    if(r.visibility==='private')cp.disabled=true;act.append(cp,vw,tg,del);li.append(row,act);ul.append(li)})}
 /* link recebido (?b=código): abre a prévia assim que o menu inicial aparece */
 function shLaunch(){if(!shPending)return;const c=shPending;shPending=null;closeHome();openSl('shop');shOpenView(c)}
 const catalogsReady=loadGameCatalogs();buildBars();buildFilters();renderAll();initCloud();

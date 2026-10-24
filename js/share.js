@@ -9,6 +9,7 @@ window.Share = (function () {
   const CODE = /^[a-z0-9]{10}$/;
   const THUMB = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
   const PAGE = 18;
+  const VIS = v => (v === 'public' || v === 'private') ? v : 'unlisted';   // private = só eu · unlisted = por link · public = marketplace
   const client = () => (window.Cloud && Cloud.client) || null;
 
   const readMap = () => { try { const m = JSON.parse(localStorage.getItem(MAP)); return m && typeof m === 'object' ? m : {}; } catch (e) { return {}; } };
@@ -20,7 +21,7 @@ window.Share = (function () {
   const thumbOk = t => typeof t === 'string' && t.length <= 40000 && THUMB.test(t);
 
   /* endereço compartilhável: mesma página, ?b=código */
-  const link = code => location.origin + location.pathname.replace(/[^/]*$/, '') + '?b=' + code;
+  const link = code => { const P = (window.APP_CONFIG && APP_CONFIG.SHARE_PREVIEW_URL) || ''; return P ? P.replace(/\/$/, '') + '/?b=' + code : location.origin + location.pathname.replace(/[^/]*$/, '') + '?b=' + code; };
   /* aceita o link inteiro, "?b=código" ou só o código */
   function parse(text) {
     const t = String(text || '').trim(); if (!t) return null;
@@ -45,6 +46,7 @@ window.Share = (function () {
       : /limite de 30/.test(m) ? 'Você já tem 30 itens no marketplace. Tire algum de lá antes.'
       : /muitas publica/.test(m) ? 'Muitas publicações seguidas. Tente de novo daqui a pouco.'
       : /login/.test(m) ? 'Entre com sua conta Google para fazer isso.'
+      : /visibility.*check|check.*visibility/i.test(m) ? 'Para usar "Privado", rode supabase/visibility_private.sql no Supabase.'
       : m || 'Não deu certo. Tente de novo.');
   };
 
@@ -58,7 +60,7 @@ window.Share = (function () {
       title: String(a.title || '').trim().slice(0, 80),
       summary: String(a.summary || '').trim().slice(0, 300) || null,
       author_name: String(a.author || '').trim().slice(0, 40) || null,
-      visibility: a.visibility === 'public' ? 'public' : 'unlisted',
+      visibility: VIS(a.visibility),
       thumb: thumbOk(a.thumb) ? a.thumb : null,
       payload: a.payload
     };
@@ -137,7 +139,7 @@ window.Share = (function () {
     return r.data || null;
   }
   async function setVisibility(code, vis) {
-    const r = await need().from('shared_items').update({ visibility: vis === 'public' ? 'public' : 'unlisted' }).eq('id', code).select('id,visibility');
+    const r = await need().from('shared_items').update({ visibility: VIS(vis) }).eq('id', code).select('id,visibility');
     if (r.error) throw fail(r.error);
     if (!r.data || !r.data.length) throw new Error('Não encontrei essa publicação.');
     return r.data[0].visibility;
