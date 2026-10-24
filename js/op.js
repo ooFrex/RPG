@@ -503,9 +503,9 @@ const SCR={sl:['ARQUIVO','Meus Personagens','Fichas guardadas neste aparelho. A 
   shop:['MARKETPLACE','Biblioteca','Fichas e sistemas publicados pela comunidade. Veja os detalhes, visualize a ficha inteira e adicione à sua biblioteca.'],
   cfg:['PERFIL','Perfil','Seu perfil, conta, aparência, backup, ajuda e novidades.']};
 let scrMode='sl';
-function scSysFill(){syGrid();syDet(false);syCur()}
+function scSysFill(){syGrid();syDet(false)}
 /* ===== catálogo de sistemas ===== */
-let syOpen=null,syDel=null;
+let syOpen=null,syDel=null,syCoverMsg='';
 function syList(){const l=libRead();return[{id:'op',n:'Ordem Paranormal',tag:'Sistema base',d:CAMPS[0].d,m:OP,img:'op'},{id:'coc',n:'Call of Cthulhu',tag:'Sistema base',d:'Horror cósmico e investigação. Tem uma ficha própria e completa, em tela cheia, com criação guiada do investigador.',res:'d100 · 8 características · 55 perícias · ficha própria',m:SYSTEMS.coc,img:'coc'}]
   .concat(l.map(en=>({id:en.id,n:en.nome,tag:'Meu sistema',d:`Sistema próprio, versão ${en.v}, salvo em ${new Date(en.t).toLocaleDateString('pt-BR')}.`,m:cleanMold(en.mold),img:'for',cover:coverOk(en.img)?en.img:'',en})))}
 const syHue=id=>[...id].reduce((a,c)=>a+c.charCodeAt(0)*7,0)%360;
@@ -535,18 +535,26 @@ function syDet(anim){const el=$('#syDet'),hint=$('#syHint'),x=syOpen&&syList().f
   const act=own?(syDel===x.id?`<p class="smu">Excluir da biblioteca? As fichas já criadas continuam com a cópia delas.</p><button class="btn dng" type="button" data-sya="delok" data-id="${id}">Confirmar exclusão</button><button class="btn" type="button" data-sya="delno">Cancelar</button>`
       :`<button class="btn pri" type="button" data-sya="new" data-id="${id}">Criar ficha</button><button class="btn" type="button" data-sya="edit" data-id="${id}">Editar</button><button class="btn" type="button" data-sya="exp" data-id="${id}">Exportar</button><button class="btn" type="button" data-sya="share" data-id="${id}">Compartilhar</button><button class="btn" type="button" data-sya="del" data-id="${id}">Excluir</button>`)
     :`<button class="btn pri" type="button" data-sc="new" data-sys="${id}">Criar ficha</button><button class="btn" type="button" data-sya="base" data-id="${id}">${x.id==='coc'?'Criar sistema próprio (parte de uma versão simplificada)':'Criar sistema próprio a partir deste'}</button>`;
-  el.innerHTML=`<small class="sc-lb">${esc(x.tag.toUpperCase())}</small><h3 id="syDT">${esc(x.n)}</h3><p class="hm-note">${esc(x.d)}</p><dl class="sy-dl">${syFacts(x).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl><div class="rowb">${act}</div>`;
+  const cv=own?`<div class="sy-cov${x.cover?'':' empty'}"${x.cover?` style="background-image:url(${x.cover})" role="img" aria-label="Capa do sistema"`:''}>${x.cover?'':'<span>Sem capa</span>'}<div class="sy-cova"><button class="btn sm${x.cover?'':' pri'}" type="button" data-sya="cover" data-id="${id}">${x.cover?'Trocar imagem':'Colocar imagem'}</button>${x.cover?`<button class="btn sm" type="button" data-sya="coverdel" data-id="${id}">Remover</button>`:''}</div></div>${syCoverMsg?`<p class="sed-warn" role="alert">${esc(syCoverMsg)}</p>`:''}<input type="file" id="syCoverFile" accept="image/jpeg,image/png,image/webp" hidden data-id="${id}">`:'';
+  el.innerHTML=`${cv}<small class="sc-lb">${esc(x.tag.toUpperCase())}</small><h3 id="syDT">${esc(x.n)}</h3><p class="hm-note">${esc(x.d)}</p><dl class="sy-dl">${syFacts(x).map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl><div class="rowb">${act}</div>`;
   const was=el.hidden;el.hidden=false;if(anim)try{el.scrollIntoView({behavior:rm()?'auto':'smooth',block:'nearest'})}catch(e){}if(anim&&was&&!rm())el.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'})}
-function syCur(){const box=$('#syCur');box.hidden=!D.created;if(D.created)$('#syCurT').textContent=`${slInfo(D).n} usa o sistema ${SYS.nome||'Ordem Paranormal'}.`}
 $('#sc-sys').addEventListener('click',e=>{
-  const c=e.target.closest('[data-sy]');if(c){syOpen=syOpen===c.dataset.sy?null:c.dataset.sy;syDel=null;syDet(true);return}
+  const c=e.target.closest('[data-sy]');if(c){syOpen=syOpen===c.dataset.sy?null:c.dataset.sy;syDel=null;syCoverMsg='';syDet(true);return}
   const b=e.target.closest('[data-sya]');if(!b)return;const a=b.dataset.sya,id=b.dataset.id,en=libRead().find(x=>x.id===id);
   if(a==='new'){if(en){closeM('mSl');startFromLib(en)}}
   else if(a==='base')sysOpenLib(null,id);else if(a==='edit')sysOpenLib(id);
   else if(a==='share'){if(en)shOpenPublish(shSrcSys(en))}
   else if(a==='exp'){if(en){libDownload(en.nome,JSON.stringify({rpgSistema:1,nome:en.nome,mold:en.mold,img:coverOk(en.img)?en.img:undefined}));toast('Sistema exportado',en.nome)}}
+  else if(a==='cover'){const f=$('#syCoverFile');if(f)f.click()}
+  else if(a==='coverdel'){const l=libRead(),i=l.findIndex(x=>x.id===id);if(i>=0){delete l[i].img;l[i].t=Date.now();libWrite(l);syCoverMsg='';syGrid();syDet(false)}}
   else if(a==='del'){syDel=id;syDet(false)}else if(a==='delno'){syDel=null;syDet(false)}
   else if(a==='delok'){if(en&&en.cloud)Cloud.forgetSystem(en.cloud);libWrite(libRead().filter(x=>x.id!==id));syOpen=null;syDel=null;syGrid();syDet(false);toast('Sistema excluído','Saiu da biblioteca deste aparelho.')}});
+$('#sc-sys').addEventListener('change',async e=>{const t=e.target;if(t.id!=='syCoverFile')return;
+  const f=t.files&&t.files[0],id=t.dataset.id;t.value='';if(!f)return;
+  try{const u=await coverFromFile(f),l=libRead(),i=l.findIndex(x=>x.id===id);if(i<0)return;l[i].img=u;l[i].t=Date.now();
+    if(!libWrite(l))throw new Error('Não consegui salvar: o navegador não deixou usar o armazenamento.');syCoverMsg=''}
+  catch(err){syCoverMsg=(err&&err.message)||'Não consegui usar essa imagem.'}
+  syGrid();syDet(false)});
 /* ===== ficha de Call of Cthulhu, dentro deste arquivo (tela cheia isolada) ===== */
 function cocSync(){const f=$('#cocFrame'),d=f.contentDocument&&f.contentDocument.documentElement;if(!d)return;const t=document.documentElement.dataset.theme;if(t)d.dataset.theme=t;else delete d.dataset.theme;
   const u=uiLoad();[['--teal',u.acc],['--brass',u.gold]].forEach(([v,c])=>{if(/^#[0-9a-f]{6}$/i.test(c))d.style.setProperty(v,c);else d.style.removeProperty(v)})}
@@ -1545,7 +1553,7 @@ function secGeral(){
     ['bars','Barras','Vida, sanidade, energia… (opcional).',null],
     ['fluxo','Criação','O passo a passo da criação de ficha (opcional).',E.fl.length>0?true:null]];
   const guide=E.lib?`<section class="sed-card sed-guide"><h3>Passo a passo para criar seu sistema</h3><ol class="sg-l">${gd.map(([sec,t,d,ok])=>`<li class="${ok?'ok':''}"><span class="sg-m" aria-hidden="true">${ok?'✓':ok===null?'○':'•'}</span><span><button type="button" class="sed-link" data-act="goto" data-v="${sec}">${t}</button> <small>${d}</small></span><em>${ok?'feito':ok===null?'opcional':'a fazer'}</em></li>`).join('')}</ol><p class="smu">Quando terminar, toque em <b>Salvar sistema</b> (canto superior). Dá pra voltar e editar quando quiser.</p></section>`:'';
-  const cover=E.lib?`<section class="sed-card"><h3>Capa do sistema</h3><p class="smu">Aparece no card do sistema e, ao compartilhar, vira a foto dele no marketplace. JPG, PNG ou WebP.</p>${E.coverMsg?`<p class="sed-msg" role="status">${esc(E.coverMsg)}</p>`:''}${coverOk(E.img)?`<div class="sed-cover" style="height:120px;border-radius:10px;background:center/cover url(${E.img});border:1px solid var(--ln2);margin-bottom:10px" role="img" aria-label="Capa atual"></div>`:''}<div class="rowb"><button class="btn sm pri" type="button" data-act="coverPick">${coverOk(E.img)?'Trocar imagem':'Escolher imagem'}</button>${coverOk(E.img)?'<button class="btn sm" type="button" data-act="coverDel">Remover</button>':''}</div><input type="file" id="sedCoverFile" accept="image/jpeg,image/png,image/webp" hidden></section>`:'';
+  const cover=(E.lib||E.sid)?`<section class="sed-card"><h3>Capa do sistema</h3><p class="smu">Aparece no card do sistema e, ao compartilhar, vira a foto dele no marketplace. JPG, PNG ou WebP.</p>${E.coverMsg?`<p class="sed-msg" role="status">${esc(E.coverMsg)}</p>`:''}${coverOk(E.img)?`<div class="sed-cover" style="height:120px;border-radius:10px;background:center/cover url(${E.img});border:1px solid var(--ln2);margin-bottom:10px" role="img" aria-label="Capa atual"></div>`:''}<div class="rowb"><button class="btn sm pri" type="button" data-act="coverPick">${coverOk(E.img)?'Trocar imagem':'Escolher imagem'}</button>${coverOk(E.img)?'<button class="btn sm" type="button" data-act="coverDel">Remover</button>':''}</div><input type="file" id="sedCoverFile" accept="image/jpeg,image/png,image/webp" hidden></section>`:'';
   return head('Visão geral','Dê um nome ao sistema, escolha como os testes funcionam e, se quiser, comece de um modelo pronto.')+
   `${guide}<section class="sed-card"><h3>Nome do sistema</h3>${inp('nome',E.nome,'maxlength="40" aria-label="Nome do sistema"')}</section>${cover}
   <section class="sed-card"><h3>Como o teste funciona</h3><div class="opt2">${tp('pool','Vários d20','Rola um d20 por ponto do atributo e fica com o maior. Perícias somam bônus de treino. É o jeito do Ordem Paranormal.')}${tp('d100','Um d100','Rola 1d100 e tenta tirar o valor da perícia ou menos, com sucesso difícil, extremo e dados de bônus. É o jeito do Call of Cthulhu.')}${tp('soma','Soma de dados','Rola dados e soma o modificador do atributo (d20 + mod, 2d6 + atributo) ou tenta tirar o valor ou menos (3d6). Dá pra definir faixas de resultado.')}</div>${tw}</section>${soma}
@@ -1806,7 +1814,7 @@ function sedEdit(e){
 
 /* ---------- abrir, fechar e salvar ---------- */
 function sysOpen(sec){
-  E=mkDraft(SYS,true);if(SYS===OP)E.nome='Meu sistema';E.sid=D.sid||null;E.base=snap();if(sec)E.sec=sec;sedLabels(false);
+  E=mkDraft(SYS,true);if(SYS===OP)E.nome='Meu sistema';E.sid=D.sid||null;{const en0=E.sid&&libRead().find(x=>x.id===E.sid);E.img=en0&&coverOk(en0.img)?en0.img:''}E.base=snap();if(sec)E.sec=sec;sedLabels(false);
   const ed=$('#sysEd');ed.hidden=false;document.body.style.overflow='hidden';$('#sedAsk').hidden=true;sedRender();
   if(!rm())ed.animate([{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.7,.2,1)'});
   $('#sedMain').focus({preventScroll:true})}
@@ -1849,6 +1857,7 @@ function sysSave(){
   useMold(m);D.mold=moldData();D.sys='custom';if(E.sid){D.sid=E.sid;const le=libRead().find(x=>x.id===E.sid);if(le)D.sv=le.v}else{delete D.sid;delete D.sv}D.attr=newAttr;D.sk=newSk;
   if(m.recursos.length){const nr={};m.recursos.forEach((r,i)=>{const o=E.rc[i].old;nr[r.k]=o!=null&&oldRec[o]!=null?clamp(Math.round(+oldRec[o])||0,0,r.max):r.ini});D.rec=nr}else delete D.rec;
   D.bars=barsIni();if(!tipoMudou)BARS.forEach(([k])=>{if(oldBars[k])D.bars[k]=oldBars[k].slice()});
+  if(E.sid){const l=libRead(),i=l.findIndex(x=>x.id===E.sid),img=coverOk(E.img)?E.img:undefined;if(i>=0&&(l[i].img||undefined)!==img){if(img)l[i].img=img;else delete l[i].img;l[i].t=Date.now();libWrite(l)}}
   sysClose();save();renderAll();syncBars();
   toast('Sistema salvo','Atributos, perícias e contas atualizados nesta ficha.')}
 $('#sedBack').onclick=sedBack;$('#sedSave').onclick=sysSave;
@@ -2628,13 +2637,22 @@ async function shMakeThumb(av){
 
 /* ---- o que dá para publicar ---- */
 const newPid=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),av=typeof j.av==='string'?j.av:'',pid=typeof j.pid==='string'&&/^p[a-z0-9]{6,20}$/.test(j.pid)?j.pid:'',s=noProto(j);delete s.cl;delete s.pid;s.av='';
-  /* cada personagem tem a sua chave: nuvem (cl:) > id próprio (pid:) > ficha guardada (op:id). 'op:live' valia para QUALQUER ficha aberta e fazia a 2ª publicação sobrescrever a 1ª */
-  return{key:(j.cl&&j.cl.id)?'cl:'+j.cl.id:pid?'pid:'+pid:key,legacy:key==='op:live'?[]:[key],av,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
+/* o pid é a identidade do personagem na biblioteca. Cópias (ex.: "… (da nuvem)", "salvar como nova") nascem com o mesmo pid:
+   sem este cuidado a 2ª publicação trocava o conteúdo da 1ª. Quem aparece repetido ganha um pid novo. */
+const PIDOK=/^p[a-z0-9]{6,20}$/;
+function shSrcOp(j,key){if(!j||typeof j!=='object'||!j.attr)return null;const i=slInfo(j),av=typeof j.av==='string'?j.av:'',pid=typeof j.pid==='string'&&PIDOK.test(j.pid)?j.pid:'',s=noProto(j);delete s.cl;delete s.pid;s.av='';
+  /* chave principal = pid (não muda quando a ficha ganha vínculo com a nuvem ou troca de lugar). Os vínculos antigos (nuvem, ficha guardada) ainda são reconhecidos.
+     'op:live' valia para QUALQUER ficha aberta e fazia a 2ª publicação sobrescrever a 1ª: não entra mais. */
+  const cl=(j.cl&&j.cl.id)?'cl:'+j.cl.id:'',main=pid?'pid:'+pid:(cl||key);
+  return{key:main,legacy:[cl,key==='op:live'?'':key].filter(x=>x&&x!==main),av,kind:'personagem',campaign:(s.camp==='nova'||s.sys==='custom')?'nova':'op',title:i.n,summary:i.s==='Sem classe'?'':i.s,payload:{rpg:1,sheet:s}}}
+function shSlotPids(skip){const m=new Set();slIdx().list.forEach(x=>{if(x.id===skip)return;try{const j=JSON.parse(localStorage.getItem(SLK+x.id));if(j&&typeof j.pid==='string')m.add(j.pid)}catch(e){}});return m}
 function shSrcSlot(id){let j=null;try{j=JSON.parse(localStorage.getItem(SLK+id))}catch(e){}
-  if(j&&typeof j==='object'&&j.attr&&!j.pid){j.pid=newPid();try{localStorage.setItem(SLK+id,JSON.stringify(j))}catch(e){}}
+  if(j&&typeof j==='object'&&j.attr){
+    const used=shSlotPids(id);if(D.created&&D.pid)used.add(D.pid);
+    if(!j.pid||!PIDOK.test(j.pid)||used.has(j.pid)){j.pid=newPid();try{localStorage.setItem(SLK+id,JSON.stringify(j))}catch(e){}}}
   return shSrcOp(j,'op:'+id)}
-function shSrcLive(){if(!D.created)return null;if(!D.pid){D.pid=newPid();try{writeNow()}catch(e){}}return shSrcOp(D,'op:live')}
+function shSrcLive(){if(!D.created)return null;
+  if(!D.pid||!PIDOK.test(D.pid)||shSlotPids().has(D.pid)){D.pid=newPid();try{writeNow()}catch(e){}}return shSrcOp(D,'op:live')}
 function shSrcCoc(id){let j=null;try{j=JSON.parse(localStorage.getItem('coc-slot-v1:'+id))}catch(e){}
   if(!j||typeof j!=='object'||j.app!=='coc')return null;const s=noProto(j),av=typeof(j.who&&j.who.av)==='string'?j.who.av:'';s.who=Object.assign({},s.who,{av:''});
   return{key:(()=>{try{const l=JSON.parse(localStorage.getItem('coc-cloud-v1')||'{}')[id];return l&&l.id?'cc:'+l.id:'coc:'+id}catch(e){return'coc:'+id}})(),legacy:['coc:'+id],av,kind:'personagem',campaign:'coc',title:String(s.who.nome||'').trim()||'Investigador sem nome',summary:String(s.who.ocup||''),payload:{rpg:1,sheet:s}}}
@@ -2643,46 +2661,75 @@ function shSrcSys(en){const m=en&&cleanMold(en.mold);if(!m)return null;
 
 /* ---- janela: publicar ---- */
 const AUTHK='rpg-share-author';
+const PBI={lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.4 3.2 14.6 0 18M12 3c-3.2 3.4-3.2 14.6 0 18"/>',
+  ok:'<path d="M5 12.5l4.5 4.5L19 7.5"/>',user:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/>',
+  up:'<path d="M12 15V4M8 7.5l4-4 4 4M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/>'};
+const pbIc=n=>'<svg class="pb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+PBI[n]+'</svg>';
+const PBV=[['private','lock','Privado','Só você vê. Fica na sua conta, sem link e fora do marketplace.'],
+  ['unlisted','link','Por link','Só quem receber o link abre. Não aparece no marketplace.'],
+  ['public','globe','Marketplace','Qualquer pessoa encontra, vê e adiciona. Também ganha link.']];
 function shOpenPublish(src){
   if(!src){toast('Compartilhar','Não consegui ler este item.');return}
-  const had=Share.linked(src.key)||(src.legacy||[]).map(Share.linked).find(Boolean),b=$('#shBody'),a=$('#shAct');
-  $('#shT').textContent=had?'Atualizar publicação':'Compartilhar';b.textContent='';a.textContent='';$('#mShare .mbox').classList.remove('sh-wide');$('#mShare').classList.remove('sh-page');
+  const had=Share.linked(src.key)||(src.legacy||[]).map(Share.linked).find(Boolean),b=$('#shBody'),a=$('#shAct'),box=$('#mShare .mbox');
+  b.textContent='';a.textContent='';box.classList.remove('sh-wide');box.classList.add('pb');$('#mShare').classList.remove('sh-page');
+  $('#shT').textContent=had?'Atualizar publicação':'Publicar na biblioteca';
   if(!cloudUser){
-    b.append(shEl('p',null,'Para compartilhar, entre com a sua conta Google. Quem receber o link, ou abrir o marketplace, não precisa de conta para ver e copiar.'));
-    a.append(shBtn('Entrar','pri',()=>{shClose();closeM('mSl');openCfg('conta')}),shBtn('Cancelar','',shClose));openM('mShare');return}
-  b.innerHTML='<label class="fl"><span>Nome</span><input id="shTi" maxlength="80"></label>'
-    +'<label class="fl"><span>Descrição (opcional)</span><textarea id="shSu" maxlength="300" rows="3"></textarea></label>'
-    +'<label class="fl"><span>Assinar como (opcional)</span><input id="shAu" maxlength="40"></label>'
-    +'<fieldset class="sh-vis"><legend>Quem pode ver</legend>'
-    +'<label class="sh-opt"><input type="radio" name="shVis" value="private"><span><b>Privado</b><small>Só você. Fica guardado na sua conta, sem link e fora do marketplace.</small></span></label>'
-    +'<label class="sh-opt"><input type="radio" name="shVis" value="unlisted" checked><span><b>Compartilhar por link</b><small>Só quem receber o link abre. Não aparece no marketplace.</small></span></label>'
-    +'<label class="sh-opt"><input type="radio" name="shVis" value="public"><span><b>Público no marketplace</b><small>Qualquer pessoa encontra, vê e adiciona. Também ganha link para enviar.</small></span></label></fieldset>'
-    +'<label class="sh-opt sh-photo" id="shPhotoRow" hidden><input type="checkbox" id="shPhoto" checked><span><b>Incluir a foto</b><small>Vai uma miniatura quadrada, visível para quem abrir.</small></span></label>'
-    +'<p id="shNote"></p><p id="shErr" role="alert" class="sh-err"></p>';
-  $('#shTi').value=src.title;$('#shSu').value=src.summary||'';
+    const w=shEl('div','pb-gate');w.innerHTML='<span class="pb-bigic">'+pbIc('user')+'</span><h3>Entre para publicar</h3><p>Use a sua conta Google para publicar. Quem receber o link, ou abrir o marketplace, não precisa de conta para ver e copiar.</p>';
+    b.append(w);a.append(shBtn('Cancelar','',shClose),shBtn('Entrar com Google','pri',()=>{shClose();closeM('mSl');openCfg('conta')}));openM('mShare');return}
+  const isSys=src.kind==='sistema',hasPhoto=!!(src.av&&(src.av.indexOf('data:image/')===0||src.av.indexOf('sb:')===0));
+  b.innerHTML='<div class="pb-hero"><span class="pb-th" id="pbTh" aria-hidden="true"></span><div class="pb-ht"><small class="sc-lb" id="pbKind"></small><b id="pbName"></b><span id="pbSub"></span></div></div>'
+    +(had?'<fieldset class="pb-mode"><legend class="sr">Atualizar ou publicar como novo</legend>'
+      +'<label class="pb-m on"><input type="radio" name="pbMode" value="upd" checked><span><b>Atualizar a publicação existente</b><small>Mantém o mesmo link e troca o conteúdo.</small></span></label>'
+      +'<label class="pb-m"><input type="radio" name="pbMode" value="new"><span><b>Publicar como novo item</b><small>Cria outro link. A publicação antiga continua no ar.</small></span></label></fieldset>':'')
+    +'<section class="pb-sec"><h3>Detalhes</h3>'
+    +'<label class="fl"><span>Nome <em class="pb-cnt" id="shTiN"></em></span><input id="shTi" maxlength="80" autocomplete="off"></label>'
+    +'<label class="fl"><span>Descrição <i>(opcional)</i> <em class="pb-cnt" id="shSuN"></em></span><textarea id="shSu" maxlength="300" rows="3" placeholder="'+(isSys?'Como o sistema funciona, para que tipo de mesa ele serve…':'Quem é o personagem, de onde veio, como joga…')+'"></textarea></label>'
+    +'<label class="fl"><span>Assinar como <i>(opcional)</i></span><input id="shAu" maxlength="40" autocomplete="nickname" placeholder="Seu nome ou apelido"></label></section>'
+    +'<section class="pb-sec"><h3>Quem pode ver</h3><div class="pb-vis" role="radiogroup" aria-label="Quem pode ver">'
+    +PBV.map(([v,ic,t,d])=>'<label class="pb-v'+(v==='unlisted'?' on':'')+'"><input type="radio" name="shVis" value="'+v+'"'+(v==='unlisted'?' checked':'')+'><span class="pb-vi">'+pbIc(ic)+'</span><b>'+t+'</b><small>'+d+'</small></label>').join('')+'</div></section>'
+    +(hasPhoto?'<label class="pb-sw" id="shPhotoRow"><input type="checkbox" id="shPhoto" checked><i aria-hidden="true"></i><span><b>Incluir a '+(isSys?'capa':'foto')+'</b><small>Vai uma miniatura quadrada, visível para quem abrir.</small></span></label>':'')
+    +'<p class="pb-note" id="shNote"></p><p id="shErr" role="alert" class="sh-err"></p>';
+  const ti=$('#shTi'),su=$('#shSu');ti.value=src.title;su.value=src.summary||'';
   let au='';try{au=localStorage.getItem(AUTHK)||''}catch(e){}
   if(!au){try{au=Cloud.accountInfo(cloudUser).name||''}catch(e){}}$('#shAu').value=au.slice(0,40);
-  if(src.av&&(src.av.indexOf('data:image/')===0||src.av.indexOf('sb:')===0))$('#shPhotoRow').hidden=false;
-  $('#shNote').textContent=(src.kind==='sistema'?'O sistema completo ficará acessível.':'A ficha inteira (atributos, inventário, anotações) ficará acessível. Você pode tirar do marketplace ou despublicar quando quiser.')+(had?' Você já publicou este item: publicar de novo atualiza o mesmo link.':'');
-  if(had)Share.mine(had).then(r=>{if(r){const rd=$('#mShare input[name=shVis][value='+(['private','public'].includes(r.visibility)?r.visibility:'unlisted')+']');if(rd)rd.checked=true}}).catch(()=>{});
-  const go=shBtn(had?'Atualizar':'Publicar','pri',async()=>{
-    const err=$('#shErr');err.textContent='';go.disabled=true;go.textContent='Publicando…';
+  $('#pbKind').textContent=shKind({kind:src.kind,campaign:src.campaign});
+  const hero=()=>{const n=ti.value.trim()||'Sem nome';$('#pbName').textContent=n;
+    const ph=$('#shPhoto'),th=$('#pbTh');th.textContent='';
+    if(thumbUrl&&(!ph||ph.checked)){const i=shEl('img');i.alt='';i.src=thumbUrl;th.append(i)}else th.textContent=n.charAt(0).toUpperCase()||'?';
+    $('#pbSub').textContent=su.value.trim()||src.summary||'Sem descrição'};
+  const cnt=()=>{$('#shTiN').textContent=ti.value.length+'/80';$('#shSuN').textContent=su.value.length+'/300'};
+  let thumbUrl=null,thumbP=hasPhoto?shMakeThumb(src.av).catch(()=>null):Promise.resolve(null);
+  if(hasPhoto)thumbP.then(u=>{thumbUrl=u;if(!u){const r=$('#shPhotoRow');if(r)r.hidden=true}hero()});
+  ti.oninput=()=>{hero();cnt()};su.oninput=()=>{hero();cnt()};cnt();hero();
+  const ph0=$('#shPhoto');if(ph0)ph0.onchange=hero;
+  box.querySelectorAll('input[name=shVis]').forEach(r=>r.onchange=()=>box.querySelectorAll('.pb-v').forEach(l=>l.classList.toggle('on',l.querySelector('input').checked)));
+  const note=()=>{const nw=(($('input[name=pbMode]:checked')||{}).value)==='new';
+    $('#shNote').textContent=(isSys?'O sistema completo ficará acessível.':'A ficha inteira (atributos, inventário, anotações) ficará acessível.')+' Você pode tirar do marketplace ou despublicar quando quiser.'+(had&&!nw?' Publicar de novo atualiza o mesmo link.':'')};
+  const goLab=()=>(had?((($('input[name=pbMode]:checked')||{}).value)==='new'?'Publicar como novo':'Atualizar'):'Publicar');
+  note();
+  if(had){Share.mine(had).then(r=>{if(r){const rd=$('#mShare input[name=shVis][value='+(['private','public'].includes(r.visibility)?r.visibility:'unlisted')+']');if(rd){rd.checked=true;rd.onchange()}}}).catch(()=>{});
+    box.querySelectorAll('input[name=pbMode]').forEach(r=>r.onchange=()=>{box.querySelectorAll('.pb-m').forEach(l=>l.classList.toggle('on',l.querySelector('input').checked));note();go.textContent=goLab()})}
+  const go=shBtn(goLab(),'pri',async()=>{
+    const err=$('#shErr');err.textContent='';const lab=go.textContent;go.disabled=true;go.textContent='Publicando…';
     try{const au2=$('#shAu').value.trim();try{localStorage.setItem(AUTHK,au2)}catch(e){}
-      const vis=(($('#mShare input[name=shVis]:checked')||{}).value)||'unlisted';
-      const thumb=(!$('#shPhotoRow').hidden&&$('#shPhoto').checked)?await shMakeThumb(src.av):null;
-      const r=await Share.publish({key:src.key,legacy:src.legacy,kind:src.kind,campaign:src.campaign,title:$('#shTi').value,summary:$('#shSu').value,author:au2,visibility:vis,thumb,payload:src.payload});
-      shDone(r,$('#shTi').value.trim());shMineRender();if(vis==='public')shCatRender(false)}
-    catch(e){err.textContent=cloudError(e);go.disabled=false;go.textContent=had?'Atualizar':'Publicar'}});
-  a.append(go,shBtn('Cancelar','',shClose));openM('mShare');setTimeout(()=>{try{$('#shTi').focus()}catch(e){}},60)}
+      const vis=(($('#mShare input[name=shVis]:checked')||{}).value)||'unlisted',asNew=had&&(($('input[name=pbMode]:checked')||{}).value)==='new';
+      const ph=$('#shPhoto'),thumb=(ph&&!$('#shPhotoRow').hidden&&ph.checked)?(thumbUrl||await thumbP):null;
+      const r=await Share.publish({key:src.key,legacy:src.legacy,kind:src.kind,campaign:src.campaign,title:ti.value,summary:su.value,author:au2,visibility:vis,thumb,payload:src.payload,asNew});
+      shDone(r,ti.value.trim());shMineRender();if(vis==='public')shCatRender(false)}
+    catch(e){err.textContent=cloudError(e);go.disabled=false;go.textContent=lab}});
+  a.append(shBtn('Cancelar','',shClose),go);openM('mShare');setTimeout(()=>{try{ti.focus()}catch(e){}},60)}
 function shDone(r,title){
   const url=Share.link(r.code),b=$('#shBody'),a=$('#shAct'),pub=r.visibility==='public',pv=r.visibility==='private';
   $('#shT').textContent=r.updated?'Publicação atualizada':(pv?'Salvo como privado':'Publicado!');b.textContent='';a.textContent='';
-  b.append(shEl('p',null,pv?'Só você vê este item. Para compartilhar, mude para "Compartilhar por link" ou "Público no marketplace" em Meus compartilhamentos (no seu perfil).':pub?'Já está no marketplace, na aba Biblioteca. Se quiser, mande também o link:':'Mande este link. Quem abrir vê uma prévia e escolhe se quer adicionar à própria biblioteca.'));
-  if(!pv){const inp=shEl('input','in sh-link');inp.readOnly=true;inp.value=url;inp.setAttribute('aria-label','Link para compartilhar');inp.onfocus=()=>inp.select();b.append(inp);
-    const c=shBtn('Copiar link','pri',()=>shCopy(url,c));a.append(c);
+  const ok=shEl('div','pb-done');ok.innerHTML='<span class="pb-bigic ok">'+pbIc('ok')+'</span>';
+  ok.append(shEl('h3',null,title||'Pronto'),shEl('p',null,pv?'Só você vê este item. Para compartilhar, mude para "Por link" ou "Marketplace" em Meus compartilhamentos (no seu perfil).':pub?'Já está no marketplace, na aba Biblioteca. Se quiser, mande também o link:':'Mande este link. Quem abrir vê uma prévia e escolhe se quer adicionar à própria biblioteca.'));b.append(ok);
+  if(!pv){const row=shEl('div','pb-link'),inp=shEl('input','in sh-link');inp.readOnly=true;inp.value=url;inp.setAttribute('aria-label','Link para compartilhar');inp.onfocus=()=>inp.select();
+    const c=shBtn('Copiar','pri sm',()=>shCopy(url,c));row.append(inp,c);b.append(row);
     if(navigator.share)a.append(shBtn('Enviar…','',()=>{navigator.share({title:title||'Ficha',url}).catch(()=>{})}))}
-  b.append(shEl('p','sh-small','Versão '+r.version+'. Para mudar quem vê ou tirar do ar, abra Meus compartilhamentos no seu perfil.'));
-  a.append(shBtn('Fechar','',shClose))}
+  b.append(shEl('p','sh-small pb-ver','Versão '+r.version+'. Para mudar quem vê ou tirar do ar, abra Meus compartilhamentos no seu perfil.'));
+  a.append(shBtn('Fechar','pri',shClose))}
 
 /* ---- resumo e ficha completa: só valores limpos ---- */
 const SHVALID=row=>{
@@ -2753,7 +2800,7 @@ function shAuthor(row,side){
     if(!row.author_name)return;   /* SQL novo ainda não rodou: usa a busca pelo nome, como antes */
     return Share.listPublic({q:row.author_name,kind:'',campaign:'',sort:'popular',page:0}).then(r=>fill(null,r.rows.filter(x=>x.id!==row.id&&x.author_name===row.author_name).slice(0,4)))}).catch(()=>{})}
 async function shOpenView(code){
-  const b=$('#shBody'),a=$('#shAct');$('#mShare').classList.add('sh-page');$('#mShare .mbox').classList.add('sh-wide');
+  const b=$('#shBody'),a=$('#shAct');$('#mShare').classList.add('sh-page');$('#mShare .mbox').classList.remove('pb');$('#mShare .mbox').classList.add('sh-wide');
   $('#shT').textContent='Biblioteca';b.textContent='';a.textContent='';
   b.append(shEl('p','sv-load','Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
   let row=null,err='';const hit=shVC.get(code);

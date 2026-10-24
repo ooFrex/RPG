@@ -83,3 +83,9 @@ Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar**
 - Moderação: 5 denúncias de contas diferentes escondem o item sozinho; você revisa e restaura no SQL Editor (comandos no fim do `shared_items.sql`).
 - O que chega de fora nunca é confiado: sistemas passam por `cleanMold()`, fichas por `normalize()` ao abrir, e a visualização somente leitura monta só valores limpos, via `textContent`.
 - O JSON/código `RPG1:` continua como backup offline (Configurações e editor de sistemas).
+
+## Publicar vários personagens / capa do sistema (v18)
+- Cada personagem tem um `pid` próprio e é publicado com a chave `pid:…` (não muda quando a ficha ganha vínculo com a nuvem). Cópias com o mesmo `pid` (ex.: "… (da nuvem)") ganham um pid novo ao publicar, então uma publicação nunca troca o conteúdo de outra.
+- A janela de publicar tem "Atualizar a publicação existente" ou "Publicar como novo item" (`asNew` em `Share.publish`).
+- Sistemas próprios aceitam imagem de capa: botão direto no detalhe do sistema (Sistemas) e no editor. A capa vira a foto do sistema ao compartilhar.
+- O card "Ficha aberta" da tela Sistemas foi removido.

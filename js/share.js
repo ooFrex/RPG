@@ -65,10 +65,16 @@ window.Share = (function () {
       payload: a.payload
     };
     if (!row.title) throw new Error('Dê um nome ao item.');
-    const ok = a.key ? String(a.key).slice(0, 80) : null;
-    let prev = a.key && linked(a.key);
-    if (!prev && a.legacy) prev = a.legacy.map(linked).find(Boolean) || null;   // vínculo antigo (só neste aparelho)
-    if (!prev) prev = await byOrigin(c, ok);                                     // vínculo na conta: vale em qualquer aparelho
+    /* asNew: publica como um item NOVO (não mexe na publicação anterior). A chave de origem ganha um sufixo para não bater no índice único;
+       depois o vínculo local passa a apontar para o item novo. */
+    const ok = a.key ? (a.asNew ? String(a.key).slice(0, 72) + '#' + Math.random().toString(36).slice(2, 6) : String(a.key).slice(0, 80)) : null;
+    let prev = null;
+    if (!a.asNew) {
+      prev = a.key && linked(a.key);
+      if (!prev && a.legacy) prev = a.legacy.map(linked).find(Boolean) || null;   // vínculo antigo (só neste aparelho)
+      if (!prev) prev = await byOrigin(c, ok);                                     // vínculo na conta: vale em qualquer aparelho
+      if (!prev && a.legacy) for (const k of a.legacy) { prev = await byOrigin(c, String(k).slice(0, 80)); if (prev) break; }
+    }
     if (prev) {
       let r = await c.from('shared_items').update(Object.assign({ origin_key: ok }, row)).eq('id', prev).select('id,version,visibility');
       if (r.error && /origin_key|duplicate|unique/i.test(r.error.message || '')) r = await c.from('shared_items').update(row).eq('id', prev).select('id,version,visibility');
