@@ -26,7 +26,7 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
     scripts/build.mjs  gera dist/ com JS/CSS minificados (npm install && npm run build)
     supabase/user_systems.sql  sistemas próprios sincronizados com a conta (aplicar uma vez; precisa do updated_at_trigger.sql)
     js/nav.js         botão voltar (fecha a camada de cima em vez de sair do site) e puxar para recarregar
-    js/util.js        utilitários comuns ($, $$, wait, rnd, clamp, esc, fmt, cloudError, warn)
+    js/util.js        utilitários comuns ($, $$, wait, rnd, clamp, esc, fmt, cloudError, warn, ask, blobToDataUrl, imageFileToSquareJpeg)
     js/op.js          lógica da OP
     js/coc.js         lógica do CoC
     js/dicefx.js      dados 3D com física (OP e CoC, paleta própria de cada um); carrega js/vendor/* sob demanda
@@ -64,6 +64,12 @@ Quem entra na conta tem todos os personagens sincronizados sozinho, sem apertar 
 - `campaigns`: RLS ligado e sem políticas (fechada); este front não usa.
 - Todas as imagens do CoC (logo, fundo, card em Sistemas/Meus agentes e ícones) vêm do bucket `ficha-assets`; nada depende do GitHub e não há mais imagem local do CoC (só o som dos dados, `assets/dice.mp3`).
 - O login é só pelo Google (não há senha nem link por e-mail), então "Leaked password protection" não se aplica. No painel Auth, o provedor Email pode ser desativado para não deixar a porta aberta.
+
+## Limpeza (v26)
+- Removidas funções sem uso (`cocSync`, `startCustom`, `imageFileToBannerJpeg`, `shDescEl`, `shOpenFull`, `allOptions`), o modal `mView` e ~57 classes de CSS.
+- A abertura aparece só na primeira vez da sessão (`sessionStorage`, chave `op-splash-v1`).
+- `Util.ask(msg, {title, ok, cancel})` é a confirmação própria (Promise<boolean>); substitui o `confirm()` nativo, exceto em `slNoRoom` (op.js), que é síncrono.
+- Cuidado com CSS: classes como `e-${elemento}` e `im-${k}` são montadas por texto, não apague por busca simples.
 
 ## Pendente
 - Os helpers específicos de cada sistema (toast, modais, edge, shake, parseF/evalF) continuam em op.js e coc.js porque o HTML e o comportamento são diferentes.

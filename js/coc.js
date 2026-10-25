@@ -8,7 +8,7 @@ const GI=ic=>GHI[ic]?'<i class="gi '+GHI[ic]+'" aria-hidden="true"></i>':'';
 /* =====================================================================
    UTILITÁRIOS
    ===================================================================== */
-const {$,$$,wait,rnd,clamp,esc,fmt,cloudError}=Util;
+const {$,$$,wait,rnd,clamp,esc,fmt,cloudError,blobToDataUrl,imageFileToSquareJpeg}=Util;
 const num=(v,d)=>{v=Number(v);return Number.isFinite(v)?v:(d||0)};
 const int=(v,a,b,d)=>clamp(Math.round(num(v,d)),a,b);
 const str=(v,n)=>String(v==null?'':v).slice(0,n||200);
@@ -807,11 +807,6 @@ function paintAvatar(){
     const t=++avTok;avUrl(v.slice(3)).then(u=>{if(t===avTok&&D.who.av===v){im.src=u;im.hidden=false}}).catch(hide)}
   else{im.src=v;im.hidden=false}
 }
-function imageFileToSquareJpeg(file,size,quality){return new Promise((resolve,reject)=>{
-  const url=URL.createObjectURL(file),img=new Image();
-  img.onload=()=>{try{const side=Math.min(img.naturalWidth,img.naturalHeight),c=document.createElement('canvas');c.width=c.height=size;c.getContext('2d').drawImage(img,(img.naturalWidth-side)/2,(img.naturalHeight-side)/2,side,side,0,0,size,size);c.toBlob(b=>{URL.revokeObjectURL(url);b?resolve(b):reject(new Error('Não foi possível processar a imagem.'))},'image/jpeg',quality)}catch(e){URL.revokeObjectURL(url);reject(e)}};
-  img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('O arquivo não é uma imagem válida.'))};img.src=url})}
-const blobToDataUrl=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b)});
 /* apaga o arquivo antigo do bucket, a não ser que outra ficha deste aparelho ainda use o mesmo */
 function dropAvatar(prev){
   if(!prev||!prev.startsWith('sb:')||!cloudClient||!cloudUser||prev.slice(3).indexOf(cloudUser.id+'/')!==0)return;
@@ -1248,8 +1243,10 @@ const curCloudId=()=>{try{const ix=idxLoad(),m=JSON.parse(localStorage.getItem('
 function cloudSaveLabel(){$('#cloudSave').textContent=curCloudId()?'Salvar alterações desta ficha':'Salvar na nuvem'}
 /* adaptador da sincronização: a ficha aberta (D) + os outros investigadores guardados neste aparelho */
 const cocAd=()=>Cloud.cocAdapter({userId:cloudUser.id,live:{get:()=>D,set:sh=>{clearTimeout(saveT);D=normalize(sh);flush();renderAll()},touch:()=>{flush();paintAvatar()}}});
-let autoT=0,autoRun=false;
-async function cocAutoSync(force){
+let autoT=0,autoRun=false,autoP=null;
+/* se já há uma sincronização rodando, devolve a mesma promessa (o puxar para recarregar espera ela terminar) */
+function cocAutoSync(force){if(autoRun&&autoP)return autoP;autoP=cocAutoSyncRun(force);return autoP}
+async function cocAutoSyncRun(force){
   if(!cloudClient||!cloudUser||autoRun)return;
   if(!force&&Date.now()-autoT<20000)return;
   autoRun=true;Cloud.ui.pending();
@@ -1348,7 +1345,7 @@ $('#cloudProfileSave').onclick=saveCocCloudProfile;$('#cloudAvatarPick').onclick
 $('#cloudAvatarFile').addEventListener('change',e=>{const file=e.target.files?.[0];if(file)void saveCocCloudAvatar(file);e.target.value=''});
 $('#cloudSave').onclick=()=>syncCocCloud(true,false);$('#cloudSaveNew').onclick=()=>syncCocCloud(true,true);$('#cloudRefresh').onclick=loadCocCloudList;
 $('#cloudList').addEventListener('click',async e=>{
-  const button=e.target.closest('[data-cloud-id]');if(!button||!cloudUser)return;if(!confirm('Carregar este investigador? Ele substituirá a ficha aberta neste aparelho. Exporte um backup antes para guardá-la.'))return;
+  const button=e.target.closest('[data-cloud-id]');if(!button||!cloudUser)return;if(!await Util.ask('Carregar este investigador? Ele substituirá a ficha aberta neste aparelho. Exporte um backup antes para guardá-la.',{title:'Carregar investigador',ok:'Carregar'}))return;
   button.disabled=true;$('#cloudMsg').textContent='Carregando ficha…';
   try{const {data,error}=await cloudClient.from(CLOUD_TABLE).select('id,name,sheet,updated_at').eq('id',button.dataset.cloudId).eq('user_id',cloudUser.id).eq('campaign','coc').single();if(error)throw error;
     if(!data.sheet||data.sheet.app!=='coc')throw new Error('A ficha selecionada não é uma ficha CoC.');
@@ -1806,15 +1803,6 @@ function s3(){
 }
 
 /* ---------- etapa 4 ---------- */
-function allOptions(cur,taken){
-  const era=W.era;
-  return CATS.map(([c,t])=>{
-    const ids=SK0.filter(s=>s.c===c&&!s.slot&&!s.nt&&(!s.mod||era==='mod')).map(s=>s.id);
-    const ops=ids.map(id=>'<option value="'+id+'"'+(cur===id?' selected':'')+(taken.has(id)&&cur!==id?' disabled':'')+'>'+esc(skName(id))+'</option>');
-    if(SLOTS[c])ops.push('<option value="'+c+':*"'+(cur&&cur.indexOf(c+':')===0?' selected':'')+'>'+PRE[c]+' (outra especialidade)</option>');
-    return ops.length?'<optgroup label="'+t+'">'+ops.join('')+'</optgroup>':'';
-  }).join('');
-}
 function slotRowHTML(i,d,as,taken){
   const sel=W.sel[i]||{v:''},v=sel.v,id=as.ids[i],res=slotResolved(i);
   let nm;

@@ -8,6 +8,7 @@
 window.vibOn=function(){try{return localStorage.getItem("op-ficha-vib")!=="0"}catch(e){return true}};window.dice3dOn=function(){try{return localStorage.getItem("op-ficha-3d")!=="0"}catch(e){return true}};window.carOn=function(){try{return localStorage.getItem("op-ficha-car")!=="0"}catch(e){return true}};
 window.uiApply=function(u){u=u||uiLoad();var st=R.style;[["--pur",u.acc],["--kr",u.acc],["--gold",u.gold]].forEach(function(p){if(/^#[0-9a-f]{6}$/i.test(p[1]))st.setProperty(p[0],p[1]);else st.removeProperty(p[0])});
 if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs");R.classList.toggle("hc",!!u.hc)};uiApply()})();</script>
+<script>try{if(sessionStorage.getItem("op-splash-v1")==="1")document.documentElement.dataset.sp="1"}catch(e){}</script>
 <script>try{var t=localStorage.getItem("op-ficha-tema");if(/^(sangue|morte|energia|conhecimento|medo)$/.test(t))document.documentElement.dataset.theme=t}catch(e){}</script>
 <script>try{var c=navigator.connection||{},l=localStorage.getItem("op-lite");if(l==="1"||(l!=="0"&&((navigator.hardwareConcurrency||8)<=4||(navigator.deviceMemory||8)<=4||c.saveData||matchMedia("(max-width:700px)").matches)))document.documentElement.classList.add("lite")}catch(e){}</script>
 <title>Ficha — Ordem Paranormal</title>
@@ -19,7 +20,7 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/op.css?v=14">
+<link rel="stylesheet" href="css/op.css?v=15">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Ficha RPG">
 <meta property="og:title" content="Ficha RPG — Ordem Paranormal e Call of Cthulhu"><meta property="og:description" content="Crie fichas, compartilhe personagens e sistemas e explore a Biblioteca online.">
 <meta property="og:image" content="https://oofrex.github.io/RPG/img/opw.jpg"><meta property="og:url" content="https://oofrex.github.io/RPG/"><meta name="twitter:card" content="summary_large_image">
@@ -496,10 +497,6 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
   <div class="sh-body" id="shBody"></div>
   <div class="rowb" id="shAct"></div>
 </div></div>
-<div class="modal" id="mView" hidden><div class="mbox wide sh-full" role="dialog" aria-modal="true" aria-labelledby="vwT">
-  <div class="vw-head"><div><small class="sc-lb">SOMENTE LEITURA</small><h2 id="vwT"></h2></div><div class="rowb" id="vwAct"></div></div>
-  <div class="vw-body" id="vwBody"></div>
-</div></div>
 <section id="cocView" hidden role="dialog" aria-modal="true" aria-label="Ficha de Call of Cthulhu"><iframe id="cocFrame" title="Ficha de Call of Cthulhu"></iframe></section>
 <!-- passo a passo de criação (montado pelo editor de blocos) -->
 <section id="cw" hidden role="dialog" aria-modal="true" aria-label="Criar personagem">
@@ -510,16 +507,16 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 </section>
 <input type="file" id="avFile" accept="image/*" hidden>
 
-<script src="js/config.js?v=13"></script>
+<script src="js/config.js?v=14"></script>
 <script src="js/vendor/supabase.js" onerror="document.write('<script src=&quot;https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1&quot;><\/script>')"></script>
-<script src="js/cloud.js?v=15"></script>
+<script src="js/cloud.js?v=16"></script>
 <script src="js/coc-names.js?v=13"></script>
 <script src="js/share.js?v=14"></script>
 <script src="js/friends.js?v=1"></script>
 <script src="js/assets.js?v=13"></script>
-<script src="js/util.js?v=13"></script>
+<script src="js/util.js?v=14"></script>
 <script src="js/imgcrop.js?v=14"></script>
-<script src="js/op.js?v=16"></script>
+<script src="js/op.js?v=18"></script>
 <script src="js/announce.js?v=13"></script>
 <script src="js/dicefx.js?v=13"></script>
 <script src="js/nav.js?v=2"></script>

@@ -3,6 +3,15 @@
 window.Cloud = (function () {
   /* falha silenciosa de gravação/exclusão: ao menos fica no console (Util.warn, com limite de repetição) */
   const warn = (ctx, e) => { if (window.Util && Util.warn) Util.warn('cloud: ' + ctx, e); else { try { console.warn('[cloud: ' + ctx + ']', e && e.message || e); } catch (_) {} } };
+  /* pergunta ao usuário (diálogo próprio de util.js; cai no confirm() nativo se o util ainda não carregou).
+     Perguntas iguais feitas ao mesmo tempo compartilham a mesma janela. */
+  const _ask = {};
+  const askUser = (msg, o) => {
+    if (_ask[msg]) return _ask[msg];
+    const p = (window.Util && Util.ask ? Util.ask(msg, o) : Promise.resolve(typeof confirm === 'function' ? confirm(msg) : true));
+    _ask[msg] = p; const clear = () => { delete _ask[msg]; }; p.then(clear, clear);
+    return p;
+  };
   let client = null;
   try { if (window.parent !== window && window.parent.Cloud) client = window.parent.Cloud.client; } catch (e) {}
   if (!client && window.supabase) client = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_KEY);
@@ -167,7 +176,7 @@ window.Cloud = (function () {
       if (foreign.length) {
         let ok = false; try { ok = sessionStorage.getItem('rpg-foreign-ok:' + ad.userId) === '1'; } catch (x) {}
         if (!ok) {
-          if (typeof confirm === 'function' && !confirm('Este aparelho tem personagens ligados a outra conta. Enviar uma cópia deles para a conta atual? (Cancelar não envia nada.)')) return Object.assign(st, { aborted: true });
+          if (!(await askUser('Este aparelho tem personagens ligados a outra conta. Enviar uma cópia deles para a conta atual? Se você cancelar, nada é enviado.', { title: 'Personagens de outra conta', ok: 'Enviar cópia', cancel: 'Não enviar' }))) return Object.assign(st, { aborted: true });
           try { sessionStorage.setItem('rpg-foreign-ok:' + ad.userId, '1'); } catch (x) {}
         }
         foreign.forEach(e => e.setLink(null));
@@ -351,7 +360,7 @@ window.Cloud = (function () {
       if (foreign.length) {
         let ok = false; try { ok = sessionStorage.getItem('rpg-foreign-sys-ok:' + ad.userId) === '1'; } catch (x) {}
         if (!ok) {
-          if (typeof confirm === 'function' && !confirm('Este aparelho tem sistemas ligados a outra conta. Enviar uma cópia deles para a conta atual? (Cancelar não envia nada.)')) { st.aborted = true; return st; }
+          if (!(await askUser('Este aparelho tem sistemas ligados a outra conta. Enviar uma cópia deles para a conta atual? Se você cancelar, nada é enviado.', { title: 'Sistemas de outra conta', ok: 'Enviar cópia', cancel: 'Não enviar' }))) { st.aborted = true; return st; }
           try { sessionStorage.setItem('rpg-foreign-sys-ok:' + ad.userId, '1'); } catch (x) {}
         }
         mut(l => l.forEach(x => { if (x.cloud && x.cloud.uid !== ad.userId) delete x.cloud; }));

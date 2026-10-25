@@ -1,7 +1,7 @@
 
 (function(){
 'use strict';
-const {$,$$,wait,rnd,clamp,esc,fmt,cloudError}=Util;
+const {$,$$,wait,rnd,clamp,esc,fmt,cloudError,blobToDataUrl,imageFileToSquareJpeg}=Util;
 const WR=32.5; /* raio dos hexágonos de atributo (% da roda) */
 
 /* ---------- dados do sistema ---------- */
@@ -558,8 +558,6 @@ async function syImPick(id,k){
   catch(err){syCoverMsg=(err&&err.message)||'Não consegui usar essa imagem.'}
   syGrid();syDet(false)}
 /* ===== ficha de Call of Cthulhu, dentro deste arquivo (tela cheia isolada) ===== */
-function cocSync(){const f=$('#cocFrame'),d=f.contentDocument&&f.contentDocument.documentElement;if(!d)return;const t=document.documentElement.dataset.theme;if(t)d.dataset.theme=t;else delete d.dataset.theme;
-  const u=uiLoad();[['--teal',u.acc],['--brass',u.gold]].forEach(([v,c])=>{if(/^#[0-9a-f]{6}$/i.test(c))d.style.setProperty(v,c);else d.style.removeProperty(v)})}
 function cocIdx(){try{const x=JSON.parse(localStorage.getItem('coc-idx-v1'));if(x&&Array.isArray(x.list))return x}catch(e){}
   /* investigador salvo antes da lista existir: vira o primeiro item */
   try{const raw=localStorage.getItem('coc-ficha-v1'),j=raw&&JSON.parse(raw);if(j&&typeof j==='object'&&(j.made||(j.who&&j.who.nome))){const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6),x={v:1,cur:id,list:[{id,nome:(j.who&&j.who.nome)||'Investigador sem nome',ocup:(j.who&&j.who.ocup)||'',t:Date.now()}]};
@@ -1201,7 +1199,7 @@ window.NavHooks={top:()=>LY.top(),closeCoc:()=>closeCoc(),homeRoot:()=>!D.create
   soft:async()=>{let did=false;
     if(cloudClient&&cloudUser){did=true;await autoSync(true);await Promise.all([loadCloudList(),frRefresh().catch(()=>{})])}
     if(!$('#mSl').hidden&&scrMode==='shop'){did=true;await shCatRender(false);if(cloudUser)await shMineRender()}
-    if(did){slRender();if(scrMode==='sys'&&!$('#mSl').hidden){syGrid();syDet(false)}}
+    if(did){slRender();if(!$('#home').hidden)homeFill();if(scrMode==='sys'&&!$('#mSl').hidden){syGrid();syDet(false)}}
     return did},
   flush:()=>{try{if(saveT!==null)writeNow()}catch(e){}try{cocFlush()}catch(e){}}};
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!rov.hidden){closeRoll();return}const t=LY.top();if(t&&t.classList.contains('modal')){e.preventDefault();e.stopImmediatePropagation();t.hidden=true}});
@@ -1259,7 +1257,6 @@ function cwClose(){$('#cw').hidden=true;if($('#sysEd').hidden)document.body.styl
 const cwLeft=(b,id)=>{const S=CW.S,base=S.base[id]||(S.base[id]=Object.assign({},S.attr));return b.pontos-CW.M.atributos.reduce((a,x)=>a+(S.attr[x.k]-base[x.k]),0)};
 const cwOther=(id,n)=>Object.entries(CW.S.pts).reduce((s,[bid,o])=>bid===id?s:s+(o[n]||0),0);
 const cwPts=(b,id)=>{const tot=Math.floor(calcWith(b.f,CW.S.attr,0)),used=Object.values(CW.S.pts[id]||{}).reduce((a,v)=>a+v,0);return{tot,used,left:tot-used}};
-const cwD100=()=>CW.M.teste.tipo==='d100';
 const cwTipo=()=>CW.M.teste.tipo;
 const cwCalc=(f,at)=>{const S=CW.S,v=evalF(f,Object.assign({PE:numf(S.f.pe),NIVEL:numf(S.f.nivel),NEX:numf(S.f.nex)},at||S.attr));return v==null?0:v};
 function cwCond(b,at){const x=cwCalc(b.e1,at),y=cwCalc(b.e2,at);return b.op==='>='?x>=y:b.op==='<='?x<=y:b.op==='>'?x>y:b.op==='<'?x<y:b.op==='='?x===y:x!==y}
@@ -1399,7 +1396,6 @@ const imSrc=(k,v)=>IMOK[k](v)?(v.indexOf('site:')===0?siteUrl(k,v.slice(5)):v):s
 const IMD={pic:{n:'Foto',d:'Quadrada. Aparece no card e vira a foto do sistema no marketplace.',w:256,h:256,round:true},
   img:{n:'Banner',d:'Fundo largo do card do sistema.',w:480,h:270},
   logo:{n:'Logo',d:'Aparece sobre o banner, no card do sistema.',w:360,h:120,contain:true}};
-const blobToUrl=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b)});
 /* escolhe (envio ou padrão do site), enquadra e devolve o valor a guardar: 'site:id', data URL, '' (voltar ao padrão) ou null (cancelou) */
 async function imPick(k,cur){
   const d=IMD[k],ch=await ImgCrop.chooser({title:d.n+' do sistema',logo:k==='logo',canReset:IMOK[k](cur),resetLabel:'Voltar ao padrão do site',
@@ -1944,13 +1940,6 @@ $('#sedMain').addEventListener('input',e=>{if(E)sedEdit(e)});$('#sedMain').addEv
 $('#sedMain').addEventListener('focusin',e=>{const t=e.target;if(E&&t&&t.dataset&&t.dataset.fx){if(!t.id)t.id='fx'+Date.now().toString(36)+Math.floor(Math.random()*999);E.focus=t.id}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||!E||CW)return;e.preventDefault();if(!$('#sedAsk').hidden)$('#sedAsk').hidden=true;else sedBack()});
 $('#cfSys').onclick=()=>{closeM('mSl');sysOpen()};
-function startCustom(base){
-  clearTimeout(cloudSaveT);activeCloudId=null;const cfg=D.cfg;
-  const raw=base==='op'?Object.assign({},OP,{nome:'Meu sistema',atributos:OP.atributos.slice().sort((a,b)=>a.roda-b.roda),itens:opItems()}):
-    base==='coc'?Object.assign({},SYSTEMS.coc,{nome:'Meu sistema'}):
-    {nome:'Meu sistema',atributos:[{k:'ATR1',n:'Atributo 1'},{k:'ATR2',n:'Atributo 2'},{k:'ATR3',n:'Atributo 3'}],pericias:[],formulas:{dt:'10 + PE',carga:'5'}};
-  if(!slPush())return;
-  useMold(cleanMold(raw));D=fresh();D.cfg=cfg;D.created=true;D.camp='nova';save();renderAll();closeM('mNova');go('char',1);sysOpen()}
 $('#nvOp').onclick=()=>{closeM('mNova');sysOpenLib(null,'op')};$('#nvCoc').onclick=()=>{closeM('mNova');sysOpenLib(null,'coc')};$('#nvZero').onclick=()=>{closeM('mNova');sysOpenLib(null,'zero')};
 
 /* ---------- editor de blocos: passo a passo de criação ---------- */
@@ -2242,7 +2231,7 @@ async function autoSyncRun(force){
     if(!aborted){await sysSync();await prefsSync()}
     autoT=Date.now();if(!aborted)cloudConflict=false;
     if(aborted)Cloud.ui.fail(new Error('sincronização cancelada'));else Cloud.ui.ok();
-    if(ch){slRender();cloudSaveLabel();void loadCloudList()}
+    if(ch){slRender();if(!$('#home').hidden)homeFill();cloudSaveLabel();void loadCloudList()}
     if(created)toast('Nuvem',created+(created===1?' personagem baixado':' personagens baixados')+' da sua conta.');
     if(conf)toast('Nuvem','Um personagem mudou nos dois lugares. Guardei as duas versões.')}
   catch(err){Cloud.ui.fail(err);console.error('Falha na sincronização:',err)}
@@ -2365,12 +2354,6 @@ $('#pfEdit').onclick=()=>{cfgView(true);if(window.cfgTab)window.cfgTab('conta');
   if(t){t.scrollIntoView({behavior:rm()?'auto':'smooth',block:'start'});if(cloudUser)setTimeout(()=>$('#cloudDisplayName').focus({preventScroll:true}),300)}};
 function pfLoad(d){pf={bio:String(d.bio||'').slice(0,200),banner:typeof d.banner_path==='string'?d.banner_path:null,accent:/^#[0-9a-fA-F]{6}$/.test(d.accent||'')?d.accent:'',pub:!!d.public_profile,nPub:pf.nPub};
   pfSwInit();$('#pfPublic').checked=pf.pub;$('#pfBioIn').value=pf.bio;$('#pfCount').textContent=pf.bio.length+'/200';pfPaint(true)}
-function imageFileToBannerJpeg(file,w,h,q){return new Promise((res,rej)=>{
-  const url=URL.createObjectURL(file),img=new Image();
-  img.onload=()=>{try{const r=Math.max(w/img.naturalWidth,h/img.naturalHeight),sw=w/r,sh=h/r,c=document.createElement('canvas');c.width=w;c.height=h;
-    c.getContext('2d').drawImage(img,(img.naturalWidth-sw)/2,(img.naturalHeight-sh)/2,sw,sh,0,0,w,h);
-    c.toBlob(bl=>{URL.revokeObjectURL(url);bl?res(bl):rej(new Error('Não foi possível processar a imagem.'))},'image/jpeg',q)}catch(e){URL.revokeObjectURL(url);rej(e)}};
-  img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('Imagem inválida.'))};img.src=url})}
 async function pfSetBanner(file){
   if(!cloudClient||!cloudUser||!file)return;const m=$('#cloudProfileMsg');
   if(!/^image\/(jpeg|png|webp)$/.test(file.type)){m.textContent='Escolha uma imagem JPG, PNG ou WebP.';return}
@@ -2525,7 +2508,7 @@ $('#cloudSaveNew').onclick=()=>syncCloud(true,true);
 $('#cloudRefresh').onclick=loadCloudList;
 $('#cloudList').addEventListener('click',async e=>{
   const b=e.target.closest('[data-cloud-id]');if(!b||!cloudClient||!cloudUser)return;
-  if(!confirm('Carregar esta ficha? A ficha aberta neste aparelho fica guardada em Meus agentes.'))return;
+  if(!await Util.ask('Carregar esta ficha? A ficha aberta neste aparelho fica guardada em Meus agentes.',{title:'Carregar ficha',ok:'Carregar'}))return;
   b.disabled=true;$('#cloudMsg').textContent='Carregando ficha…';
   const {data,error}=await cloudClient.from(CLOUD_TABLE).select('id,name,sheet,updated_at').eq('id',b.dataset.cloudId).eq('campaign','op').single();
   if(error){$('#cloudMsg').textContent='Não foi possível carregar a ficha: '+cloudError(error);b.disabled=false;return}
@@ -2537,12 +2520,6 @@ $('#cloudList').addEventListener('click',async e=>{
 
 /* ---------- identidade e retrato ---------- */
 [['f-jog','jog'],['f-pers','pers'],['f-ori','ori'],['f-cls','cls'],['f-nivel','nivel'],['f-nex','nex'],['f-pe','pe'],['f-desl','desl']].forEach(([id,k])=>{const el=$('#'+id);el.addEventListener('input',()=>{D[k]=el.value;save();if(k==='pe'||k==='nivel'||k==='nex'||k==='cls'){dtRefresh();if(k!=='pe')syncBars()}});el.addEventListener('change',()=>{D[k]=el.value;save()})});
-function imageFileToSquareJpeg(file,size,quality){return new Promise((resolve,reject)=>{
-  const url=URL.createObjectURL(file),img=new Image();
-  img.onload=()=>{try{const side=Math.min(img.naturalWidth,img.naturalHeight),canvas=document.createElement('canvas');canvas.width=canvas.height=size;canvas.getContext('2d').drawImage(img,(img.naturalWidth-side)/2,(img.naturalHeight-side)/2,side,side,0,0,size,size);canvas.toBlob(blob=>{URL.revokeObjectURL(url);blob?resolve(blob):reject(new Error('Não foi possível processar a imagem.'))},'image/jpeg',quality)}catch(error){URL.revokeObjectURL(url);reject(error)}};
-  img.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('O arquivo não é uma imagem válida.'))};img.src=url;
-})}
-function blobToDataUrl(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(blob)})}
 $('#avatar').onclick=()=>$('#avFile').click();
 $('#avFile').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{
   const cvs=await ImgCrop.pick(f,{w:256,h:256,round:true,title:'Enquadrar retrato'});if(!cvs)return;
@@ -2701,8 +2678,6 @@ $('#wzFoot').addEventListener('click',async e=>{const b=e.target.closest('[data-
 [['d-a','a'],['d-p','p'],['d-h','h'],['d-o','o']].forEach(([id,k])=>$('#'+id).addEventListener('input',e=>{D.desc[k]=e.target.value;save()}));
 $('#bNew').onclick=()=>{fromMenu=false;menuSys=null;startNew()};
 /* ---------- menu inicial ---------- */
-const HMK='op-ficha-menu';
-const homeOn=()=>true;
 let homeBack=null,fromMenu=false,menuIO=false,ioCancel=false,menuSys=null;
 function homeFill(){
   const has=!!D.created,c=$('#hmCont');c.hidden=!has;$('#hmWelcome').hidden=has;
@@ -2918,16 +2893,6 @@ function shBasics(row,v){
   return{info,chips}}
 
 /* janela de detalhe (marketplace ou link) */
-function shDescEl(row,v){
-  const s=v.s;if(!s)return null;let parts;
-  if(row.campaign==='coc'){const bk=s.bk&&typeof s.bk==='object'?s.bk:{};parts=COC_BK.map(([k,l])=>[l,shS(bk[k],4000)])}
-  else{const d=s.desc&&typeof s.desc==='object'?s.desc:{};parts=[['Aparência','a'],['Personalidade','p'],['Histórico','h'],['Objetivo','o']].map(([l,k])=>[l,shS(d[k],4000)])}
-  parts=parts.filter(p=>p[1].trim());if(!parts.length)return null;
-  const w=shEl('section','sh-about'),box=shEl('div','sh-dbox'),more=shEl('p','sh-dmore','O texto continua em “Ver tudo”.');more.hidden=true;
-  parts.forEach(([l,t])=>{const p=shEl('div','sh-dp');p.append(shEl('small',null,l),shEl('p',null,t));box.append(p)});
-  w.append(shEl('h3','sh-h','Sobre o personagem'),box,more);
-  requestAnimationFrame(()=>{if(box.scrollHeight>box.clientHeight+2){box.classList.add('cut');more.hidden=false}});
-  return w}
 const shVC=new Map();
 function shPortrait(row,v){const a=v&&v.s&&typeof v.s.av==='string'?v.s.av:'';
   if(a.length<400000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(a))return a;
@@ -3056,14 +3021,6 @@ function shFullSys(body,m){
   shSec(body,'Classes',shLine((m.classes||[]).join(', ')));
   shSec(body,'Perícias ('+m.pericias.length+')',shChips(m.pericias.slice(0,120).map(p=>[p.n,[p.a,p.t?'treinada':''].filter(Boolean).join(' · ')])));
   shSec(body,'Criação passo a passo',shCards(m.criacao||[],c=>[shEl('b',null,cleanTxt(c.t,40))]))}
-function shOpenFull(row,v){
-  const b=$('#vwBody'),a=$('#vwAct');b.textContent='';a.textContent='';$('#vwT').textContent=String(row.title).slice(0,80);
-  const head=shEl('div','sh-head');head.append(shThumbEl(row.thumb,row.title,'big'));const ht=shEl('div','sh-ht');
-  ht.append(shEl('p','sh-meta',shKind(row)+(row.author_name?' · por '+row.author_name:'')));if(row.summary)ht.append(shEl('p','sh-small',row.summary));head.append(ht);b.append(head);
-  if(v.m)shFullSys(b,v.m);else if(row.campaign==='coc')shFullCoc(b,v.s);else shFullOp(b,v.s);
-  const have=row.kind==='sistema'&&libRead().find(x=>x.src===row.id);
-  a.append(shBtn(have?'Atualizar na minha biblioteca':'Adicionar à minha biblioteca','pri',()=>{closeM('mView');shAdd(row,v)}),shBtn('Fechar','',()=>closeM('mView')));
-  $('#mView .mbox').scrollTop=0;openM('mView')}
 
 /* ---- adicionar à minha biblioteca (cópia local) ---- */
 function shAdd(row,v){
@@ -3261,12 +3218,15 @@ function kIn(el){el.classList.remove('in');void el.offsetWidth;if(!rm())el.class
 
 /* ---------- abertura ---------- */
 (async function(){const sp=$('#splash'),app=$('#app');let done=false;
+  /* a abertura só aparece na primeira vez da sessão: recarregar ou puxar para atualizar não a repete */
+  let seen=false;try{seen=sessionStorage.getItem('op-splash-v1')==='1'}catch(e){}
   async function end(){if(done)return;done=true;openHome();
+    try{sessionStorage.setItem('op-splash-v1','1')}catch(e){}
     app.hidden=false;shLaunch();
-    if(!rm()){await sp.animate([{opacity:1,transform:'none'},{opacity:0,transform:'scale(1.04)'}],{duration:520,easing:'ease-in',fill:'forwards'}).finished}
+    if(!rm()&&!seen){await sp.animate([{opacity:1,transform:'none'},{opacity:0,transform:'scale(1.04)'}],{duration:520,easing:'ease-in',fill:'forwards'}).finished}
     sp.remove();if(editableCatalogError)toast('Catálogos indisponíveis',editableCatalogError);else if(catalogNotice)toast('Modo offline',catalogNotice);if(loadIssue)showLoadIssue()}
   sp.addEventListener('click',end);
-  if(rm()){end();return}
+  if(rm()||seen){end();return}
   $('.splogo',sp).animate([{opacity:0,filter:'blur(10px)',transform:'scale(.96)'},{opacity:1,filter:'blur(0)',transform:'none'}],{duration:900,easing:'ease-out',fill:'backwards'});
   const bar=$('.spbar i',sp);await bar.animate([{width:'0%'},{width:'100%'}],{duration:1500,easing:'cubic-bezier(.5,.1,.3,1)',fill:'forwards'}).finished;
   end()})();
