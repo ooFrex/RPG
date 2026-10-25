@@ -425,5 +425,37 @@ window.Cloud = (function () {
       }
     };
   })();
-  return { client, saveSheet, signInGoogle, accountInfo, takeAuthError, takeReturnTarget, hash: hashOf, syncAll, syncSystems, forgetSystem, pushLive, forget, cocAdapter, cocForget, cocRelink, ui };
+  /* ---------- preferências de aparência (tabela user_prefs, uma linha por usuário) ----------
+     ad = { userId, read(): objeto com as preferências deste aparelho, write(objeto): grava e aplica }
+     Mesma ideia das fichas: meta.rev = updated_at da nuvem na última sincronização, meta.h = hash local nessa hora.
+     Só a nuvem mudou -> aplica aqui. Só aqui mudou -> envia. Mudou nos dois -> vale o daqui (é só aparência). */
+  const PTBL = 'user_prefs', PMK = 'rpg-prefs-meta-v1';
+  function syncPrefs(ad) {
+    return withLock('prefs', async () => {
+      const hs = o => hashOf(o || {});
+      const rd = () => { try { return JSON.parse(localStorage.getItem(PMK)); } catch (e) { return null; } };
+      const wr = (rev, h) => { try { localStorage.setItem(PMK, JSON.stringify({ uid: ad.userId, rev, h })); } catch (e) { warn('prefs: meta', e); } };
+      let meta = rd(); if (meta && meta.uid !== ad.userId) meta = null;
+      const mine = ad.read() || {}, h = hs(mine);
+      const r = await client.from(PTBL).select('prefs,updated_at').eq('user_id', ad.userId).maybeSingle();
+      if (r.error) throw r.error;
+      const row = r.data;
+      const push = async () => {
+        const q = row
+          ? client.from(PTBL).update({ prefs: mine }).eq('user_id', ad.userId).select('updated_at')
+          : client.from(PTBL).insert({ prefs: mine }).select('updated_at');
+        const w = await q; if (w.error) throw w.error;
+        const rev = w.data && w.data[0] && w.data[0].updated_at; if (rev) wr(rev, h);
+        return 'up';
+      };
+      if (!row) return Object.keys(mine).length ? push() : 'none';
+      if (meta && row.updated_at === meta.rev) return h !== meta.h ? push() : 'same';
+      if (meta && h !== meta.h) { return push(); }          /* mudou nos dois lugares: vale o daqui */
+      ad.write(row.prefs || {});                            /* só a nuvem mudou (ou aparelho novo): aplica aqui */
+      wr(row.updated_at, hs(ad.read()));
+      return 'down';
+    });
+  }
+
+  return { client, saveSheet, signInGoogle, accountInfo, takeAuthError, takeReturnTarget, hash: hashOf, syncAll, syncSystems, syncPrefs, forgetSystem, pushLive, forget, cocAdapter, cocForget, cocRelink, ui };
 })();

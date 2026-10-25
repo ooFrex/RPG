@@ -20,6 +20,10 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
     supabase/announcements.sql  tabela dos avisos (aplicar uma vez)
     supabase/catalog_coc_items.sql  biblioteca de itens/armas do CoC (aplicar uma vez; 449 itens)
     supabase/updated_at_trigger.sql  trigger que carimba updated_at no servidor (aplicar ANTES de publicar esta versão)
+    supabase/user_prefs.sql  aparência sincronizada com a conta (aplicar uma vez; precisa do updated_at_trigger.sql)
+    supabase/rls_export.sql  consultas só de leitura para exportar as políticas de RLS, permissões e buckets em vigor
+    scripts/vendor-supabase.sh  baixa o supabase-js para js/vendor/ (tira a dependência do jsDelivr)
+    scripts/build.mjs  gera dist/ com JS/CSS minificados (npm install && npm run build)
     supabase/user_systems.sql  sistemas próprios sincronizados com a conta (aplicar uma vez; precisa do updated_at_trigger.sql)
     js/nav.js         botão voltar (fecha a camada de cima em vez de sair do site) e puxar para recarregar
     js/util.js        utilitários comuns ($, $$, wait, rnd, clamp, esc, fmt, cloudError, warn)
@@ -47,7 +51,7 @@ Quem entra na conta tem todos os personagens sincronizados sozinho, sem apertar 
 - Entrar com outra conta no mesmo aparelho pergunta antes de enviar os personagens dele para a conta nova.
 - O retrato (OP e CoC) fica no bucket privado `account-avatars`, e a ficha guarda só o caminho (`sb:<user_id>/…`). Sem login, ou se o envio falhar, o retrato fica dentro da ficha e é movido para o bucket no próximo sincronismo. A OP leva o sistema (molde) dentro da ficha.
 - Os vínculos ficam em `D.cl` (OP, dentro da ficha) e em `coc-cloud-v1` (CoC). O motor está em `js/cloud.js` (`syncAll`, `pushLive`).
-- Ainda não sincronizam: a biblioteca de sistemas personalizados da OP (`LIBK`) e as preferências de aparência.
+- A biblioteca de sistemas personalizados da OP (`LIBK`) sincroniza pela tabela `user_systems` e a aparência (tema, cores, fonte, alto contraste, som, carrossel) pela tabela `user_prefs` (`supabase/user_prefs.sql`, aplicar uma vez). Vibração, dados 3D e modo leve ficam só no aparelho.
 
 ## Biblioteca do CoC no Supabase
 `js/coc.js` lê `catalog_coc_items` (leitura pública, como os catálogos da OP). Rode `supabase/catalog_coc_items.sql` uma vez. Se a tabela estiver vazia ou o Supabase falhar, usa o último download em cache (`coc-catalog-v1`) e, sem isso, a lista embutida no `coc.js`. Para corrigir/adicionar item, edite a linha na tabela (campo `weapon` só para armas).
@@ -70,10 +74,10 @@ Quem entra na conta tem todos os personagens sincronizados sozinho, sem apertar 
 
 ## Segurança (notas)
 - Toda ficha que entra de fora (importar arquivo, código `RPG1:`, nuvem) passa por `normalize()`, que força IDs numéricos, limita textos, valida avatar e descarta `__proto__`. Não renderize dados de ficha sem passar por ele.
-- Pendente: o `supabase-js` vem do jsDelivr sem SRI. Gere o hash e coloque no `<script>` de `index.html` e `coc.html`:
+- `index.html` e `coc.html` procuram `js/vendor/supabase.js` primeiro e só usam o jsDelivr se ele não existir. Rode `sh scripts/vendor-supabase.sh` uma vez (precisa de internet) e publique o arquivo junto: a dependência do CDN some. (Alternativa antiga, com SRI no CDN:
   `curl -s https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1 | openssl dgst -sha384 -binary | openssl base64 -A`
-  (use `integrity="sha384-HASH" crossorigin="anonymous"`) ou copie o arquivo para `js/vendor/`.
-- Pendente: exporte as políticas de RLS de `character_sheets`, `user_profiles` e dos buckets para `supabase/*.sql`.
+  use `integrity="sha384-HASH" crossorigin="anonymous"`.)
+- Pendente: rode `supabase/rls_export.sql` no SQL Editor e guarde o resultado (políticas de `character_sheets`, `user_profiles`, buckets) no repositório.
 
 ## Biblioteca online (marketplace + links)
 Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar** (personagem ou sistema) a pessoa escolhe **Só por link** ou **Marketplace**, e se inclui a foto (miniatura JPEG guardada na própria linha, coluna `thumb`).
@@ -97,10 +101,14 @@ Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar**
 
 ## Navegação (js/nav.js)
 - **Voltar**: com menu/modal/ficha do CoC aberto existe uma entrada extra no histórico; voltar fecha a camada de cima (mesmo efeito do Esc). No menu inicial sem ficha, voltar sai do site normalmente. O CoC (iframe) expõe `window.cocBack()` para fechar seus modais.
-- **Puxar para recarregar**: no topo da tela, puxe para baixo e solte (só celular/toque). Salva a ficha, desfaz a entrada extra do histórico e recarrega. Ignorado sobre campos, dados 3D, editor de sistema e modais. Dentro do CoC recarrega só o iframe.
+- **Voltar na raiz** (menu inicial sem ficha aberta): o 1º voltar mostra "Aperte voltar de novo para sair"; o 2º, em até 2 s, sai do site.
+- **Puxar para recarregar** (só celular/toque, no topo da tela): puxão normal = atualização leve (sincroniza fichas/sistemas/aparência com a conta e redesenha a tela aberta, sem recarregar a página; no marketplace, recarrega a lista). Puxão bem longo (indicador fica vermelho) = recarrega tudo. Sem login e fora do marketplace, o puxão normal também recarrega tudo; se a atualização leve falhar ou passar de 20 s, recarrega tudo. Salva a ficha antes. Ignorado sobre campos, dados 3D, editor de sistema e modais. Dentro do CoC vale o mesmo para o iframe (`cocSoftRefresh`).
 - Ganchos da OP em `window.NavHooks` (op.js, logo após o `LY`).
 
 ## Login (correção do congelamento)
 - `onAuthStateChange` (op.js e coc.js) não chama mais o Supabase dentro do callback: o trabalho é adiado com `setTimeout(0)` e eventos repetidos do mesmo usuário (renovação de token, volta para a aba) são ignorados, em vez de refazer perfil, lista, amigos e sincronização a cada um.
 - `getSession()` inicial tem limite de 10 s, para a tela não ficar esperando para sempre.
 - Voltar da tela do Google pelo botão voltar recarrega a página limpa (antes ficava em "Abrindo o login do Google…").
+
+## Publicar (dist/)
+`dist/` é a versão minificada (JS/CSS) do projeto, pronta para publicar: suba o **conteúdo de `dist/`** em vez da raiz. Depois de mudar qualquer arquivo-fonte, rode `npm install && npm run build` para regerar. Ganho real é pequeno (op.js ~113 KB com gzip contra ~128 KB); o servidor precisa servir com gzip/brotli (GitHub Pages e Netlify já servem).

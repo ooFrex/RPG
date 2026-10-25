@@ -404,6 +404,8 @@ document.addEventListener('keydown',e=>{
 });
 
 /* botão voltar (js/nav.js da página-mãe): fecha o modal/rolagem aberto; devolve false se não havia nada para fechar */
+/* atualização leve do puxar para recarregar: sincroniza com a conta; false = nada a sincronizar (recarrega a ficha) */
+window.cocSoftRefresh=async function(){if(!cloudClient||!cloudUser)return false;await cocAutoSync(true);return true};
 window.cocBack=function(){
   const open=$$('[data-trap]').filter(x=>!x.hidden&&!x.classList.contains('out')).pop();
   if(!open)return false;

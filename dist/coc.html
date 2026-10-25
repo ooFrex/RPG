@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1411">
+<script>window.dice3dOn=function(){try{return localStorage.getItem("op-ficha-3d")!=="0"}catch(e){return true}};try{var R=document.documentElement,t=localStorage.getItem("op-ficha-tema");if(/^(sangue|morte|energia|conhecimento|medo)$/.test(t))R.dataset.theme=t;var u=JSON.parse(localStorage.getItem("op-ficha-ui")||"{}");if(/^#[0-9a-f]{6}$/i.test(u.acc))R.style.setProperty("--teal",u.acc);if(/^#[0-9a-f]{6}$/i.test(u.gold))R.style.setProperty("--brass",u.gold)}catch(e){}</script>
+<title>Ficha — Call of Cthulhu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/coc.css?v=13">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-dice" viewBox="0 0 24 24" fill="currentColor"><path d="M4.37838 12.0668C4.48292 11.8033 4.83678 11.747 5.01533 11.9655L9.03269 16.8821C9.21124 17.1006 9.08056 17.43 8.79747 17.475L2.42796 18.4875C2.14487 18.5325 1.92168 18.2593 2.02622 17.9958L4.37838 12.0668Z"></path><path d="M21.2932 12.8825L16.5369 11.8984C16.0593 11.7996 15.5934 12.1135 15.4962 12.5994L14.5291 17.4389C14.432 17.9249 14.7405 18.399 15.2181 18.4978L19.9744 19.4818C20.452 19.5806 20.9179 19.2668 21.015 18.7808L21.9821 13.9413C22.0792 13.4553 21.7708 12.9813 21.2932 12.8825Z"></path><path d="M10.7735 4.7828C11.1219 4.40573 11.7108 4.40573 12.0592 4.7828L15.412 8.41062C15.7315 8.75629 15.7315 9.29519 15.412 9.64086L12.0592 13.2687C11.7108 13.6457 11.1219 13.6457 10.7735 13.2687L7.42067 9.64086C7.10121 9.29519 7.10121 8.75629 7.42067 8.41062L10.7735 4.7828Z"></path></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24" fill="currentColor"><path d="M3.77633 20.9734C3.51847 20.9737 3.26364 20.9179 3.02958 20.8097C2.79552 20.7015 2.58787 20.5435 2.42108 20.3469C2.25429 20.1502 2.13238 19.9196 2.06383 19.671C1.99528 19.4224 1.98175 19.1619 2.02418 18.9075L2.62889 15.2729C2.71981 14.7202 2.98226 14.21 3.37909 13.8147L14.4331 2.76071C14.9448 2.27228 15.625 1.99976 16.3324 1.99976C17.0398 1.99976 17.72 2.27228 18.2317 2.76071L20.2128 4.74227C20.4623 4.99163 20.6602 5.28769 20.7952 5.61355C20.9303 5.93941 20.9998 6.28868 20.9998 6.64141C20.9998 6.99413 20.9303 7.3434 20.7952 7.66926C20.6602 7.99512 20.4623 8.29119 20.2128 8.54055L9.15888 19.5945C8.76362 19.9912 8.25364 20.2536 7.70106 20.3447L4.06604 20.9494C3.97029 20.9653 3.8734 20.9734 3.77633 20.9734ZM16.3324 3.70109C16.2064 3.70083 16.0816 3.72552 15.9653 3.77372C15.8489 3.82192 15.7432 3.89269 15.6543 3.98195L4.60033 15.0359C4.45876 15.1772 4.3651 15.3593 4.33255 15.5567L3.72784 19.1909L7.41685 18.641C7.61419 18.6084 7.79633 18.5148 7.93762 18.3732L18.9916 7.31926C19.0806 7.23029 19.1513 7.12465 19.1995 7.00837C19.2477 6.8921 19.2725 6.76746 19.2725 6.64159C19.2725 6.51573 19.2477 6.39109 19.1995 6.27481C19.1513 6.15854 19.0806 6.05289 18.9916 5.96393L17.01 3.98195C16.9213 3.89262 16.8157 3.8218 16.6994 3.77359C16.583 3.72538 16.4583 3.70074 16.3324 3.70109Z"></path><path d="M17.7021 10.6937C17.5886 10.6938 17.4763 10.6715 17.3715 10.6281C17.2667 10.5847 17.1716 10.521 17.0915 10.4406L12.5359 5.88505C12.4557 5.80486 12.3921 5.70967 12.3487 5.6049C12.3053 5.50013 12.283 5.38783 12.283 5.27443C12.283 5.16103 12.3053 5.04874 12.3487 4.94397C12.3921 4.8392 12.4557 4.744 12.5359 4.66381C12.6161 4.58363 12.7113 4.52002 12.816 4.47662C12.9208 4.43322 13.0331 4.41089 13.1465 4.41089C13.2599 4.41089 13.3722 4.43322 13.477 4.47662C13.5817 4.52002 13.6769 4.58363 13.7571 4.66381L18.3127 9.21941C18.4335 9.34019 18.5157 9.49406 18.549 9.66157C18.5823 9.82907 18.5652 10.0027 18.4998 10.1605C18.4345 10.3183 18.3238 10.4531 18.1818 10.548C18.0399 10.6429 17.8729 10.6937 17.7021 10.6937Z"></path><path d="M20.1362 20.9739H11.4999C11.2708 20.9739 11.0511 20.8829 10.8892 20.7209C10.7272 20.5589 10.6362 20.3393 10.6362 20.1102C10.6362 19.8812 10.7272 19.6615 10.8892 19.4995C11.0511 19.3376 11.2708 19.2466 11.4999 19.2466H20.1362C20.3653 19.2466 20.585 19.3376 20.7469 19.4995C20.9089 19.6615 20.9999 19.8812 20.9999 20.1102C20.9999 20.3393 20.9089 20.5589 20.7469 20.7209C20.585 20.8829 20.3653 20.9739 20.1362 20.9739Z"></path></symbol>
+<symbol id="i-user" viewBox="0 0 24 24" fill="currentColor"><path d="M13.0043 20.4987H11.0387L2.15859 20.4948C2.10598 20.4948 2.03541 20.4515 2.01488 20.42C1.9905 20.3833 1.99949 20.2889 2.01745 20.2351C2.11496 19.9519 2.14704 19.6726 2.19964 19.3776C2.24968 19.0983 2.35874 18.84 2.44856 18.5686C2.50501 18.3982 2.5435 18.2015 2.66026 18.0638C2.88223 17.8055 3.11703 17.5564 3.40187 17.3794C4.11397 16.9388 4.83762 16.5887 5.62927 16.3488L6.58259 16.0603C6.99702 15.9345 7.39862 15.8164 7.82588 15.7352L8.44175 15.6185L9.05634 15.5201C9.35786 15.4716 9.63371 15.4021 9.89546 15.2369L10.2727 15.052C10.4177 14.9812 10.4626 14.7662 10.4844 14.6167L10.6242 13.6766C10.6589 13.4393 10.6448 13.2098 10.5934 12.9725C10.2291 12.7784 9.88135 12.5673 9.59651 12.271C9.35401 12.0179 9.2103 11.7334 9.06275 11.4279C8.85361 10.9965 8.73685 10.5835 8.61496 10.1128C8.28137 8.83439 8.23389 7.47601 8.65602 6.21727C8.79972 5.78982 9.02554 5.43842 9.26676 5.07654C9.82874 4.23738 10.673 3.69193 11.6597 3.52803C11.8881 3.49 12.1087 3.49132 12.3358 3.52803C13.3649 3.69586 14.2284 4.28327 14.7929 5.17225C15.0046 5.50529 15.2112 5.82916 15.3408 6.21858C15.7642 7.48781 15.7129 8.85275 15.3741 10.139C15.2548 10.5914 15.1432 10.9913 14.943 11.4069C14.7916 11.7203 14.6479 12.0153 14.3977 12.2723C14.1129 12.566 13.7665 12.7811 13.4021 12.9738C13.3495 13.2098 13.3366 13.4393 13.3713 13.6779L13.5098 14.618C13.5317 14.7675 13.5766 14.9812 13.7228 15.052L14.1001 15.2382C14.3759 15.3746 14.6377 15.4742 14.9405 15.5214L15.5551 15.6198L16.1709 15.7365L17.3911 16.0551L18.3226 16.3357C19.1297 16.5782 19.8687 16.9323 20.5949 17.382C20.8862 17.5629 21.1274 17.816 21.3494 18.0848C21.4636 18.2238 21.5033 18.4231 21.5559 18.5949L21.7972 19.3802C21.8498 19.6766 21.8818 19.9545 21.9794 20.2378C21.9947 20.281 22.0076 20.3676 21.9947 20.4017C21.9794 20.4423 21.9024 20.4961 21.8395 20.4961L13.0056 20.5L13.0043 20.4987Z"></path></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24" fill="currentColor"><path d="M18.275 6.46135H7.32293C6.11653 6.46268 4.9599 6.94239 4.10668 7.79527C3.25346 8.64815 2.7733 9.80459 2.77148 11.011C2.77148 11.2405 2.86265 11.4606 3.02492 11.6228C3.1872 11.7851 3.40729 11.8763 3.63678 11.8763C3.86627 11.8763 4.08636 11.7851 4.24863 11.6228C4.41091 11.4606 4.50207 11.2405 4.50207 11.011C4.50293 10.2631 4.80041 9.54619 5.32925 9.01742C5.85809 8.48865 6.57509 8.19126 7.32293 8.19049H18.275C18.2783 8.19049 16.0869 10.3873 16.0869 10.3873C15.7264 10.7478 15.7292 11.3376 16.1168 11.6722C16.2823 11.8147 16.4955 11.8893 16.7137 11.8811C16.9319 11.873 17.1389 11.7826 17.2933 11.6282L20.9708 7.95434C21.0534 7.87174 21.119 7.77366 21.1637 7.66571C21.2085 7.55776 21.2315 7.44205 21.2315 7.3252C21.2315 7.20835 21.2085 7.09264 21.1637 6.98469C21.119 6.87674 21.0534 6.77866 20.9708 6.69606L17.2936 3.02253C17.2131 2.94216 17.1176 2.87843 17.0125 2.83498C16.9074 2.79152 16.7947 2.7692 16.681 2.76929C16.5672 2.76937 16.4546 2.79186 16.3496 2.83546C16.2445 2.87907 16.1491 2.94294 16.0687 3.02343C15.9883 3.10392 15.9246 3.19945 15.8811 3.30457C15.8377 3.40969 15.8154 3.52234 15.8155 3.63608C15.8155 3.74983 15.838 3.86244 15.8816 3.9675C15.9252 4.07255 15.9891 4.16799 16.0696 4.24836L18.275 6.46135Z" fill="currentColor"/>
+<path d="M5.726 17.5385H16.6781C17.8845 17.5372 19.0411 17.0575 19.8943 16.2046C20.7475 15.3517 21.2277 14.1953 21.2295 12.9889C21.2295 12.7594 21.1384 12.5393 20.9761 12.3771C20.8138 12.2148 20.5937 12.1236 20.3642 12.1236C20.1347 12.1236 19.9147 12.2148 19.7524 12.3771C19.5901 12.5393 19.4989 12.7594 19.4989 12.9889C19.4981 13.7367 19.2006 14.4537 18.6718 14.9825C18.1429 15.5112 17.4259 15.8086 16.6781 15.8094H5.726C5.72275 15.8094 7.91411 13.6126 7.91411 13.6126C8.27465 13.2521 8.27176 12.6623 7.88418 12.3277C7.71871 12.1852 7.50551 12.1106 7.28733 12.1188C7.06915 12.1269 6.86212 12.2173 6.70775 12.3717L3.03025 16.0456C2.9476 16.1282 2.88203 16.2262 2.83729 16.3342C2.79256 16.4421 2.76953 16.5578 2.76953 16.6747C2.76953 16.7915 2.79256 16.9073 2.83729 17.0152C2.88203 17.1232 2.9476 17.2212 3.03025 17.3038L6.70775 20.9777C6.8703 21.14 7.09066 21.231 7.32034 21.2308C7.55003 21.2306 7.77023 21.1392 7.9325 20.9766C8.09476 20.8141 8.18581 20.5937 8.18561 20.364C8.18541 20.1344 8.09397 19.9142 7.93141 19.7519L5.726 17.5385Z" fill="currentColor"/></symbol>
+<symbol id="i-trash" viewBox="0 0 11 12" fill="currentColor"><path d='M3.31964 0.414844C3.45223 0.159375 3.72478 0 4.02187 0H6.97813C7.27522 0 7.54777 0.159375 7.68036 0.414844L7.85714 0.75H10.2143C10.6489 0.75 11 1.08516 11 1.5C11 1.91484 10.6489 2.25 10.2143 2.25H0.785714C0.351116 2.25 0 1.91484 0 1.5C0 1.08516 0.351116 0.75 0.785714 0.75H3.14286L3.31964 0.414844ZM0.785714 3H10.2143V10.5C10.2143 11.3273 9.5096 12 8.64286 12H2.35714C1.4904 12 0.785714 11.3273 0.785714 10.5V3ZM3.14286 4.5C2.92679 4.5 2.75 4.66875 2.75 4.875V10.125C2.75 10.3313 2.92679 10.5 3.14286 10.5C3.35893 10.5 3.53571 10.3313 3.53571 10.125V4.875C3.53571 4.66875 3.35893 4.5 3.14286 4.5ZM5.5 4.5C5.28393 4.5 5.10714 4.66875 5.10714 4.875V10.125C5.10714 10.3313 5.28393 10.5 5.5 10.5C5.71607 10.5 5.89286 10.3313 5.89286 10.125V4.875C5.89286 4.66875 5.71607 4.5 5.5 4.5ZM7.85714 4.5C7.64107 4.5 7.46429 4.66875 7.46429 4.875V10.125C7.46429 10.3313 7.64107 10.5 7.85714 10.5C8.07321 10.5 8.25 10.3313 8.25 10.125V4.875C8.25 4.66875 8.07321 4.5 7.85714 4.5Z' fill='currentColor'/></symbol>
+
+<symbol id="d10" viewBox="0 0 100 100"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><path d="M50 4 L93 40 L50 96 L7 40 Z"/><path d="M50 18 L79 41 L50 82 L21 41 Z" opacity=".35"/></g></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.2-4.7-9.4-9.5C1 8 3.2 4.5 6.7 4.5c2 0 3.6 1.1 5.3 3.1 1.7-2 3.3-3.1 5.3-3.1 3.5 0 5.7 3.5 4.1 7C19.2 16.300 12 21 12 21z"/></symbol>
+<symbol id="i-san" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/></symbol>
+<symbol id="i-pm" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l2.7 7.3L22 12l-7.300 2.700L12 22l-2.700-7.300L2 12l7.300-2.700z"/></symbol>
+<symbol id="i-luck" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="8.800" cy="8.800" r="3.600"/><circle cx="15.200" cy="8.800" r="3.600"/><circle cx="8.800" cy="15" r="3.600"/><circle cx="15.200" cy="15" r="3.600"/></g><path d="M12 14c0 4 1 6 3.500 8" fill="none" stroke="currentColor" stroke-width="1.600" stroke-linecap="round"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.800" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.500v2.600M12 18.900v2.600M2.500 12h2.600M18.900 12h2.600M5.300 5.300l1.800 1.800M16.900 16.900l1.800 1.800M5.300 18.700l1.800-1.800M16.900 7.100l1.800-1.800"/><circle cx="12" cy="12" r="6.800"/></g></symbol>
+<symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></symbol>
+</defs></svg>
+
+<div id="hud" class="hud" aria-label="Resumo de vida, sanidade, magia e sorte"></div>
+
+<header class="top">
+  <img class="logo" id="logo" src="https://vvwuutjymkcdgdtcbpvs.supabase.co/storage/v1/object/public/ficha-assets/Coclogo_LOW.webp" srcset="https://vvwuutjymkcdgdtcbpvs.supabase.co/storage/v1/object/public/ficha-assets/Coclogo_LOW.webp 1x, https://vvwuutjymkcdgdtcbpvs.supabase.co/storage/v1/object/public/ficha-assets/Coclogo_HIGH.webp 2x" alt="Call of Cthulhu">
+  <div class="tools">
+    <a class="tl" id="bOP" href="#" data-back aria-label="Voltar ao menu" title="Menu"><svg class="stk" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></a>
+    <button class="tl" id="bDice" type="button" aria-label="Dados e histórico" title="Dados e histórico"><i class="gi g-dados" aria-hidden="true"></i><svg viewBox="0 0 24 24"><use href="#i-dice"/></svg></button>
+    <button class="tl" id="bEdit" type="button" aria-pressed="false" aria-label="Modo de edição" title="Modo de edição"><i class="gi g-lapis" aria-hidden="true"></i><svg viewBox="0 0 24 24"><use href="#i-edit"/></svg></button>
+    <button class="tl" id="bIO" type="button" aria-label="Backup da ficha" title="Exportar ou importar"><i class="gi g-troca" aria-hidden="true"></i><svg viewBox="0 0 24 24"><use href="#i-swap"/></svg></button>
+    <button class="tl" id="bCfg" type="button" aria-label="Configurações" title="Configurações"><i class="gi g-config" aria-hidden="true"></i><svg class="stk" viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- COLUNA ESQUERDA: investigador, características, vitais, opções de rolagem -->
+  <aside class="left" id="left">
+    <section class="panel" aria-label="Investigador">
+      <div class="who">
+        <button class="avatar" id="avatar" type="button" aria-label="Trocar retrato">
+          <i class="gi g-user" aria-hidden="true"></i><svg viewBox="0 0 24 24"><use href="#i-user"/></svg><img id="avimg" alt="" hidden><small>Retrato</small>
+        </button>
+        <div class="idg">
+          <label class="fld w2 name-in"><span>Nome do investigador</span><input id="w-nome" maxlength="60" placeholder="Ex.: Elias Rankle" autocomplete="off"></label>
+          <label class="fld w2"><span>Ocupação</span><input id="w-ocup" maxlength="60" autocomplete="off"></label>
+        </div>
+      </div>
+      <details class="more" id="more">
+        <summary>Idade, gênero e origem</summary>
+        <div class="idg">
+          <label class="fld"><span>Idade</span><input id="w-idade" inputmode="numeric" maxlength="3" autocomplete="off"></label>
+          <label class="fld"><span>Gênero</span><input id="w-gen" maxlength="40" autocomplete="off"></label>
+          <label class="fld"><span>Residência</span><input id="w-res" maxlength="60" autocomplete="off"></label>
+          <label class="fld"><span>Local de nascimento</span><input id="w-nasc" maxlength="60" autocomplete="off"></label>
+        </div>
+      </details>
+    </section>
+
+    <section class="panel" aria-label="Vida, sanidade, magia e sorte">
+      <div class="vits" id="vits"></div>
+    </section>
+
+    <section class="panel" aria-label="Características">
+      <div class="ph"><h2>Características</h2><span class="hint" id="carHint">Toque para testar</span></div>
+      <div class="onb" id="onb" hidden>
+        <p>Defina as características para calcular PV, Sanidade e PM automaticamente.</p>
+        <div class="rowb"><button class="btn pri sm" id="onbRoll" type="button">Rolar características</button><button class="btn sm" id="onbEdit" type="button">Digitar valores</button></div>
+      </div>
+      <div class="cars" id="cars"></div>
+    </section>
+
+    
+
+    <div class="dock" id="dock" role="group" aria-label="Opções de rolagem">
+      <div class="seg" role="group" aria-label="Dificuldade">
+        <button type="button" data-diff="reg" aria-pressed="true">Regular</button>
+        <button type="button" data-diff="hard" aria-pressed="false">Difícil</button>
+        <button type="button" data-diff="ext" aria-pressed="false">Extremo</button>
+      </div>
+      <div class="dstep" role="group" aria-label="Dados de bônus ou penalidade">
+        <button type="button" data-dd="-1" aria-label="Adicionar dado de penalidade">−</button>
+        <output id="ddv" aria-live="polite">Sem dado</output>
+        <button type="button" data-dd="1" aria-label="Adicionar dado de bônus">+</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- COLUNA DIREITA: abas -->
+  <main class="right">
+    <div class="stick">
+      <nav class="tabs" id="tabs" aria-label="Seções da ficha">
+        <button type="button" data-p="skills" aria-selected="true">Perícias</button>
+        <button type="button" data-p="combat" aria-selected="false">Combate</button>
+        <button type="button" data-p="back" aria-selected="false">Antecedentes</button>
+        <button type="button" data-p="mag" aria-selected="false">Magias</button>
+        <button type="button" data-p="inv" aria-selected="false">Posses</button>
+      <span class="tab-ind" id="tabInd" aria-hidden="true"></span>
+      </nav>
+    </div>
+
+    <section class="pane" id="p-skills">
+      <div class="sktool">
+        <div class="skrow">
+          <input class="srch" id="skq" type="search" placeholder="Buscar perícia" aria-label="Buscar perícia" autocomplete="off">
+          <div class="flt" id="skf" role="group" aria-label="Filtro">
+            <button type="button" data-f="all" aria-pressed="true">Todas</button>
+            <button type="button" data-f="inv" aria-pressed="false">Com pontos</button>
+            <button type="button" data-f="tick" aria-pressed="false">Marcadas</button>
+          </div>
+        </div>
+        <div class="skrow">
+          <button class="btn sm" id="devBtn" type="button">Fase de desenvolvimento <span id="devN"></span></button>
+          <button class="btn sm only-edit" id="skAdd" type="button">+ Perícia</button>
+        </div>
+        <p class="hint" id="skPts"></p>
+      </div>
+      <div id="sklist"></div>
+    </section>
+
+    <section class="pane" id="p-combat" hidden>
+      <div class="dvs" id="dvs"></div>
+      <div class="panel" style="margin-bottom:12px">
+        <label class="fld"><span>Armadura</span><input id="armor" maxlength="80" placeholder="Ex.: Casaco de couro, 1 ponto"></label>
+      </div>
+      <div class="ph"><h3>Armas e ataques</h3><span class="phb"><button class="btn sm" id="itLibC" type="button">Biblioteca</button><button class="btn sm" id="atkAdd" type="button">+ Arma</button></span></div>
+      <ul class="cl" id="atkList"></ul>
+    </section>
+
+    <section class="pane" id="p-back" hidden>
+      <label class="fld" style="margin-bottom:12px"><span>Conexão-chave</span><select id="bkKey"></select></label>
+      <div class="bk" id="bk"></div>
+    </section>
+
+    <section class="pane" id="p-mag" hidden>
+      <div class="ph"><h3>Magias e rituais</h3><button class="btn sm" id="magAdd" type="button">+ Magia</button></div>
+      <ul class="cl" id="magList"></ul>
+    </section>
+
+    <section class="pane" id="p-inv" hidden>
+      <div class="panel money">
+        <div class="ph" style="margin:0"><h3>Dinheiro e bens</h3><button class="btn sm" id="moneyAuto" type="button">Calcular pelo Nível de Crédito</button></div>
+        <div class="g3">
+          <label class="fld"><span>Nível de Gastos</span><input id="m-gasto" maxlength="30"></label>
+          <label class="fld"><span>Dinheiro</span><input id="m-cash" maxlength="30"></label>
+          <label class="fld"><span>Patrimônio</span><input id="m-bens" maxlength="30"></label>
+        </div>
+        <p class="hint">Os valores seguem a Tabela II do livro, na época escolhida em Configurações.</p>
+      </div>
+      <div class="ph"><h3>Itens</h3><span class="phb"><button class="btn sm" id="itLibI" type="button">Biblioteca</button><button class="btn sm" id="invAdd" type="button">+ Item</button></span></div>
+      <ul class="cl" id="invList"></ul>
+    </section>
+  </main>
+</div>
+
+<!-- rolagem -->
+<div id="rov" hidden data-trap role="dialog" aria-modal="true" aria-labelledby="rt">
+  <div class="rbox">
+    <div class="rt" id="rt"></div>
+    <div class="rd" id="rd"></div>
+    <div class="rs" id="rs"></div>
+    <div class="rl" id="rl"></div>
+    <div class="ri" id="ri"></div>
+    <div class="rb">
+      <button class="btn" id="rLuck" type="button" hidden></button>
+      <button class="btn" id="rPush" type="button" hidden>Forçar o teste</button>
+      <button class="btn" id="rAgain" type="button" hidden>Rolar de novo</button>
+      <button class="btn" id="rCopy" type="button" hidden>Copiar</button>
+      <button class="btn pri" id="rOk" type="button" hidden>Fechar</button>
+    </div>
+  </div>
+</div>
+<div id="hit" aria-hidden="true"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"><b id="tt"></b><span id="tm"></span><button id="tu" type="button" hidden>Desfazer</button></div>
+
+<!-- ajuste rápido -->
+<div class="modal" id="mAdj" hidden data-trap><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="adjT">
+  <h2 id="adjT">Pontos de vida</h2>
+  <div class="adjv"><b id="adjCur">0</b><span id="adjMax"></span></div>
+  <div class="adjq" id="adjQ">
+    <button type="button" data-q="-10">−10</button><button type="button" data-q="-5">−5</button><button type="button" data-q="-1">−1</button>
+    <button type="button" data-q="1">+1</button><button type="button" data-q="5">+5</button><button type="button" data-q="10">+10</button>
+  </div>
+  <div class="adjf">
+    <label class="fld"><span id="adjLbl">Quantidade</span><input id="adjN" type="number" inputmode="numeric" min="0" placeholder="0"></label>
+    <button class="btn dng" id="adjLose" type="button">Perder</button>
+    <button class="btn pri" id="adjGain" type="button">Recuperar</button>
+  </div>
+  <div class="rowb" id="adjX"></div>
+  <button class="btn" data-close type="button">Fechar</button>
+</div></div>
+
+<!-- biblioteca de itens -->
+<div class="modal" id="mIt" hidden data-trap><div class="mbox pkbox" role="dialog" aria-modal="true" aria-labelledby="itT">
+  <header class="pk-top"><div><h2 id="itT">Biblioteca de itens</h2><p id="itS"></p></div><button class="btn sm" type="button" data-close>Fechar</button></header>
+  <div class="sw pk-sw" id="itSW"><svg class="lupa" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-lupa"/></svg><input id="itQ" type="text" enterkeyhint="search" placeholder="Buscar item (ex.: lanterna, rifle, corda)" aria-label="Buscar item" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" class="x" id="itX" aria-label="Limpar busca" tabindex="-1">×</button></div>
+  <div class="ilf" id="itEra" role="group" aria-label="Época"></div>
+  <div class="ilf" id="itCat" role="group" aria-label="Categorias"></div>
+  <div class="pk-l rlist" id="itList"></div>
+</div></div>
+
+<!-- teste de sanidade -->
+<div class="modal" id="mSan" hidden data-trap><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="sanT">
+  <h2 id="sanT">Teste de Sanidade</h2>
+  <p>Role 1d100 contra a Sanidade atual. A perda depende do resultado. Use números ou dados, como 0, 1 ou 1d6+1.</p>
+  <div class="g2">
+    <label class="fld"><span>Perda se passar</span><input id="sanOk" value="0" autocomplete="off"></label>
+    <label class="fld"><span>Perda se falhar</span><input id="sanFail" value="1d4" autocomplete="off"></label>
+  </div>
+  <div class="rowb" style="justify-content:flex-end"><button class="btn" data-close type="button">Cancelar</button><button class="btn pri" id="sanGo" type="button">Rolar Sanidade</button></div>
+</div></div>
+
+<!-- dados -->
+<div class="modal" id="mDice" hidden data-trap><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="diceT">
+  <h2 id="diceT">Dados</h2>
+  <div class="qd" id="qd">
+    <button class="btn" type="button" data-f="1d4">d4</button><button class="btn" type="button" data-f="1d6">d6</button>
+    <button class="btn" type="button" data-f="1d8">d8</button><button class="btn" type="button" data-f="1d10">d10</button>
+    <button class="btn" type="button" data-f="1d12">d12</button><button class="btn" type="button" data-f="1d20">d20</button>
+    <button class="btn" type="button" data-f="1d100">d100</button>
+  </div>
+  <div class="g2" style="grid-template-columns:1fr auto;align-items:end">
+    <label class="fld"><span>Fórmula</span><input id="dForm" placeholder="Ex.: 2d6+3" autocomplete="off"></label>
+    <button class="btn pri" id="dGo" type="button">Rolar</button>
+  </div>
+  <h2 style="font-size:.95rem">Últimas rolagens</h2>
+  <ul class="hist" id="hist"></ul>
+  <button class="btn" data-close type="button">Fechar</button>
+</div></div>
+
+<!-- nova perícia -->
+<div class="modal" id="mSk" hidden data-trap><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="skT">
+  <h2 id="skT">Nova perícia</h2>
+  <label class="fld"><span>Nome</span><input id="ns-n" maxlength="40" autocomplete="off"></label>
+  <div class="g2">
+    <label class="fld"><span>Grupo</span><select id="ns-c"></select></label>
+    <label class="fld"><span>Valor base (%)</span><input id="ns-b" type="number" inputmode="numeric" min="0" max="99" value="1"></label>
+  </div>
+  <div class="rowb" style="justify-content:flex-end"><button class="btn" data-close type="button">Cancelar</button><button class="btn pri" id="nsOk" type="button">Adicionar</button></div>
+</div></div>
+
+<!-- desenvolvimento -->
+<div class="modal" id="mDev" hidden data-trap><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="devT">
+  <h2 id="devT">Fase de desenvolvimento</h2>
+  <p>Para cada perícia marcada, role 1d100. Se tirar mais que o valor atual (ou mais de 95), ela sobe 1d10.</p>
+  <ul class="devl" id="devL"></ul>
+  <button class="btn pri" data-close type="button">Fechar</button>
+</div></div>
+
+<!-- backup -->
+<div class="modal" id="mIO" hidden data-trap><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="ioT">
+  <h2 id="ioT">Backup da ficha</h2>
+  <p>A ficha fica salva neste aparelho. Exporte um backup ou entre na conta para sincronizá-la com a nuvem.</p>
+  <div class="rowb"><button class="btn pri" id="ioExp" type="button">Exportar (.json)</button><button class="btn" id="ioImp" type="button">Importar</button></div>
+  <input type="file" id="ioFile" accept="application/json,.json" hidden>
+  <p id="ioMsg" role="status"></p>
+  <hr style="width:100%;border:0;border-top:1px solid var(--line)">
+  <h2>SUPABASE</h2>
+  <div id="cloudSignedOut">
+    <button class="btn gbtn" id="cloudGoogle" type="button"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.9-6.1a24 24 0 0 0 0 21.6l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg><span>Entrar com Google</span></button>
+    <p id="cloudAuthMsg" role="status">Entre com sua conta Google para guardar e sincronizar suas fichas.</p>
+  </div>
+  <div id="cloudSignedIn" hidden>
+    <p id="cloudAccount" role="status"></p>
+    <button class="btn sm" id="cloudLogout" type="button">Sair da conta</button>
+  </div>
+  <div id="cloudProfile" hidden>
+    <div class="who">
+      <img class="cloud-avatar" id="cloudAvatarPreview" alt="Foto da conta" hidden>
+      <span class="cloud-avatar cloud-avatar-fallback" id="cloudAvatarFallback" aria-hidden="true">?</span>
+      <div class="cloud-profile-info"><b>PERFIL DA CONTA</b><span id="cloudProfileEmail"></span></div>
+    </div>
+    <label class="fld"><span>Nome exibido</span><input id="cloudDisplayName" maxlength="60" autocomplete="name" placeholder="Seu nome"></label>
+    <input type="file" id="cloudAvatarFile" accept="image/*" hidden>
+    <div class="rowb"><button class="btn" id="cloudAvatarPick" type="button">Trocar foto da conta</button><button class="btn pri" id="cloudProfileSave" type="button">Salvar perfil</button></div>
+    <p id="cloudProfileMsg" role="status"></p>
+  </div>
+  <div id="cloudPanel" hidden>
+    <div class="rowb"><button class="btn pri" id="cloudSave" type="button">Salvar na nuvem</button><button class="btn" id="cloudSaveNew" type="button">Salvar como nova ficha</button><button class="btn sm" id="cloudRefresh" type="button">Atualizar lista</button></div>
+    <p id="cloudMsg" role="status">As fichas de Call of Cthulhu ficam separadas das fichas de Ordem Paranormal.</p>
+    <ul class="hist" id="cloudList"></ul>
+  </div>
+  <button class="btn" data-close type="button">Fechar</button>
+</div></div>
+
+<!-- configurações -->
+<div class="modal" id="mCfg" hidden data-trap><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="cfT">
+  <h2 id="cfT">Configurações</h2>
+  <div class="tema" role="group" aria-labelledby="dxT"><b id="dxT">Dados</b><div class="tema-g" id="dxG"><button type="button" data-dx="op-ficha-3d" aria-pressed="true">Dados 3D</button><button type="button" data-dx="op-ficha-snd" aria-pressed="true">Som dos dados</button></div></div>
+  <div class="tema" role="group" aria-labelledby="temaT"><b id="temaT">Tema</b><div class="tema-g" id="temaG"><button type="button" data-tema="" aria-pressed="true"><i style="--a:#3fb89c;--b:#d2ae5e"></i>Padrão</button><button type="button" data-tema="sangue" aria-pressed="false"><i style="--a:#b3262d;--b:#ee8f22"></i>Sangue</button><button type="button" data-tema="morte" aria-pressed="false"><i style="--a:#8e929c;--b:#26262c"></i>Morte</button><button type="button" data-tema="energia" aria-pressed="false"><i style="--a:#a64dff;--b:#46a6e6"></i>Energia</button><button type="button" data-tema="conhecimento" aria-pressed="false"><i style="--a:#c28d2b;--b:#f0c869"></i>Conhecimento</button><button type="button" data-tema="medo" aria-pressed="false"><i style="--a:#46a6e6;--b:#1d2635"></i>Medo</button></div></div>
+  <label class="ck"><input type="checkbox" id="cfRm"><span>Reduzir animações</span></label>
+  <label class="ck"><input type="checkbox" id="cfTick"><span>Marcar a perícia automaticamente quando eu tiver sucesso</span></label>
+  <label class="ck"><input type="checkbox" id="cfFrac"><span>Mostrar valores Difícil e Extremo nas perícias</span></label>
+  <label class="ck"><input type="checkbox" id="cfSorte"><span>Permitir gastar Sorte nos testes (regra opcional do livro)</span></label>
+  <label class="fld"><span>Época do jogo</span><select id="cfEra"><option value="20">Anos 1920</option><option value="mod">Moderna</option></select></label>
+  <div class="rowb">
+    <button class="btn" id="cfNew" type="button">Novo investigador</button>
+    <button class="btn" id="cfGen" type="button">Rolar características</button>
+    <button class="btn" id="cfDay" type="button">Novo dia (Sanidade)</button>
+  </div>
+  <div class="rowb"><a class="btn" href="#" data-back>Voltar ao menu</a></div>
+  <div class="rowb"><button class="btn dng" id="cfClear" type="button">Apagar esta ficha</button></div>
+  <p id="cfMsg" role="status"></p>
+  <button class="btn" data-close type="button">Fechar</button>
+</div></div>
+<input type="file" id="avFile" accept="image/*" hidden>
+
+<!-- assistente de criação -->
+<div id="wz" hidden role="dialog" aria-modal="true" aria-labelledby="wzT">
+  <div class="wz-in">
+    <header class="wz-h">
+      <div class="wz-t"><img class="wz-logo" id="wzLogo" src="https://vvwuutjymkcdgdtcbpvs.supabase.co/storage/v1/object/public/ficha-assets/Coclogo_LOW.webp" srcset="https://vvwuutjymkcdgdtcbpvs.supabase.co/storage/v1/object/public/ficha-assets/Coclogo_LOW.webp 1x, https://vvwuutjymkcdgdtcbpvs.supabase.co/storage/v1/object/public/ficha-assets/Coclogo_HIGH.webp 2x" alt="Call of Cthulhu"><h2 id="wzT">Novo investigador</h2></div>
+      <ol class="wz-steps" id="wzProg" aria-label="Etapas"></ol>
+      <p class="wz-sub" id="wzSub"></p>
+    </header>
+    <div class="wz-b" id="wzBody"></div>
+    <footer class="wz-f">
+      <p class="wz-msg" id="wzMsg" role="status"></p>
+      <div class="wz-btns">
+        <button class="btn" id="wzSkip" type="button">Pular criação</button>
+        <span class="wz-sp"></span>
+        <button class="btn" id="wzBack" type="button">Voltar</button>
+        <button class="btn pri" id="wzNext" type="button">Avançar</button>
+      </div>
+    </footer>
+  </div>
+</div>
+
+<div class="modal" id="mPk" hidden data-trap><div class="mbox pkbox" role="dialog" aria-modal="true" aria-labelledby="pkT">
+  <header class="pk-top"><div><h2 id="pkT">Escolher perícia</h2><p id="pkS"></p></div><button class="btn sm" type="button" data-close>Fechar</button></header>
+  <div class="sw pk-sw" id="pkSW"><svg class="lupa" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-lupa"/></svg><input id="pkQ" type="text" enterkeyhint="search" placeholder="Buscar perícia" aria-label="Buscar perícia" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" class="x" id="pkX" aria-label="Limpar busca" tabindex="-1">×</button></div>
+  <div class="pk-l" id="pkList"></div>
+  <div class="pk-f" id="pkF"><button class="btn dng sm" id="pkClr" type="button">Limpar escolha</button></div>
+</div></div>
+
+
+
+
+
+
+<script src="js/config.js?v=13"></script>
+<script src="js/vendor/supabase.js" onerror="document.write('<script src=&quot;https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1&quot;><\/script>')"></script>
+<script src="js/cloud.js?v=15"></script>
+<script src="js/dicefx.js?v=13"></script>
+<script src="js/util.js?v=13"></script>
+<script src="js/imgcrop.js?v=14"></script>
+<script src="js/coc.js?v=16"></script>
+<script src="js/nav.js?v=2"></script>
+</body>
+</html>

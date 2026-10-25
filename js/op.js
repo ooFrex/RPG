@@ -1197,6 +1197,12 @@ document.addEventListener('keydown',e=>{if(e.key!=='Tab'||!stack.length)return;c
 return{top:()=>stack.length?stack[stack.length-1].el:null}})();
 /* ganchos para js/nav.js (botão voltar e puxar para recarregar) */
 window.NavHooks={top:()=>LY.top(),closeCoc:()=>closeCoc(),homeRoot:()=>!D.created,
+  /* atualização leve do puxar para recarregar: sincroniza com a conta e redesenha a tela aberta; false = nada a atualizar (recarrega tudo) */
+  soft:async()=>{let did=false;
+    if(cloudClient&&cloudUser){did=true;await autoSync(true);await Promise.all([loadCloudList(),frRefresh().catch(()=>{})])}
+    if(!$('#mSl').hidden&&scrMode==='shop'){did=true;await shCatRender(false);if(cloudUser)await shMineRender()}
+    if(did){slRender();if(scrMode==='sys'&&!$('#mSl').hidden){syGrid();syDet(false)}}
+    return did},
   flush:()=>{try{if(saveT!==null)writeNow()}catch(e){}try{cocFlush()}catch(e){}}};
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!rov.hidden){closeRoll();return}const t=LY.top();if(t&&t.classList.contains('modal')){e.preventDefault();e.stopImmediatePropagation();t.hidden=true}});
 (()=>{const K='op-ficha-tema',root=document.documentElement,mt=document.querySelector('meta[name=theme-color]');
@@ -1434,6 +1440,41 @@ async function sysSync(){
     else Util.warn('sistemas: sincronização',err);
     return null}
   finally{sysRun=false}}
+/* ---------- aparência na conta (tabela user_prefs; supabase/user_prefs.sql) ----------
+   Sincroniza tema, cores, fonte, alto contraste, som e carrossel. Vibração, dados 3D e modo leve ficam só no aparelho. */
+const PF_TEMA=/^(sangue|morte|energia|conhecimento|medo)$/,PF_HEX=/^#[0-9a-f]{6}$/i;
+function prefsRead(){const o={};
+  try{const t=localStorage.getItem('op-ficha-tema');if(PF_TEMA.test(t))o.tema=t;
+    const u=JSON.parse(localStorage.getItem('op-ficha-ui')||'null');
+    if(u&&typeof u==='object'){const c={};if(PF_HEX.test(u.acc))c.acc=u.acc;if(PF_HEX.test(u.gold))c.gold=u.gold;if(u.fs>=.85&&u.fs<=1.3)c.fs=+u.fs;if(u.hc)c.hc=true;if(Object.keys(c).length)o.ui=c}
+    ['snd','car'].forEach(k=>{if(localStorage.getItem('op-ficha-'+k)==='0')o[k]='0'})}catch(e){}
+  return o}
+function prefsWrite(o){o=o&&typeof o==='object'?o:{};
+  try{
+    if(PF_TEMA.test(o.tema))localStorage.setItem('op-ficha-tema',o.tema);else localStorage.removeItem('op-ficha-tema');
+    const u={},i=o.ui&&typeof o.ui==='object'?o.ui:{};
+    if(PF_HEX.test(i.acc))u.acc=i.acc;if(PF_HEX.test(i.gold))u.gold=i.gold;if(i.fs>=.85&&i.fs<=1.3)u.fs=+i.fs;if(i.hc===true)u.hc=true;
+    if(Object.keys(u).length)localStorage.setItem('op-ficha-ui',JSON.stringify(u));else localStorage.removeItem('op-ficha-ui');
+    ['snd','car'].forEach(k=>{if(o[k]==='0')localStorage.setItem('op-ficha-'+k,'0');else localStorage.removeItem('op-ficha-'+k)})}catch(e){Util.warn('aparência: gravar',e)}
+  /* aplica na tela agora */
+  const root=document.documentElement,t=localStorage.getItem('op-ficha-tema');
+  if(PF_TEMA.test(t))root.dataset.theme=t;else delete root.dataset.theme;
+  try{uiApply(uiLoad())}catch(e){}
+  $$('[data-tema]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tema===(PF_TEMA.test(t)?t:''))));
+  const mt=document.querySelector('meta[name=theme-color]');if(mt)mt.content=getComputedStyle(root).getPropertyValue('--bg').trim()||'#0c0b10';
+  try{if(window.cfgSync)window.cfgSync()}catch(e){}}
+let prefRun=false,prefOff=false,prefT=0;
+async function prefsSync(){
+  if(!cloudClient||!cloudUser||prefRun||prefOff)return null;
+  prefRun=true;
+  try{return await Cloud.syncPrefs({userId:cloudUser.id,read:prefsRead,write:prefsWrite})}
+  catch(err){
+    if(/user_prefs|schema cache|PGRST20|42P01/i.test((err&&(err.message||err.code))||'')){prefOff=true;Util.warn('aparência: tabela user_prefs ausente. Rode supabase/user_prefs.sql no Supabase.',err)}
+    else Util.warn('aparência: sincronização',err);
+    return null}
+  finally{prefRun=false}}
+function prefsSyncSoon(){clearTimeout(prefT);if(cloudClient&&cloudUser&&!prefOff)prefT=setTimeout(()=>void prefsSync(),2500)}
+{const cf=$('#sc-cfg');if(cf)['input','change','click'].forEach(ev=>cf.addEventListener(ev,prefsSyncSoon))}
 const libId=()=>'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const b64e=s=>btoa(unescape(encodeURIComponent(s))),b64d=s=>decodeURIComponent(escape(atob(s)));
 function libDownload(nome,text){
@@ -2187,7 +2228,9 @@ const opAd=()=>{
       const ix=slIdx();ix.list.push({id,t:Date.now()});slSave(ix)}}
 };
 let autoT=0,autoRun=false,autoStart=0;
-async function autoSync(force){
+let autoP=null;
+function autoSync(force){if(autoRun&&autoP)return autoP;autoP=autoSyncRun(force);return autoP}
+async function autoSyncRun(force){
   if(!cloudClient||!cloudUser||autoRun)return;
   if(!force&&Date.now()-autoT<20000)return;
   autoRun=true;autoStart=Date.now();Cloud.ui.pending();
@@ -2196,7 +2239,7 @@ async function autoSync(force){
     for(const ad of [opAd(),Cloud.cocAdapter({userId:cloudUser.id,live:null})]){
       const st=await Cloud.syncAll(ad);if(st.aborted){aborted=true;break}
       ch+=st.down+st.created+st.removed+st.conflict;created+=st.created;conf+=st.conflict}
-    if(!aborted)await sysSync();
+    if(!aborted){await sysSync();await prefsSync()}
     autoT=Date.now();if(!aborted)cloudConflict=false;
     if(aborted)Cloud.ui.fail(new Error('sincronização cancelada'));else Cloud.ui.ok();
     if(ch){slRender();cloudSaveLabel();void loadCloudList()}
