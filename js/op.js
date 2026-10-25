@@ -1195,6 +1195,9 @@ document.addEventListener('keydown',e=>{if(e.key!=='Tab'||!stack.length)return;c
   const f=items(top);if(!f.length){e.preventDefault();return}const i=f.indexOf(document.activeElement);
   if(i<0||(e.shiftKey&&i===0)||(!e.shiftKey&&i===f.length-1)){e.preventDefault();f[e.shiftKey?f.length-1:0].focus()}},true);
 return{top:()=>stack.length?stack[stack.length-1].el:null}})();
+/* ganchos para js/nav.js (botão voltar e puxar para recarregar) */
+window.NavHooks={top:()=>LY.top(),closeCoc:()=>closeCoc(),homeRoot:()=>!D.created,
+  flush:()=>{try{if(saveT!==null)writeNow()}catch(e){}try{cocFlush()}catch(e){}}};
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!rov.hidden){closeRoll();return}const t=LY.top();if(t&&t.classList.contains('modal')){e.preventDefault();e.stopImmediatePropagation();t.hidden=true}});
 (()=>{const K='op-ficha-tema',root=document.documentElement,mt=document.querySelector('meta[name=theme-color]');
  function set(t,keep){if(t)root.dataset.theme=t;else delete root.dataset.theme;if(!keep){try{t?localStorage.setItem(K,t):localStorage.removeItem(K)}catch(e){}}
@@ -2420,16 +2423,27 @@ $('#cloudGoogle').addEventListener('click',()=>{try{sessionStorage.setItem('op-p
 async function initCloud(){
   if(!cloudClient){$('#cloudGoogle').disabled=true;$('#cloudAuthMsg').textContent='O serviço Supabase não carregou. Verifique a conexão com a internet.';return}
   const authErr=Cloud.takeAuthError(),back=Cloud.takeReturnTarget();
-  const {data,error}=await cloudClient.auth.getSession();
+  /* se a verificação da sessão ficar presa (ex.: outra aba segurando o bloqueio do login), não deixa o app esperando para sempre */
+  let data=null,error=null;
+  try{({data,error}=await Promise.race([cloudClient.auth.getSession(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('A verificação da conta demorou demais. Puxe a tela para baixo para recarregar.')),10000))]))}
+  catch(e){error=e}
   if(error)$('#cloudAuthMsg').textContent='Erro ao verificar a sessão: '+cloudError(error);
   paintCloudSession(data&&data.session?data.session.user:null);paintAv();
   try{if(data&&data.session&&sessionStorage.getItem('op-pf-return')){sessionStorage.removeItem('op-pf-return');setTimeout(openProfile,0)}}catch(e){}
   if(authErr){$('#cloudAuthMsg').textContent=authErr;toast('Login com Google',authErr)}
   else if(back==='coc'&&data&&data.session)setTimeout(()=>openCoc(),0);
+  /* IMPORTANTE: não chamar o Supabase de dentro deste callback (o cliente espera o callback terminar e trava; era a causa de
+     congelar depois do login). O trabalho é adiado, e eventos repetidos do mesmo usuário (renovação de token, volta para a aba)
+     não refazem perfil/lista/sincronização/amigos. */
+  let authT=0;
   cloudClient.auth.onAuthStateChange((event,session)=>{
     const next=session&&session.user?session.user:null;
-    if((next&&next.id)!==(cloudUser&&cloudUser.id)){clearTimeout(cloudSaveT);activeCloudId=null}
-    paintCloudSession(next);paintAv()
+    if((next&&next.id||'')===(cloudUser&&cloudUser.id||'')&&event!=='USER_UPDATED'&&event!=='SIGNED_OUT'){if(next)cloudUser=next;return}
+    clearTimeout(authT);
+    authT=setTimeout(()=>{
+      if((next&&next.id)!==(cloudUser&&cloudUser.id)){clearTimeout(cloudSaveT);activeCloudId=null}
+      paintCloudSession(next);paintAv()
+    },0)
   })
 }
 async function syncCloud(manual,newCopy){

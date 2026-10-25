@@ -21,6 +21,7 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
     supabase/catalog_coc_items.sql  biblioteca de itens/armas do CoC (aplicar uma vez; 449 itens)
     supabase/updated_at_trigger.sql  trigger que carimba updated_at no servidor (aplicar ANTES de publicar esta versão)
     supabase/user_systems.sql  sistemas próprios sincronizados com a conta (aplicar uma vez; precisa do updated_at_trigger.sql)
+    js/nav.js         botão voltar (fecha a camada de cima em vez de sair do site) e puxar para recarregar
     js/util.js        utilitários comuns ($, $$, wait, rnd, clamp, esc, fmt, cloudError, warn)
     js/op.js          lógica da OP
     js/coc.js         lógica do CoC
@@ -93,3 +94,13 @@ Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar**
 ## Imagens: enquadrar antes de confirmar (v19)
 - `js/imgcrop.js` (usado por `index.html` e `coc.html`): janela para arrastar, ampliar (roda, pinça ou controle) e confirmar. Vale para o retrato da ficha (OP e CoC), a foto e o banner do perfil e as imagens do sistema.
 - Sistemas próprios têm três imagens: foto (quadrada), banner e logo (campos `pic`, `img`, `logo` na biblioteca). Cada uma aceita envio ou um padrão do site (`site:id`); sem escolha vale o padrão do site (banner `img/for.jpg`, logo do site). Sincronizam com a conta e vão junto ao compartilhar.
+
+## Navegação (js/nav.js)
+- **Voltar**: com menu/modal/ficha do CoC aberto existe uma entrada extra no histórico; voltar fecha a camada de cima (mesmo efeito do Esc). No menu inicial sem ficha, voltar sai do site normalmente. O CoC (iframe) expõe `window.cocBack()` para fechar seus modais.
+- **Puxar para recarregar**: no topo da tela, puxe para baixo e solte (só celular/toque). Salva a ficha, desfaz a entrada extra do histórico e recarrega. Ignorado sobre campos, dados 3D, editor de sistema e modais. Dentro do CoC recarrega só o iframe.
+- Ganchos da OP em `window.NavHooks` (op.js, logo após o `LY`).
+
+## Login (correção do congelamento)
+- `onAuthStateChange` (op.js e coc.js) não chama mais o Supabase dentro do callback: o trabalho é adiado com `setTimeout(0)` e eventos repetidos do mesmo usuário (renovação de token, volta para a aba) são ignorados, em vez de refazer perfil, lista, amigos e sincronização a cada um.
+- `getSession()` inicial tem limite de 10 s, para a tela não ficar esperando para sempre.
+- Voltar da tela do Google pelo botão voltar recarrega a página limpa (antes ficava em "Abrindo o login do Google…").

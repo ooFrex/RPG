@@ -403,6 +403,14 @@ document.addEventListener('keydown',e=>{
   else if(!e.shiftKey&&a===last){e.preventDefault();first.focus()}
 });
 
+/* botão voltar (js/nav.js da página-mãe): fecha o modal/rolagem aberto; devolve false se não havia nada para fechar */
+window.cocBack=function(){
+  const open=$$('[data-trap]').filter(x=>!x.hidden&&!x.classList.contains('out')).pop();
+  if(!open)return false;
+  if(open.id==='rov')closeRoll();else closeM(open.id);
+  return true;
+};
+
 function shake(el){
   if(rm()||!el||!el.animate)return;
   el.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(5px)'},{transform:'translateX(-3px)'},{transform:'none'}],{duration:300});
@@ -1314,9 +1322,17 @@ async function syncCocCloud(manual,newCopy){
 async function initCocCloud(){
   if(!cloudClient){$('#cloudGoogle').disabled=true;$('#cloudAuthMsg').textContent='O cliente Supabase não carregou.';return}
   const authErr=window.parent===window?Cloud.takeAuthError():'';
-  try{const {data,error}=await cloudClient.auth.getSession();if(error)throw error;paintCocCloudSession(data?.session?.user||null)}catch(error){$('#cloudAuthMsg').textContent='Não foi possível verificar a sessão: '+cloudError(error)}
+  try{const {data,error}=await Promise.race([cloudClient.auth.getSession(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('A verificação da conta demorou demais. Puxe a tela para baixo para recarregar.')),10000))]);if(error)throw error;paintCocCloudSession(data?.session?.user||null)}catch(error){$('#cloudAuthMsg').textContent='Não foi possível verificar a sessão: '+cloudError(error)}
   if(authErr)$('#cloudAuthMsg').textContent=authErr;
-  const authSub=cloudClient.auth.onAuthStateChange((event,session)=>{const next=session?.user||null;if(next?.id!==cloudUser?.id){clearTimeout(cloudSaveT);activeCloudId=null;cloudRev=null;cloudConflict=false}paintCocCloudSession(next)}).data.subscription;
+  /* IMPORTANTE: não chamar o Supabase de dentro deste callback (o cliente espera o callback terminar e trava).
+     Por isso o trabalho é adiado, e eventos repetidos do mesmo usuário (renovação de token, foco da aba) são ignorados. */
+  let authT=0;
+  const authSub=cloudClient.auth.onAuthStateChange((event,session)=>{
+    const next=session?.user||null;
+    if((next?.id||'')===(cloudUser?.id||'')&&event!=='USER_UPDATED'&&event!=='SIGNED_OUT'){if(next)cloudUser=next;return}
+    clearTimeout(authT);
+    authT=setTimeout(()=>{if(next?.id!==cloudUser?.id){clearTimeout(cloudSaveT);activeCloudId=null;cloudRev=null;cloudConflict=false}paintCocCloudSession(next)},0)
+  }).data.subscription;
   addEventListener('pagehide',()=>authSub.unsubscribe())
 }
 $('#cloudLogout').onclick=async()=>{const {error}=await cloudClient.auth.signOut();if(error)$('#cloudMsg').textContent='Não foi possível sair: '+cloudError(error)};
