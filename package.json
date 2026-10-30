@@ -2,6 +2,12 @@
   "name": "ficha-rpg",
   "private": true,
   "type": "module",
-  "scripts": { "build": "node scripts/build.mjs" },
-  "devDependencies": { "esbuild": "^0.25.0" }
+  "scripts": {
+    "vendor": "node scripts/vendor-supabase.mjs",
+    "build": "node scripts/vendor-supabase.mjs && node scripts/build.mjs"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.100.1",
+    "esbuild": "^0.25.0"
+  }
 }

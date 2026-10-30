@@ -2925,7 +2925,7 @@ function shAuthor(row,side){
     return Share.listPublic({q:row.author_name,kind:'',campaign:'',sort:'popular',page:0}).then(r=>fill(null,r.rows.filter(x=>x.id!==row.id&&x.author_name===row.author_name).slice(0,4)))}).catch(()=>{})}
 async function shOpenView(code){
   const b=$('#shBody'),a=$('#shAct'),box=$('#mShare .mbox');
-  $('#mShare').classList.remove('sh-page');box.classList.remove('pb','sh-wide','open');box.classList.add('sh-peek');box.scrollTop=0;
+  $('#mShare').classList.remove('sh-page');box.classList.remove('pb','sh-wide','open','is-sys');box.classList.add('sh-peek');box.scrollTop=0;
   $('#shT').textContent='Biblioteca';b.textContent='';a.textContent='';
   b.append(shEl('p','sv-load','Carregando…'));a.append(shBtn('Fechar','',shClose));openM('mShare');
   let row=null,err='';const hit=shVC.get(code);
@@ -2933,7 +2933,7 @@ async function shOpenView(code){
   b.textContent='';const v=row&&SHVALID(row);
   if(!row||!v){b.append(shEl('p','sv-load',err||(row?'Esse conteúdo não é válido e não pode ser aberto.':'Esse link não existe ou foi removido.')));return}
   $('#shT').textContent=String(row.title).slice(0,80);
-  const bs=shBasics(row,v),pic=shPortrait(row,v),isSys=row.kind==='sistema';
+  const bs=shBasics(row,v),pic=shPortrait(row,v),isSys=row.kind==='sistema';box.classList.toggle('is-sys',isSys);
   /* ---- parte compacta ---- */
   const card=shEl('article','sv2'),ban=shEl('div','sv2-ban'),tools=shEl('div','sv2-tools');
   ban.setAttribute('aria-hidden','true');if(pic)ban.style.backgroundImage='url("'+pic+'")';
@@ -2949,7 +2949,7 @@ async function shOpenView(code){
   top.append(cov,hb);card.append(ban,tools,top);
   const body=shEl('div','sv2-body');
   if(row.summary)body.append(shEl('p','sv2-sum',row.summary));
-  if(bs.chips.length){const g=shEl('div','sv2-sts');bs.chips.slice(0,8).forEach(([k,n])=>{const c=shEl('span','sv2-st');c.append(shEl('small',null,String(k)),shEl('b',null,String(n)));g.append(c)});body.append(g)}
+  if(bs.chips.length){const g=shEl('div','sv2-sts'+(isSys?' sys':''));bs.chips.slice(0,isSys?12:8).forEach(([k,n])=>{const c=shEl('span','sv2-st');c.append(shEl('small',null,String(k)),shEl('b',null,String(n)));g.append(c)});body.append(g)}
   if(bs.info.length){const g=shEl('div','sh-facts');bs.info.slice(0,4).forEach(([k,n])=>{const c=shEl('span','sh-fact');c.append(shEl('small',null,k),shEl('b',null,String(n)));g.append(c)});body.append(g)}
   body.append(shEl('p','sh-small sv2-note',isSys?'Ao adicionar, o sistema vai para a sua biblioteca de sistemas, neste aparelho.':'Ao adicionar, você ganha uma cópia sua, neste aparelho. Seus outros personagens não mudam.'));
   card.append(body);
@@ -2977,7 +2977,7 @@ async function shOpenView(code){
 /* ---- ficha completa, somente leitura ---- */
 function shSec(body,title,node){if(!node)return;const s=shEl('section','vw-sec');s.append(shEl('h3',null,title),node);body.append(s)}
 function shDl(pairs){pairs=pairs.filter(p=>p[1]!=null&&String(p[1]).trim()!=='');if(!pairs.length)return null;const d=shEl('dl','sh-dl');pairs.forEach(([k,x])=>{const r=shEl('div');r.append(shEl('dt',null,k),shEl('dd',null,String(x)));d.append(r)});return d}
-function shChips(pairs){pairs=pairs.filter(p=>p[1]!=null&&p[1]!=='');if(!pairs.length)return null;const g=shEl('div','sh-chips');pairs.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});return g}
+function shChips(pairs,txt){pairs=pairs.filter(p=>p[1]!=null&&p[1]!=='');if(!pairs.length)return null;const g=shEl('div','sh-chips'+(txt?' txt':''));pairs.forEach(([k,x])=>{const c=shEl('span','sh-stat');c.append(shEl('small',null,String(k)),shEl('b',null,String(x)));g.append(c)});return g}
 function shCards(items,fn){if(!items.length)return null;const u=shEl('ul','vw-l');items.forEach(x=>{const li=shEl('li','vw-i'),r=fn(x);if(!r)return;li.append(...r);u.append(li)});return u.children.length?u:null}
 const shLine=(t,cls)=>shEl('p',cls||'vw-p',t);
 const shTxt=(t,cls)=>t&&String(t).trim()?shEl('p',cls||'vw-txt',String(t)):null;
@@ -3016,10 +3016,10 @@ function shFullCoc(body,s){
 function shFullSys(body,m){
   shSec(body,'Atributos',shCards(m.atributos,a=>[shEl('b',null,a.k+' · '+a.n)]));
   shSec(body,'Teste',shDl([['Tipo',m.teste.tipo==='d100'?'Percentil (d100)':m.teste.tipo==='soma'?'Soma de dados ('+shS(m.teste.dados||'',20)+')':'Reserva de d'+(m.teste.faces||20)],['Dificuldade',shS(m.formulas&&m.formulas.dt,60)],['Carga',shS(m.formulas&&m.formulas.carga,60)]]));
-  shSec(body,'Barras',shChips(m.barras.map(b=>[b.n,shS(b.maxF,40)])));
-  shSec(body,'Recursos',shChips((m.recursos||[]).map(r=>[cleanTxt(r.n,24),cleanTxt(r.tipo,12)])));
+  shSec(body,'Barras',shChips(m.barras.map(b=>[b.n,shS(b.maxF,40)]),true));
+  shSec(body,'Recursos',shChips((m.recursos||[]).map(r=>[cleanTxt(r.n,24),cleanTxt(r.tipo,12)]),true));
   shSec(body,'Classes',shLine((m.classes||[]).join(', ')));
-  shSec(body,'Perícias ('+m.pericias.length+')',shChips(m.pericias.slice(0,120).map(p=>[p.n,[p.a,p.t?'treinada':''].filter(Boolean).join(' · ')])));
+  shSec(body,'Perícias ('+m.pericias.length+')',shChips(m.pericias.slice(0,120).map(p=>[p.n,[p.a,p.t?'treinada':''].filter(Boolean).join(' · ')]),true));
   shSec(body,'Criação passo a passo',shCards(m.criacao||[],c=>[shEl('b',null,cleanTxt(c.t,40))]))}
 
 /* ---- adicionar à minha biblioteca (cópia local) ---- */

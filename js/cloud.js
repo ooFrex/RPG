@@ -117,6 +117,21 @@ window.Cloud = (function () {
     return fn();
   }
   const clone = o => JSON.parse(JSON.stringify(o));
+  /* lista TODAS as linhas de uma consulta. O Supabase corta cada resposta em 1000 linhas (db-max-rows); sem paginar, o que passa disso
+     pareceria "sumido da conta" e o sync apagaria a cópia local. Qualquer erro de página lança: nunca devolve lista parcial.
+     make() devolve uma consulta nova e já ordenada por coluna única (.order('id')) para a paginação ser estável. */
+  const PAGE_ROWS = 1000, MAX_ROWS = 20000;
+  async function selectAll(make) {
+    const out = [];
+    for (let from = 0; ; from += PAGE_ROWS) {
+      const r = await make().range(from, from + PAGE_ROWS - 1);
+      if (r.error) throw r.error;
+      const d = r.data || [];
+      out.push(...d);
+      if (d.length < PAGE_ROWS) return out;
+      if (out.length >= MAX_ROWS) throw new Error('Lista da nuvem grande demais (' + out.length + '+ linhas): sincronização interrompida para não apagar nada.');
+    }
+  }
 
   /* exclusões feitas aqui que ainda precisam chegar na nuvem (funciona offline: fica na fila) */
   const DELQ = 'rpg-cloud-del-v1';
@@ -182,9 +197,8 @@ window.Cloud = (function () {
         foreign.forEach(e => e.setLink(null));
         ents = ad.items();
       }
-      const lr = await client.from(APP_CONFIG.CLOUD_TABLE).select('id,name,updated_at').eq('user_id', ad.userId).eq('campaign', ad.campaign);
-      if (lr.error) throw lr.error;
-      const rows = new Map(lr.data.map(r => [r.id, r])), seen = new Set();
+      const cloudRows = await selectAll(() => client.from(APP_CONFIG.CLOUD_TABLE).select('id,name,updated_at').eq('user_id', ad.userId).eq('campaign', ad.campaign).order('id'));
+      const rows = new Map(cloudRows.map(r => [r.id, r])), seen = new Set();
       /* tudo o que já está ligado a um personagem local (no instante deste snapshot) nunca é baixado de novo como "só existe na conta",
          mesmo que o personagem seja aberto/excluído aqui enquanto a sincronização roda */
       for (const e of ents) { const l = e.link; if (l && l.id) seen.add(l.id); }
@@ -216,7 +230,7 @@ window.Cloud = (function () {
         } catch (err) { if (err && err.conflict) { st.conflict++; } else throw err; }
       }
       /* só existem na conta: baixa como novos personagens neste aparelho */
-      for (const r of lr.data) {
+      for (const r of cloudRows) {
         if (seen.has(r.id)) continue;
         const d = await fetchSheet(ad, r.id);
         if (d) { ad.create(d.sheet, { id: r.id, rev: d.updated_at, h: hashOf(d.sheet), uid: ad.userId }); st.created++; }
@@ -366,9 +380,8 @@ window.Cloud = (function () {
         mut(l => l.forEach(x => { if (x.cloud && x.cloud.uid !== ad.userId) delete x.cloud; }));
         ents = ad.read();
       }
-      const lr = await client.from(STBL).select('id,updated_at').eq('user_id', ad.userId);
-      if (lr.error) throw lr.error;
-      const rows = new Map(lr.data.map(r => [r.id, r])), seen = new Set();
+      const sysRows = await selectAll(() => client.from(STBL).select('id,updated_at').eq('user_id', ad.userId).order('id'));
+      const rows = new Map(sysRows.map(r => [r.id, r])), seen = new Set();
       ents.forEach(e => { if (e.cloud && e.cloud.id) seen.add(e.cloud.id); });
       for (const e of ents) {
         try {
@@ -397,7 +410,7 @@ window.Cloud = (function () {
           else throw err;
         }
       }
-      for (const r of lr.data) {
+      for (const r of sysRows) {
         if (seen.has(r.id)) continue;
         const d = await fetchSys(ad, r.id);
         if (d) { const en = Object.assign({ id: ad.newId() }, d.entry); en.cloud = { id: r.id, rev: d.rev, h: sysHash(d.entry), uid: ad.userId }; mut(l => { l.push(en); }); st.created++; }

@@ -17,12 +17,14 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
     js/config.js      URL/chave do Supabase, tabela, bucket (um lugar só)
     js/cloud.js       nuvem compartilhada: 1 cliente Supabase, saveSheet() com controle de conflito, indicador de status
     js/announce.js    aviso em pop-up no menu (lê public.announcements; teste: ?anuncio=demo)
+    supabase/base_schema.sql  character_sheets, user_profiles, buckets e policies de storage (aplicar PRIMEIRO; leia o cabeçalho antes de rodar em produção)
     supabase/announcements.sql  tabela dos avisos (aplicar uma vez)
     supabase/catalog_coc_items.sql  biblioteca de itens/armas do CoC (aplicar uma vez; 449 itens)
     supabase/updated_at_trigger.sql  trigger que carimba updated_at no servidor (aplicar ANTES de publicar esta versão)
     supabase/user_prefs.sql  aparência sincronizada com a conta (aplicar uma vez; precisa do updated_at_trigger.sql)
     supabase/rls_export.sql  consultas só de leitura para exportar as políticas de RLS, permissões e buckets em vigor
-    scripts/vendor-supabase.sh  baixa o supabase-js para js/vendor/ (tira a dependência do jsDelivr)
+    scripts/vendor-supabase.mjs  copia o supabase-js fixado (node_modules) para js/vendor/ (tira a dependência do jsDelivr)
+    supabase/base_schema.sql  tabelas base (character_sheets, user_profiles), buckets e policies de storage
     scripts/build.mjs  gera dist/ com JS/CSS minificados (npm install && npm run build)
     supabase/user_systems.sql  sistemas próprios sincronizados com a conta (aplicar uma vez; precisa do updated_at_trigger.sql)
     js/nav.js         botão voltar (fecha a camada de cima em vez de sair do site) e puxar para recarregar
@@ -38,6 +40,7 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
 - Um único cliente Supabase: o CoC reaproveita o da página-mãe (evita duas sessões brigando pelo mesmo token).
 - OP e CoC gravam pelo mesmo `Cloud.saveSheet` (com controle de conflito).
 - `updated_at` é carimbado pelo Postgres (trigger em `character_sheets` e `user_profiles`, ver `supabase/updated_at_trigger.sql`); o front não envia mais esse campo, só compara a versão devolvida. Sem o trigger o conflito não é detectado (o console avisa).
+- A listagem da conta (fichas e sistemas) é paginada de 1000 em 1000 (`selectAll`); se a lista passar de 20 000 linhas ou uma página falhar, a sincronização para sem apagar nada local.
 - Falhas que antes eram engolidas (`catch{}`) ao gravar, sincronizar ou excluir agora vão para o console via `Util.warn(contexto, erro)` (no máx. 1 aviso por contexto a cada 30 s). `catch{}` vazio ficou só onde é inofensivo (foco, scroll, vibração, leitura de `localStorage`).
 - Indicador fixo no topo: sincronizando / salvo / falhou / conflito. Após 3 falhas seguidas a OP também mostra aviso na tela.
 - CoC agora guarda a versão (`updated_at`) da ficha aberta e pausa a sincronização se a nuvem mudou (como a OP já fazia).
@@ -80,10 +83,8 @@ Quem entra na conta tem todos os personagens sincronizados sozinho, sem apertar 
 
 ## Segurança (notas)
 - Toda ficha que entra de fora (importar arquivo, código `RPG1:`, nuvem) passa por `normalize()`, que força IDs numéricos, limita textos, valida avatar e descarta `__proto__`. Não renderize dados de ficha sem passar por ele.
-- `index.html` e `coc.html` procuram `js/vendor/supabase.js` primeiro e só usam o jsDelivr se ele não existir. Rode `sh scripts/vendor-supabase.sh` uma vez (precisa de internet) e publique o arquivo junto: a dependência do CDN some. (Alternativa antiga, com SRI no CDN:
-  `curl -s https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1 | openssl dgst -sha384 -binary | openssl base64 -A`
-  use `integrity="sha384-HASH" crossorigin="anonymous"`.)
-- Pendente: rode `supabase/rls_export.sql` no SQL Editor e guarde o resultado (políticas de `character_sheets`, `user_profiles`, buckets) no repositório.
+- `index.html` e `coc.html` procuram `js/vendor/supabase.js` primeiro e só usam o jsDelivr (sem SRI) se ele não existir. A versão do supabase-js está fixada em `package.json`. Rode `npm install && npm run vendor` (ou `sh scripts/vendor-supabase.sh`) **uma vez**, **commite `js/vendor/supabase.js`** e publique junto: a dependência do CDN some. O `npm run build` também regera o arquivo. O hash SRI fica em `js/vendor/supabase.js.sha384`.
+- Base do banco: `supabase/base_schema.sql` recria `character_sheets`, `user_profiles`, buckets e policies de storage (reconstruído a partir do código; confira com `supabase/rls_export.sql` antes de aplicar no projeto em produção, ver o cabeçalho do arquivo).
 
 ## Biblioteca online (marketplace + links)
 Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar** (personagem ou sistema) a pessoa escolhe **Só por link** ou **Marketplace**, e se inclui a foto (miniatura JPEG guardada na própria linha, coluna `thumb`).
