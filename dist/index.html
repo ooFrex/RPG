@@ -20,7 +20,7 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/op.css?v=15">
+<link rel="stylesheet" href="css/op.css?v=16">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Ficha RPG">
 <meta property="og:title" content="Ficha RPG — Ordem Paranormal e Call of Cthulhu"><meta property="og:description" content="Crie fichas, compartilhe personagens e sistemas e explore a Biblioteca online.">
 <meta property="og:image" content="https://oofrex.github.io/RPG/img/opw.jpg"><meta property="og:url" content="https://oofrex.github.io/RPG/"><meta name="twitter:card" content="summary_large_image">
@@ -272,7 +272,7 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
     <div class="pf-tiles" id="pfStats" aria-label="Resumo"></div>
     <section class="sc-card pf-codecard" id="pfCodeCard">
       <small class="sc-lb">SEU CÓDIGO DE AMIGO</small>
-      <div class="pf-coderow"><b id="pfCodeV" aria-live="polite">—</b><button class="btn sm" id="pfCodeCp" type="button" disabled>Copiar</button></div>
+      <div class="pf-coderow"><b id="pfCodeV" aria-live="polite">—</b><button class="btn sm" id="pfCodeCp" type="button" disabled>Copiar</button><button class="btn sm" id="pfCodeSh" type="button" disabled>Compartilhar perfil</button></div>
       <p class="hm-note" id="pfCodeN">Entre na sua conta para ter um código e adicionar amigos.</p>
     </section>
   </section>
@@ -492,6 +492,7 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
   <div id="nvLib"></div>
   <button class="btn" data-close type="button">Cancelar</button>
 </div></div>
+<div class="modal" id="mFr" hidden><div class="mbox fr-pm" id="frPm" role="dialog" aria-modal="true" aria-label="Perfil"></div></div>
 <div class="modal" id="mShare" hidden><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="shT">
   <h2 id="shT"></h2>
   <div class="sh-body" id="shBody"></div>
@@ -509,16 +510,16 @@ if(u.fs>=.85&&u.fs<=1.3)st.setProperty("--fs",u.fs);else st.removeProperty("--fs
 
 <script src="js/config.js?v=14"></script>
 <script src="js/vendor/supabase.js" onerror="document.write('<script src=&quot;https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.100.1&quot;><\/script>')"></script>
-<script src="js/cloud.js?v=16"></script>
+<script src="js/cloud.js?v=17"></script>
 <script src="js/coc-names.js?v=13"></script>
 <script src="js/share.js?v=14"></script>
-<script src="js/friends.js?v=1"></script>
+<script src="js/friends.js?v=2"></script>
 <script src="js/assets.js?v=13"></script>
 <script src="js/util.js?v=14"></script>
 <script src="js/imgcrop.js?v=14"></script>
-<script src="js/op.js?v=18"></script>
+<script src="js/op.js?v=19"></script>
 <script src="js/announce.js?v=13"></script>
 <script src="js/dicefx.js?v=13"></script>
-<script src="js/nav.js?v=2"></script>
+<script src="js/nav.js?v=3"></script>
 </body>
 </html>

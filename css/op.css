@@ -1809,7 +1809,8 @@ html.lite :is(.sh-cb,.sh-cv img){transition:none}
 .fr-av img{width:100%;height:100%;object-fit:cover;display:block}
 .fr-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
 .fr-c{--pf:var(--kr);position:relative;display:grid;gap:8px;padding:0 0 14px;overflow:hidden;border:1px solid var(--ln);border-radius:16px;background:linear-gradient(180deg,color-mix(in srgb,var(--pf) 10%,#13131a),#0e0e14);transition:transform .2s,border-color .2s,box-shadow .2s}
-.fr-c:hover{transform:translateY(-3px);border-color:var(--pf);box-shadow:0 12px 28px rgba(0,0,0,.5)}
+.fr-c:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.5)}
+.fr-click{cursor:pointer}
 .fr-bn{height:72px;background:linear-gradient(120deg,color-mix(in srgb,var(--pf) 70%,#000),color-mix(in srgb,var(--pf) 20%,#000)) center/cover no-repeat}
 .fr-c>*:not(.fr-bn){margin-inline:14px}
 .fr-av.big{width:62px;height:62px;margin-top:-40px;font-size:1.5rem;border-width:3px;position:relative}
@@ -1854,3 +1855,17 @@ html.lite :is(.sh-cb,.sh-cv img){transition:none}
 .sv2-more .sh-chips.txt .sh-stat small{order:-1;font-size:.9rem;font-weight:700;letter-spacing:0;text-transform:none;color:var(--tx);overflow-wrap:anywhere}
 .sv2-more .sh-chips.txt .sh-stat b{font-size:.78rem;font-weight:600;color:var(--mu);overflow-wrap:anywhere}
 @media(max-width:380px){.sv2-sts.sys{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* perfil de outra pessoa (janela) */
+.fr-pm{--pf:var(--kr);position:relative;width:min(460px,100%);padding:0 0 18px;gap:10px;overflow-x:hidden}
+.fr-pm>*:not(.fr-pbn):not(.fr-px){margin-inline:18px}
+.fr-pbn{flex:none;height:120px;background:linear-gradient(120deg,color-mix(in srgb,var(--pf) 70%,#000),color-mix(in srgb,var(--pf) 20%,#000)) center/cover no-repeat}
+.fr-px{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.55)}
+.fr-av.big.xl{width:84px;height:84px;margin-top:-52px;font-size:2rem;border-width:3px;position:relative}
+.fr-ph{display:grid;gap:2px;min-width:0}.fr-ph h2{margin:0;overflow-wrap:anywhere}.fr-ph small{color:var(--mu)}
+.fr-pbio{margin:0;line-height:1.45;color:#cfc9dc;overflow-wrap:anywhere}
+.fr-pacts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.fr-pacts .hm-note{flex:1 1 100%;margin:0}
+.fr-pmsg:empty{display:none}
+
+/* anel de foco só para quem navega pelo teclado (js/nav.js põe a classe .kb); clique e toque não deixam borda */
+html:not(.kb) :focus-visible{outline:0!important}

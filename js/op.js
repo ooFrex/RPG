@@ -2382,11 +2382,15 @@ $('#pfTabs').addEventListener('click',e=>{const b=e.target.closest('[data-pt]');
 $('#pfTabs').addEventListener('keydown',e=>{if(e.key!=='ArrowRight'&&e.key!=='ArrowLeft')return;
   const t=['geral','pub','amigos'],i=t.indexOf(($('#pfTabs [aria-selected=true]')||{dataset:{}}).dataset.pt);e.preventDefault();pfTab(t[(i+(e.key==='ArrowRight'?1:t.length-1))%t.length],true)});
 function frPaintCode(){
-  const v=$('#pfCodeV'),n=$('#pfCodeN'),b=$('#pfCodeCp');if(!v)return;
-  if(!cloudUser){v.textContent='—';b.disabled=true;n.textContent='Entre na sua conta para ter um código e adicionar amigos.';return}
-  if(FR.code){v.textContent=FR.code.slice(0,4)+' '+FR.code.slice(4);b.disabled=false;n.textContent='Passe esse código para quem quiser te adicionar. Quem tem o código só consegue mandar um pedido, você decide se aceita.'}
-  else{v.textContent='—';b.disabled=true;n.textContent=FR.err||'Gerando seu código…'}}
+  const v=$('#pfCodeV'),n=$('#pfCodeN'),b=$('#pfCodeCp'),sh=$('#pfCodeSh');if(!v)return;
+  if(!cloudUser){v.textContent='—';b.disabled=sh.disabled=true;n.textContent='Entre na sua conta para ter um código e adicionar amigos.';return}
+  if(FR.code){v.textContent=FR.code.slice(0,4)+' '+FR.code.slice(4);b.disabled=sh.disabled=false;n.textContent='Passe esse código para quem quiser te adicionar. Quem tem o código só consegue mandar um pedido, você decide se aceita.'}
+  else{v.textContent='—';b.disabled=sh.disabled=true;n.textContent=FR.err||'Gerando seu código…'}}
 $('#pfCodeCp').onclick=async()=>{if(!FR.code)return;const b=$('#pfCodeCp');try{await navigator.clipboard.writeText(FR.code);b.textContent='Copiado!'}catch(e){b.textContent=FR.code}setTimeout(()=>{b.textContent='Copiar'},1800)};
+/* compartilhar o PRÓPRIO perfil: link ?amigo=CÓDIGO (quem abre vê o perfil e pode pedir amizade) */
+$('#pfCodeSh').onclick=async()=>{if(!FR.code)return;const b=$('#pfCodeSh'),url=Friends.link(FR.code);
+  if(navigator.share){try{await navigator.share({title:'Meu perfil na Ficha RPG',text:'Me adicione como amigo na Ficha RPG.',url});return}catch(e){if(e&&e.name==='AbortError')return}}
+  await shCopy(url,b);toast('Link do perfil copiado',pf.pub?'Quem abrir poderá ver seu perfil e pedir amizade.':'Seu perfil está privado: quem abrir verá só o seu nome. Ligue o perfil público para mostrar foto, bio e publicações.')};
 async function frRefresh(){
   if(!cloudUser){FR.rows=[];FR.code='';FR.err='';frRender();return}
   const uid=cloudUser.id;let err='';
@@ -2397,7 +2401,7 @@ async function frRefresh(){
 function frAvEl(r,cls){
   const a=document.createElement('span');a.className='fr-av'+(cls?' '+cls:'');a.setAttribute('aria-hidden','true');a.textContent=(r.name||'?').trim().charAt(0).toUpperCase()||'?';
   if(r.accent)a.style.setProperty('--pf',r.accent);
-  if(r.avatar&&cloudClient)avUrl(r.avatar).then(u=>{const i=document.createElement('img');i.alt='';i.src=u;a.textContent='';a.append(i)}).catch(()=>{});
+  if(r.avatar&&cloudClient)avUrl(r.avatar).then(u=>{const i=document.createElement('img');i.alt='';i.src=u;a.textContent='';a.append(i)}).catch(e=>Util.warn('amigos: foto',e));
   return a}
 function frAct(btn,fn,okMsg){btn.disabled=true;Promise.resolve().then(fn).then(()=>{if(okMsg)toast('Amigos',okMsg);return frRefresh()}).catch(e=>{btn.disabled=false;toast('Amigos',cloudError(e))})}
 function frRender(){
@@ -2416,23 +2420,58 @@ function frRender(){
   out.forEach(r=>{const c=shBtn('Cancelar','sm',()=>frAct(c,()=>Friends.remove(r.id),'Pedido cancelado.'));outl.append(row(r,[c]))});
   fr.forEach(r=>grid.append(frCard(r)))}
 function frCard(r){
-  const li=document.createElement('li'),bn=document.createElement('div'),body=document.createElement('div'),nm=document.createElement('b'),meta=document.createElement('small'),acts=document.createElement('div'),box=document.createElement('div');
+  const li=document.createElement('li'),bn=document.createElement('div'),body=document.createElement('div'),nm=document.createElement('b'),meta=document.createElement('small'),acts=document.createElement('div');
   li.className='fr-c';if(r.accent)li.style.setProperty('--pf',r.accent);bn.className='fr-bn';bn.setAttribute('aria-hidden','true');
-  if(r.banner&&cloudClient)avUrl(r.banner).then(u=>{bn.style.backgroundImage='url("'+u+'")'}).catch(()=>{});
+  if(r.banner&&cloudClient)avUrl(r.banner).then(u=>{bn.style.backgroundImage='url("'+u+'")'}).catch(e=>Util.warn('amigos: banner',e));
   body.className='fr-body';nm.textContent=r.name;meta.textContent=r.items?r.items+(r.items===1?' publicação':' publicações'):'Sem publicações';
   body.append(nm,meta);
   if(r.bio){const p=document.createElement('p');p.className='fr-bio';p.textContent=r.bio;body.append(p)}
-  box.className='fr-items';box.hidden=true;let loaded=false;
-  const see=shBtn('Ver publicações','sm',async()=>{
-    box.hidden=!box.hidden;see.textContent=box.hidden?'Ver publicações':'Ocultar';if(box.hidden||loaded)return;loaded=true;box.textContent='Carregando…';
-    try{const it=await Friends.items(r.id);box.textContent='';if(!it.length){box.textContent='Nenhuma publicação pública ainda.';return}
-      it.forEach(x=>{const b=document.createElement('button'),t=document.createElement('span');b.type='button';b.className='fr-it';t.textContent=x.title;b.append(shThumbEl(x.thumb,x.title),t);b.onclick=()=>shOpenView(x.id);box.append(b)})}
-    catch(e){loaded=false;box.textContent=cloudError(e)}});
+  const open=()=>frProfile({name:r.name,avatar:r.avatar,banner:r.banner,bio:r.bio,accent:r.accent,items:r.items,relation:'friends',fid:r.id,details:true,logged:true,loadItems:()=>Friends.items(r.id)});
+  const see=shBtn('Ver perfil','sm',open);
   const rm=shBtn('Remover','sm',()=>{if(!rm.classList.contains('arm')){rm.classList.add('arm');rm.textContent='Toque de novo';setTimeout(()=>{if(rm.isConnected){rm.classList.remove('arm');rm.textContent='Remover'}},4000);return}
     frAct(rm,()=>Friends.remove(r.id),'Amizade desfeita.')});
-  if(!r.items)see.disabled=true;
   acts.className='fr-acts';acts.append(see,rm);
-  li.append(bn,frAvEl(r,'big'),body,acts,box);return li}
+  li.append(bn,frAvEl(r,'big'),body,acts);
+  li.onclick=e=>{if(!e.target.closest('button'))open()};li.classList.add('fr-click');
+  return li}
+/* ---------- perfil de outra pessoa (janela): amigo, link ?amigo=CÓDIGO ----------
+   m: {name, avatar, banner, bio, accent, items, relation:'self'|'friends'|'pending_out'|'pending_in'|'none', fid, code, details, logged, loadItems()}
+   Tudo entra por textContent; as imagens são URLs assinadas do bucket e só caminhos validados chegam aqui (Friends.list/profile). */
+function frProfile(m){
+  const box=$('#frPm');box.textContent='';box.style.removeProperty('--pf');if(m.accent)box.style.setProperty('--pf',m.accent);
+  const bn=shEl('div','fr-pbn'),x=shBtn('✕','sm fr-px',()=>closeM('mFr'));x.setAttribute('aria-label','Fechar');bn.setAttribute('aria-hidden','true');
+  if(m.banner&&cloudClient)avUrl(m.banner).then(u=>{bn.style.backgroundImage='url("'+u+'")'}).catch(e=>Util.warn('perfil: banner',e));
+  const hd=shEl('div','fr-ph'),meta=m.details?(m.items?m.items+(m.items===1?' publicação':' publicações'):'Sem publicações'):'Perfil privado';
+  hd.append(shEl('h2',null,m.name),shEl('small',null,meta));
+  box.append(bn,x,frAvEl(m,'big xl'),hd);
+  if(m.bio)box.append(shEl('p','fr-pbio',m.bio));
+  if(!m.details)box.append(shEl('p','hm-note','Essa pessoa mantém o perfil privado. Foto, bio e publicações só aparecem para amigos.'));
+  const its=shEl('div','fr-items');
+  if(m.details&&m.items&&m.loadItems){its.textContent='Carregando…';box.append(shEl('h3','sh-h','Publicações'),its);
+    m.loadItems().then(it=>{its.textContent='';if(!it.length){its.textContent='Nenhuma publicação pública ainda.';return}
+      it.forEach(y=>{const b=document.createElement('button'),t=document.createElement('span');b.type='button';b.className='fr-it';t.textContent=y.title;b.append(shThumbEl(y.thumb,y.title),t);b.onclick=()=>shOpenView(y.id);its.append(b)})})
+      .catch(e=>{its.textContent=cloudError(e)})}
+  const acts=shEl('div','fr-pacts'),msg=shEl('p','hm-note fr-pmsg');msg.setAttribute('role','status');
+  const redo=async()=>{if(!m.code){closeM('mFr');return}try{const p=await Friends.profile(m.code);if(!p){closeM('mFr');return}Object.assign(m,p,{loadItems:()=>Friends.itemsByCode(m.code)});frProfile(m)}catch(e){msg.textContent=cloudError(e)}};
+  const run=(b,fn,ok)=>{b.disabled=true;msg.textContent='';Promise.resolve().then(fn).then(r=>{if(ok)toast('Amigos',typeof ok==='function'?ok(r):ok);frRefresh();return redo()}).catch(e=>{b.disabled=false;msg.textContent=cloudError(e)})};
+  if(m.relation==='self')acts.append(shEl('span','hm-note','Este é o seu perfil.'));
+  else if(!m.logged&&m.code){const b=shBtn('Entrar para pedir amizade','pri',()=>{try{sessionStorage.setItem('rpg-amigo',m.code)}catch(e){}$('#cloudGoogle').click()});acts.append(b)}
+  else if(m.relation==='friends'){const b=shBtn('Remover amizade','',async()=>{if(!(await Util.ask('Remover '+m.name+' dos seus amigos? Vocês deixam de ver o perfil completo um do outro.',{title:'Remover amizade',ok:'Remover'})))return;
+      b.disabled=true;Friends.remove(m.fid).then(()=>{toast('Amigos','Amizade desfeita.');frRefresh();if(m.code)return redo();closeM('mFr')}).catch(e=>{b.disabled=false;msg.textContent=cloudError(e)})});acts.append(b)}
+  else if(m.relation==='pending_out'){const b=shBtn('Cancelar pedido','',()=>run(b,()=>Friends.remove(m.fid),'Pedido cancelado.'));acts.append(shEl('span','hm-note','Pedido enviado. Falta a pessoa aceitar.'),b)}
+  else if(m.relation==='pending_in'){const ok=shBtn('Aceitar pedido','pri',()=>run(ok,()=>Friends.respond(m.fid,true),m.name+' agora é seu amigo.')),no=shBtn('Recusar','',()=>run(no,()=>Friends.respond(m.fid,false),'Pedido recusado.'));acts.append(ok,no)}
+  else if(m.code){const b=shBtn('Pedir amizade','pri',()=>run(b,()=>Friends.request(m.code),r=>r==='accepted'?'Agora vocês são amigos!':r==='friends'?'Vocês já são amigos.':'Pedido enviado.'));acts.append(b)}
+  if(m.code){const cp=shBtn('Copiar link do perfil','',()=>shCopy(Friends.link(m.code),cp));acts.append(cp)}
+  acts.append(shBtn('Fechar','',()=>closeM('mFr')));
+  box.append(acts,msg);box.scrollTop=0;openM('mFr')}
+/* link recebido (?amigo=CÓDIGO, ou guardado antes do login): abre o perfil assim que o menu inicial aparece */
+let frPending=Friends.takeFromUrl()||(()=>{try{const c=sessionStorage.getItem('rpg-amigo');sessionStorage.removeItem('rpg-amigo');return /^[A-Z0-9]{8}$/.test(c||'')?c:null}catch(e){return null}})();
+async function frLaunch(){if(!frPending)return;const c=frPending;frPending=null;
+  const box=$('#frPm');box.textContent='';box.style.removeProperty('--pf');box.append(shEl('p','sv-load','Carregando perfil…'),shBtn('Fechar','',()=>closeM('mFr')));openM('mFr');
+  try{const [p,ses]=await Promise.all([Friends.profile(c),cloudClient?cloudClient.auth.getSession().then(r=>r&&r.data&&r.data.session,()=>null):null]);
+    if(!p){box.textContent='';box.append(shEl('p','sv-load','Esse link de perfil não existe ou foi desativado.'),shBtn('Fechar','',()=>closeM('mFr')));return}
+    frProfile(Object.assign(p,{logged:!!ses,loadItems:()=>Friends.itemsByCode(c)}))}
+  catch(e){box.textContent='';box.append(shEl('p','sv-load',cloudError(e)),shBtn('Fechar','',()=>closeM('mFr')))}}
 $('#frForm').addEventListener('submit',async e=>{e.preventDefault();const inp=$('#frCodeIn'),m=$('#frMsg'),c=inp.value.trim();if(!c||!cloudUser)return;
   m.textContent='Enviando…';const btn=e.submitter||$('#frForm button');btn.disabled=true;
   try{const r=await Friends.request(c);inp.value='';
@@ -3222,7 +3261,7 @@ function kIn(el){el.classList.remove('in');void el.offsetWidth;if(!rm())el.class
   let seen=false;try{seen=sessionStorage.getItem('op-splash-v1')==='1'}catch(e){}
   async function end(){if(done)return;done=true;openHome();
     try{sessionStorage.setItem('op-splash-v1','1')}catch(e){}
-    app.hidden=false;shLaunch();
+    app.hidden=false;shLaunch();frLaunch();
     if(!rm()&&!seen){await sp.animate([{opacity:1,transform:'none'},{opacity:0,transform:'scale(1.04)'}],{duration:520,easing:'ease-in',fill:'forwards'}).finished}
     sp.remove();if(editableCatalogError)toast('Catálogos indisponíveis',editableCatalogError);else if(catalogNotice)toast('Modo offline',catalogNotice);if(loadIssue)showLoadIssue()}
   sp.addEventListener('click',end);

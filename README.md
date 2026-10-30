@@ -18,6 +18,7 @@ Ou publique a pasta inteira (GitHub Pages, Netlify, etc.).
     js/cloud.js       nuvem compartilhada: 1 cliente Supabase, saveSheet() com controle de conflito, indicador de status
     js/announce.js    aviso em pop-up no menu (lê public.announcements; teste: ?anuncio=demo)
     supabase/base_schema.sql  character_sheets, user_profiles, buckets e policies de storage (aplicar PRIMEIRO; leia o cabeçalho antes de rodar em produção)
+    supabase/friend_profile.sql  perfil por código de amigo (link ?amigo=CÓDIGO); aplicar DEPOIS de friends.sql e public_profile.sql
     supabase/announcements.sql  tabela dos avisos (aplicar uma vez)
     supabase/catalog_coc_items.sql  biblioteca de itens/armas do CoC (aplicar uma vez; 449 itens)
     supabase/updated_at_trigger.sql  trigger que carimba updated_at no servidor (aplicar ANTES de publicar esta versão)
@@ -119,3 +120,10 @@ Menu → **Biblioteca** (também no menu inicial). Ao clicar em **Compartilhar**
 
 ## Publicar (dist/)
 `dist/` é a versão minificada (JS/CSS) do projeto, pronta para publicar: suba o **conteúdo de `dist/`** em vez da raiz. Depois de mudar qualquer arquivo-fonte, rode `npm install && npm run build` para regerar. Ganho real é pequeno (op.js ~113 KB com gzip contra ~128 KB); o servidor precisa servir com gzip/brotli (GitHub Pages e Netlify já servem).
+
+## Perfil de amigos e compartilhar perfil
+- Amigos: o card abre uma janela de perfil (foto, banner, bio, publicações) com **Remover amizade**. Clicar no card inteiro também abre.
+- **Compartilhar perfil** (Perfil › Geral, ao lado do código): copia/compartilha `…/?amigo=CÓDIGO`. Quem abre vê o perfil e pode **Pedir amizade**, **Cancelar pedido**, **Aceitar/Recusar** ou **Remover amizade**, conforme a relação. Sem login, o botão leva ao login e reabre o perfil depois.
+- Privacidade: o link mostra sempre só o nome. Foto, banner, bio e publicações só aparecem se o dono ligou "perfil público" ou se já são amigos (`supabase/friend_profile.sql`, funções `profile_by_code` e `profile_items_by_code`).
+- Fotos de perfil precisam estar em `<user_id>/profile/…` (é o que o app grava hoje). Fotos antigas na raiz da pasta não aparecem para amigos: reenvie em Editar perfil.
+- Foco: o anel de foco só aparece com o teclado (classe `.kb`, `js/nav.js`); clique e toque não deixam borda.

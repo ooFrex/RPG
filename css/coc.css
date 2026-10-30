@@ -632,3 +632,6 @@ html[data-theme="medo"]{--felt:#080b10;--cloth:#0e131b;--cloth2:#141b26;--teal:#
 .btn.pri.off{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.22);color:rgba(236,230,211,.55)}
 .btn.pri.off:hover{background:rgba(255,255,255,.1);border-color:var(--line2)}
 .btn:disabled{opacity:.5}
+
+/* anel de foco só para quem navega pelo teclado (js/nav.js põe a classe .kb); clique e toque não deixam borda */
+html:not(.kb) :focus-visible{outline:0!important}

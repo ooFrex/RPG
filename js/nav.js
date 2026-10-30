@@ -11,6 +11,13 @@
   const hooks = () => window.NavHooks || {};
   const reduce = () => matchMedia('(prefers-reduced-motion:reduce)').matches;
 
+  /* ---------------- FOCO ----------------
+     O anel de foco só aparece depois de Tab/setas (teclado). Clique e toque o escondem: sem borda estranha ao clicar. */
+  const kbOn = e => { if (e.key === 'Tab' || /^Arrow/.test(e.key)) document.documentElement.classList.add('kb'); };
+  const kbOff = () => document.documentElement.classList.remove('kb');
+  addEventListener('keydown', kbOn, true);
+  ['pointerdown', 'mousedown', 'touchstart'].forEach(ev => addEventListener(ev, kbOff, true));
+
   /* ---------------- VOLTAR ---------------- */
   const LAYERS = '.modal,#home,#camp,#wiz,#mSl,#rov,#cw,#sysEd,#sedAsk,#cocView';
   let armed = false, ignore = 0, syncT = 0;
